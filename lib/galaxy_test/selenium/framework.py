@@ -12,8 +12,9 @@ from functools import (
 )
 from typing import (
     Any,
-    cast,
+    Dict,
     Optional,
+    Tuple,
     TYPE_CHECKING,
 )
 
@@ -29,13 +30,7 @@ from galaxy.selenium import driver_factory
 from galaxy.selenium.axe_results import assert_baseline_accessible
 from galaxy.selenium.context import GalaxySeleniumContext
 from galaxy.selenium.has_driver import DEFAULT_AXE_SCRIPT_URL
-from galaxy.selenium.has_driver_protocol import (
-    BackendType,
-    HasDriverProtocol,
-)
 from galaxy.selenium.navigates_galaxy import (
-    exception_seems_to_indicate_transition,
-    galaxy_timeout_handler,
     NavigatesGalaxy,
     retry_during_transitions,
 )
@@ -71,61 +66,6 @@ try:
 except ImportError:
     GalaxyTestDriver = None  # type: ignore[misc,assignment]
 
-
-def _load_config_file() -> None:
-    """
-    Load test configuration from YAML file if GALAXY_TEST_END_TO_END_CONFIG is set.
-
-    This matches the configuration format used for Jupyter-based testing.
-    Explicit environment variables take precedence over config file values.
-    """
-    config_file = os.environ.get("GALAXY_TEST_END_TO_END_CONFIG")
-    if not config_file:
-        return
-
-    # Expand user paths like ~/config.yml
-    config_file = os.path.expanduser(config_file)
-
-    if not os.path.exists(config_file):
-        raise FileNotFoundError(
-            f"GALAXY_TEST_END_TO_END_CONFIG is set to '{config_file}' but file does not exist. "
-            f"Please check the path or unset GALAXY_TEST_END_TO_END_CONFIG."
-        )
-
-    try:
-        with open(config_file) as f:
-            config = yaml.safe_load(f)
-    except Exception as e:
-        raise ValueError(f"Failed to load GALAXY_TEST_END_TO_END_CONFIG '{config_file}': {e}") from e
-
-    if not isinstance(config, dict):
-        raise ValueError(
-            f"GALAXY_TEST_END_TO_END_CONFIG '{config_file}' must contain a YAML dictionary, got {type(config)}"
-        )
-
-    # Map config keys to environment variables
-    # Only set if not already present (explicit env vars take precedence)
-    key_mapping = {
-        "local_galaxy_url": "GALAXY_TEST_EXTERNAL",
-        "login_email": "GALAXY_TEST_SELENIUM_USER_EMAIL",
-        "login_password": "GALAXY_TEST_SELENIUM_USER_PASSWORD",
-        "admin_api_key": "GALAXY_TEST_SELENIUM_ADMIN_API_KEY",
-        "admin_email": "GALAXY_TEST_SELENIUM_ADMIN_USER_EMAIL",
-        "admin_password": "GALAXY_TEST_SELENIUM_ADMIN_USER_PASSWORD",
-        "selenium_galaxy_url": "GALAXY_TEST_EXTERNAL_FROM_SELENIUM",
-    }
-
-    for config_key, env_var in key_mapping.items():
-        if config_key in config and config[config_key] is not None:
-            if env_var not in os.environ:
-                os.environ[env_var] = str(config[config_key])
-
-    os.environ["GALAXY_TEST_ENVIRONMENT_CONFIGURED"] = "1"
-
-
-# Load config file before reading environment variables
-_load_config_file()
-
 DEFAULT_TIMEOUT_MULTIPLIER = 1
 DEFAULT_TEST_ERRORS_DIRECTORY = os.path.abspath("database/test_errors")
 DEFAULT_SELENIUM_HEADLESS = "auto"
@@ -137,8 +77,6 @@ DEFAULT_DOWNLOAD_PATH = driver_factory.DEFAULT_DOWNLOAD_PATH
 TIMEOUT_MULTIPLIER = float(os.environ.get("GALAXY_TEST_TIMEOUT_MULTIPLIER", DEFAULT_TIMEOUT_MULTIPLIER))
 GALAXY_TEST_ERRORS_DIRECTORY = os.environ.get("GALAXY_TEST_ERRORS_DIRECTORY", DEFAULT_TEST_ERRORS_DIRECTORY)
 GALAXY_TEST_SCREENSHOTS_DIRECTORY = os.environ.get("GALAXY_TEST_SCREENSHOTS_DIRECTORY", None)
-# Driver backend can be ["selenium", "playwright"]
-GALAXY_TEST_DRIVER_BACKEND = os.environ.get("GALAXY_TEST_DRIVER_BACKEND", "selenium")
 # Test browser can be ["CHROME", "FIREFOX"]
 GALAXY_TEST_SELENIUM_BROWSER = os.environ.get("GALAXY_TEST_SELENIUM_BROWSER", driver_factory.DEFAULT_SELENIUM_BROWSER)
 GALAXY_TEST_SELENIUM_REMOTE = os.environ.get("GALAXY_TEST_SELENIUM_REMOTE", driver_factory.DEFAULT_SELENIUM_REMOTE)
@@ -169,56 +107,6 @@ SETUP_LOGGING_JS = """
 window.localStorage && window.localStorage.setItem("galaxy:debug", true);
 window.localStorage && window.localStorage.setItem("galaxy:debug:flatten", true);
 """
-
-
-def selenium_only(reason: str = "Test requires Selenium-specific functionality"):
-    """Mark test as Selenium-only, skip if running with Playwright backend.
-
-    Args:
-        reason: Explanation for why this test requires Selenium
-
-    Usage:
-        @selenium_only("Uses Selenium Select class which requires tag_name attribute")
-        def test_custom_select_element(self):
-            ...
-    """
-
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            backend = os.environ.get("GALAXY_TEST_DRIVER_BACKEND", "selenium")
-            if backend == "playwright":
-                raise unittest.SkipTest(f"Selenium-only test: {reason}")
-            return f(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def playwright_only(reason: str = "Test requires Playwright-specific functionality"):
-    """Mark test as Playwright-only, skip if running with Selenium backend.
-
-    Args:
-        reason: Explanation for why this test requires Playwright
-
-    Usage:
-        @playwright_only("Uses Playwright-specific network interception")
-        def test_network_request_logging(self):
-            ...
-    """
-
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            backend = os.environ.get("GALAXY_TEST_DRIVER_BACKEND", "selenium")
-            if backend == "selenium":
-                raise unittest.SkipTest(f"Playwright-only test: {reason}")
-            return f(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 def managed_history(f):
@@ -275,9 +163,9 @@ def dump_test_information(self, name_prefix):
         # Try to use the Selenium driver to recover more debug information, but don't
         # throw an exception if the connection is broken in some way.
         try:
-            self.save_screenshot(os.path.join(target_directory, "last.png"))
-            write_file("page_source.txt", self.page_source)
-            write_file("DOM.txt", self.execute_script("return document.documentElement.outerHTML"))
+            self.driver.save_screenshot(os.path.join(target_directory, "last.png"))
+            write_file("page_source.txt", self.driver.page_source)
+            write_file("DOM.txt", self.driver.execute_script("return document.documentElement.outerHTML"))
         except Exception:
             formatted_exception = traceback.format_exc()
             print(f"Failed to use test driver to recover debug information from Selenium: {formatted_exception}")
@@ -337,32 +225,23 @@ def selenium_test(f):
     return func_wrapper
 
 
-def exception_is_assertion_or_transition(e: Exception) -> bool:
-    """Drive the retry_assertion_during_transitions decorator.
-
-    Reuse logic for checking for transition exceptions but also retry
-    if there is an assertion error.
-    """
-    return exception_seems_to_indicate_transition(e) or isinstance(e, AssertionError)
-
-
 retry_assertion_during_transitions = partial(
-    retry_during_transitions, exception_check=exception_is_assertion_or_transition
+    retry_during_transitions, exception_check=lambda e: isinstance(e, AssertionError)
 )
 
 
 class TestSnapshot:
     __test__ = False  # Prevent pytest from discovering this class (issue #12071)
 
-    def __init__(self, has_driver: HasDriverProtocol, index: int, description: str):
-        self.screenshot_binary = has_driver.get_screenshot_as_png()
+    def __init__(self, driver, index, description):
+        self.screenshot_binary = driver.get_screenshot_as_png()
         self.description = description
         self.index = index
         self.exc = traceback.format_exc()
         self.stack = traceback.format_stack()
 
     def write_to_error_directory(self, write_file_func):
-        prefix = f"{self.index}-{self.description}"
+        prefix = "%d-%s" % (self.index, self.description)
         write_file_func(f"{prefix}-screenshot.png", self.screenshot_binary, raw=True)
         write_file_func(f"{prefix}-traceback.txt", self.exc)
         write_file_func(f"{prefix}-stack.txt", str(self.stack))
@@ -452,13 +331,13 @@ class TestWithSeleniumMixin(GalaxyTestSeleniumContext, UsesApiTestCaseMixin, Use
     def tear_down_selenium(self):
         self.tear_down_driver()
 
-    def snapshot(self, description: str):
+    def snapshot(self, description):
         """Create a debug snapshot (DOM, screenshot, etc...) that is written out on tool failure.
 
         This information will be automatically written to a per-test directory created for all
         failed tests.
         """
-        self.snapshots.append(TestSnapshot(self, len(self.snapshots), description))
+        self.snapshots.append(TestSnapshot(self.driver, len(self.snapshots), description))
 
     def get_download_path(self):
         """Returns default download path"""
@@ -492,7 +371,7 @@ class TestWithSeleniumMixin(GalaxyTestSeleniumContext, UsesApiTestCaseMixin, Use
         copy = 1
         while os.path.exists(target):
             # Maybe previously a test re-run - keep the original.
-            target = os.path.join(GALAXY_TEST_SCREENSHOTS_DIRECTORY, f"{label}-{copy}{extension}")
+            target = os.path.join(GALAXY_TEST_SCREENSHOTS_DIRECTORY, "%s-%d%s" % (label, copy, extension))
             copy += 1
 
         return target
@@ -504,14 +383,13 @@ class TestWithSeleniumMixin(GalaxyTestSeleniumContext, UsesApiTestCaseMixin, Use
         self._try_setup_with_driver()
 
     def setup_driver_and_session(self):
-        virtual_display_enabled = use_virtual_display()
-        self.display = driver_factory.virtual_display_if_enabled(virtual_display_enabled)
+        self.display = driver_factory.virtual_display_if_enabled(use_virtual_display())
         self.configured_driver = get_configured_driver()
         self._setup_galaxy_logging()
 
     def _setup_galaxy_logging(self):
         self.home()
-        self.execute_script(SETUP_LOGGING_JS)
+        self.driver.execute_script(SETUP_LOGGING_JS)
 
     def login(self):
         if GALAXY_TEST_SELENIUM_USER_EMAIL:
@@ -529,24 +407,18 @@ class TestWithSeleniumMixin(GalaxyTestSeleniumContext, UsesApiTestCaseMixin, Use
 
     def tear_down_driver(self):
         exception = None
-        if self.backend_type == "playwright":
-            try:
-                self.quit()
-            except Exception as e:
+        try:
+            self.driver.close()
+        except Exception as e:
+            if "cannot kill Chrome" in str(e):
+                print(f"Ignoring likely harmless error in Selenium shutdown {e}")
+            else:
                 exception = e
-        else:
-            try:
-                self.close()
-            except Exception as e:
-                if "cannot kill Chrome" in str(e):
-                    print(f"Ignoring likely harmless error in Selenium shutdown {e}")
-                else:
-                    exception = e
 
-            try:
-                self.display.stop()
-            except Exception as e:
-                exception = e
+        try:
+            self.display.stop()
+        except Exception as e:
+            exception = e
 
         if exception is not None:
             raise exception
@@ -554,6 +426,10 @@ class TestWithSeleniumMixin(GalaxyTestSeleniumContext, UsesApiTestCaseMixin, Use
     @classproperty
     def default_web_host(cls):
         return default_web_host_for_selenium_tests()
+
+    @property
+    def timeout_multiplier(self):
+        return TIMEOUT_MULTIPLIER
 
     def assert_initial_history_panel_state_correct(self):
         # Move into a TestsHistoryPanel mixin
@@ -748,7 +624,7 @@ class RunsWorkflows(GalaxyTestSeleniumContext):
         workflow_populator.upload_yaml_workflow(content, name=name, **kwds)
         return name
 
-    def workflow_run_setup_inputs(self, content: Optional[str]) -> tuple[str, dict[str, Any]]:
+    def workflow_run_setup_inputs(self, content: Optional[str]) -> Tuple[str, Dict[str, Any]]:
         history_id = self.current_history_id()
         if content:
             yaml_content = yaml.safe_load(content)
@@ -759,22 +635,6 @@ class RunsWorkflows(GalaxyTestSeleniumContext):
             inputs, _, _ = load_data_dict(
                 history_id, test_data, self.dataset_populator, self.dataset_collection_populator
             )
-            for input_value in inputs.values():
-                if (
-                    isinstance(input_value, dict)
-                    and (src := input_value.get("src"))
-                    and (content_id := input_value.get("id"))
-                ):
-                    if src == "hda":
-                        content_item = self.dataset_populator.get_history_dataset_details(
-                            history_id, content_id=content_id
-                        )
-                        input_value["hid"] = content_item["hid"]
-                    elif src == "hdca":
-                        content_item = self.dataset_populator.get_history_collection_details(
-                            history_id=history_id, content_id=content_id
-                        )
-                        input_value["hid"] = content_item["hid"]
             self.dataset_populator.wait_for_history(history_id)
         else:
             inputs = {}
@@ -823,16 +683,12 @@ def default_web_host_for_selenium_tests():
 
 
 def get_configured_driver():
-    backend_type = GALAXY_TEST_DRIVER_BACKEND
-    assert backend_type in ["selenium", "playwright"], f"Unknown GALAXY_TEST_DRIVER_BACKEND [{backend_type}]"
     return driver_factory.ConfiguredDriver(
-        galaxy_timeout_handler(TIMEOUT_MULTIPLIER),
         browser=GALAXY_TEST_SELENIUM_BROWSER,
         remote=asbool(GALAXY_TEST_SELENIUM_REMOTE),
         remote_host=GALAXY_TEST_SELENIUM_REMOTE_HOST,
         remote_port=GALAXY_TEST_SELENIUM_REMOTE_PORT,
         headless=headless_selenium(),
-        backend_type=cast(BackendType, backend_type),
     )
 
 
@@ -853,21 +709,19 @@ def headless_selenium():
 
 
 def use_virtual_display():
-    using_selenium = GALAXY_TEST_DRIVER_BACKEND == "selenium"
     if asbool(GALAXY_TEST_SELENIUM_REMOTE):
         return False
 
     if GALAXY_TEST_SELENIUM_HEADLESS == "auto":
         if (
-            using_selenium
-            and driver_factory.is_virtual_display_available()
+            driver_factory.is_virtual_display_available()
             and not driver_factory.get_local_browser(GALAXY_TEST_SELENIUM_BROWSER) == "CHROME"
         ):
             return True
         else:
             return False
     else:
-        return using_selenium and asbool(GALAXY_TEST_SELENIUM_HEADLESS)
+        return asbool(GALAXY_TEST_SELENIUM_HEADLESS)
 
 
 class SeleniumSessionGetPostMixin:

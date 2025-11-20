@@ -3,8 +3,7 @@ import flushPromises from "flush-promises";
 import { getLocalVue } from "tests/jest/helpers";
 
 import { refactor } from "./modules/services";
-
-import RefactorConfirmationModal from "./RefactorConfirmationModal.vue";
+import RefactorConfirmationModal from "./RefactorConfirmationModal";
 
 jest.mock("./modules/services");
 
@@ -36,7 +35,7 @@ describe("RefactorConfirmationModal.vue", () => {
         refactor.mockReturnValue(
             new Promise((then, error) => {
                 error("foo");
-            }),
+            })
         );
         await wrapper.setProps({
             refactorActions: [{ action_type: TEST_ACTION_TYPE }],
@@ -56,7 +55,7 @@ describe("RefactorConfirmationModal.vue", () => {
                 then({
                     action_executions: [],
                 });
-            }),
+            })
         );
         await wrapper.setProps({
             refactorActions: [{ action_type: TEST_ACTION_TYPE }],
@@ -90,7 +89,7 @@ describe("RefactorConfirmationModal.vue", () => {
                         },
                     ],
                 });
-            }),
+            })
         );
         await wrapper.setProps({
             refactorActions: [{ action_type: TEST_ACTION_TYPE }],

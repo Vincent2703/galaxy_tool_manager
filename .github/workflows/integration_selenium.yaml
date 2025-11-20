@@ -3,11 +3,9 @@ on:
   push:
     paths-ignore:
       - 'doc/**'
-      - 'packages/**'
   pull_request:
     paths-ignore:
       - 'doc/**'
-      - 'packages/**'
   schedule:
     # Run at midnight UTC every Tuesday
     - cron: '0 0 * * 2'
@@ -33,10 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.9']
+        python-version: ['3.8']
     services:
       postgres:
-        image: postgres:17
+        image: postgres:13
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -50,15 +48,14 @@ jobs:
           echo "GALAXY_CONFIG_OVERRIDE_OUTPUTS_TO_WORKING_DIRECTORY=true" >> $GITHUB_ENV
       - name: Prune unused docker image, volumes and containers
         run: docker system prune -a -f
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           path: 'galaxy root'
-          persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+          cache: 'pip'
+          cache-dependency-path: 'galaxy root/requirements.txt'
       - name: Get full Python version
         id: full-python-version
         shell: bash
@@ -68,6 +65,11 @@ jobs:
         with:
           path: 'galaxy root/.venv'
           key: gxy-venv-${{ runner.os }}-${{ steps.full-python-version.outputs.version }}-${{ hashFiles('galaxy root/requirements.txt') }}-integration-selenium
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.12.1'
+          cache: 'yarn'
+          cache-dependency-path: 'galaxy root/client/yarn.lock'
       - name: Restore client cache
         uses: actions/cache@v4
         with:
@@ -76,16 +78,16 @@ jobs:
       - name: Run tests
         run: ./run_tests.sh --coverage -integration test/integration_selenium
         working-directory: 'galaxy root'
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v3
         with:
           flags: integration-selenium
           working-directory: 'galaxy root'
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: Integration Selenium test results (${{ matrix.python-version }})
           path: 'galaxy root/run_integration_tests.html'
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: Integration Selenium debug info (${{ matrix.python-version }})

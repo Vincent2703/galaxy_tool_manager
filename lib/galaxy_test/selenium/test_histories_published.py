@@ -2,14 +2,12 @@ from selenium.webdriver.common.by import By
 
 from .framework import (
     retry_assertion_during_transitions,
-    selenium_only,
     selenium_test,
     SharedStateSeleniumTestCase,
 )
 
 
 class TestPublishedHistories(SharedStateSeleniumTestCase):
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_published_histories(self):
         self._login()
@@ -17,53 +15,42 @@ class TestPublishedHistories(SharedStateSeleniumTestCase):
         expected_history_names = self.get_published_history_names_from_server()
         self.assert_histories_present(expected_history_names)
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_published_histories_sort_by_name(self):
         self._login()
         self.navigate_to_published_histories()
 
-        self.wait_for_and_click_selector('[data-title="Sort by name ascending"]')
-        self.wait_for_and_click_selector('[data-title="Sort by name ascending"]')
-        self.sleep_for(self.wait_types.UX_RENDER)
+        self.wait_for_and_click_selector('[data-description="grid sort key name"]')
 
         sorted_histories = self.get_published_history_names_from_server(sort_by="name")
         self.assert_histories_present(sorted_histories, sort_by_matters=True)
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_published_histories_sort_by_last_update(self):
         self._login()
         self.navigate_to_published_histories()
 
-        self.wait_for_and_click_selector('[data-title="Sort by update time ascending"]')
-        self.sleep_for(self.wait_types.UX_RENDER)
+        self.wait_for_and_click_selector('[data-description="grid sort key update_time"]')
 
         expected_history_names = self.get_published_history_names_from_server(sort_by="update_time")
         self.assert_histories_present(expected_history_names, sort_by_matters=True)
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_published_histories_tag_click(self):
         self._login()
         self.navigate_to_published_histories()
 
-        self.sleep_for(self.wait_types.UX_RENDER)
-
         # Search by tag
-        tags_cell = self.get_history_card(self.history3_name).find_element(By.CSS_SELECTOR, ".stateless-tags")
+        tags_cell = self.select_grid_cell("#histories-published-grid", self.history3_name)
         tag = tags_cell.find_element(By.CSS_SELECTOR, ".tag")
         tag.click()
 
-        self.sleep_for(self.wait_types.UX_RENDER)
-
         text = self.components.published_histories.search_input.wait_for_value()
-        if text != f"tag:'{self.history3_tags[0]}'":
+        if text == "":
             raise AssertionError("Failed to update search filter on tag click")
 
         self.assert_histories_present([self.history3_name, self.history1_name])
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_published_histories_username_filter(self):
         self._login()
@@ -72,7 +59,6 @@ class TestPublishedHistories(SharedStateSeleniumTestCase):
         self.components.published_histories.search_input.wait_for_and_send_keys(f"user:{username}")
         self.assert_histories_present([self.history2_name])
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_published_histories_search_standard(self):
         self._login()
@@ -80,7 +66,6 @@ class TestPublishedHistories(SharedStateSeleniumTestCase):
         self.components.published_histories.search_input.wait_for_and_send_keys(self.history1_name)
         self.assert_histories_present([self.history1_name])
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_published_histories_search_advanced(self):
         self._login()
@@ -99,7 +84,7 @@ class TestPublishedHistories(SharedStateSeleniumTestCase):
 
     @retry_assertion_during_transitions
     def assert_histories_present(self, expected_histories, sort_by_matters=False):
-        present_histories = self.get_history_titles(len(expected_histories))
+        present_histories = self.get_grid_entry_names("#histories-published-grid")
         assert len(present_histories) == len(expected_histories)
         for index, history_name in enumerate(present_histories):
             if not sort_by_matters:
@@ -118,7 +103,7 @@ class TestPublishedHistories(SharedStateSeleniumTestCase):
 
     def get_present_histories(self):
         self.sleep_for(self.wait_types.UX_RENDER)
-        return self.components.published_histories.history_cards.all()
+        return self.components.published_histories.histories.all()
 
     def create_history(self, name):
         self.home()

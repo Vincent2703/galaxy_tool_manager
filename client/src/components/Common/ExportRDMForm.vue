@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { BFormGroup, BFormInput } from "bootstrap-vue";
+import { BButton, BFormGroup, BFormInput } from "bootstrap-vue";
 import { computed, ref } from "vue";
 
-import type { BrowsableFilesSourcePlugin } from "@/api/remoteFiles";
+import { type BrowsableFilesSourcePlugin } from "@/api/remoteFiles";
 import localize from "@/utils/localization";
 
-import GButton from "../BaseComponents/GButton.vue";
 import RDMDestinationSelector from "@/components/Common/RDMDestinationSelector.vue";
 
 interface Props {
@@ -82,26 +81,26 @@ function onRecordSelected(selectedRecordUri: string) {
                 Please use the button below to upload the exported {{ props.what }} to the record.
             </p>
 
-            <GButton
+            <BButton
                 id="export-button-new-record"
                 v-localize
                 class="export-button"
-                color="blue"
+                variant="primary"
                 :disabled="!canExport"
                 @click.prevent="doExport">
                 Export to this record
-            </GButton>
+            </BButton>
         </div>
         <div v-else>
-            <GButton
+            <BButton
                 id="export-button-existing-record"
                 v-localize
                 class="export-button"
-                color="blue"
+                variant="primary"
                 :disabled="!canExport"
                 @click.prevent="doExport">
                 Export to existing record
-            </GButton>
+            </BButton>
         </div>
     </div>
 </template>

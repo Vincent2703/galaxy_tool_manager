@@ -1,6 +1,6 @@
 import { createLocalVue, shallowMount } from "@vue/test-utils";
 
-import StateUpgradeModal from "./StateUpgradeModal.vue";
+import StateUpgradeModal from "./StateUpgradeModal";
 
 const localVue = createLocalVue();
 

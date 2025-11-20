@@ -26,7 +26,7 @@ from .psa_authnz import (
     PSAAuthnz,
 )
 
-OIDC_BACKEND_SCHEMA = resource_path(__name__, "xsd/oidc_backends_config.xsd")
+OIDC_BACKEND_SCHEMA = resource_path(__package__, "xsd/oidc_backends_config.xsd")
 
 log = logging.getLogger(__name__)
 
@@ -138,11 +138,6 @@ class AuthnzManager:
                     }
                 else:
                     raise etree.ParseError("Unknown provider specified")
-                if "end_user_registration_endpoint" in self.oidc_backends_config[idp]:
-                    self.app.config.oidc[idp]["end_user_registration_endpoint"] = self.oidc_backends_config[idp][
-                        "end_user_registration_endpoint"
-                    ]
-
             if len(self.oidc_backends_config) == 0:
                 raise etree.ParseError("No valid provider configuration parsed.")
         except ImportError:
@@ -181,11 +176,6 @@ class AuthnzManager:
             rtv["pkce_support"] = asbool(config_xml.find("pkce_support").text)
         if config_xml.find("accepted_audiences") is not None:
             rtv["accepted_audiences"] = config_xml.find("accepted_audiences").text
-        if config_xml.find("username_key") is not None:
-            rtv["username_key"] = config_xml.find("username_key").text
-        if config_xml.find("end_user_registration_endpoint") is not None:
-            rtv["end_user_registration_endpoint"] = config_xml.find("end_user_registration_endpoint").text
-
         # this is a EGI Check-in specific config
         if config_xml.find("checkin_env") is not None:
             rtv["checkin_env"] = config_xml.find("checkin_env").text
@@ -220,8 +210,6 @@ class AuthnzManager:
             rtv["pkce_support"] = asbool(config_xml.find("pkce_support").text)
         if config_xml.find("accepted_audiences") is not None:
             rtv["accepted_audiences"] = config_xml.find("accepted_audiences").text
-        if config_xml.find("end_user_registration_endpoint") is not None:
-            rtv["end_user_registration_endpoint"] = config_xml.find("end_user_registration_endpoint").text
         return rtv
 
     def get_allowed_idps(self):
@@ -258,10 +246,7 @@ class AuthnzManager:
                         True,
                         "",
                         identity_provider_class(
-                            unified_provider_name,
-                            self.oidc_config,
-                            self.oidc_backends_config[unified_provider_name],
-                            self.app.config,
+                            unified_provider_name, self.oidc_config, self.oidc_backends_config[unified_provider_name]
                         ),
                     )
             except Exception as e:

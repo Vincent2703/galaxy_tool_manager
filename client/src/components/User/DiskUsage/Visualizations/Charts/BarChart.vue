@@ -5,8 +5,6 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 import type { DataValuePoint } from ".";
 
-import GCard from "@/components/Common/GCard.vue";
-
 interface BarChartProps {
     data: DataValuePoint[];
     title?: string;
@@ -47,7 +45,7 @@ const legendEntries = ref<d3.Selection<SVGGElement | d3.BaseType, DataValuePoint
 
 const showTooltip = computed(() => props.enableTooltips && tooltipDataPoint.value !== null);
 const hasData = computed(
-    () => props.data.length > 0 && props.data.reduce((total, dataPoint) => total + dataPoint.value, 0) > 0,
+    () => props.data.length > 0 && props.data.reduce((total, dataPoint) => total + dataPoint.value, 0) > 0
 );
 
 onMounted(() => {
@@ -73,7 +71,7 @@ watch(
             clearChart();
             renderBarChart();
         });
-    },
+    }
 );
 
 function renderBarChart() {
@@ -108,7 +106,7 @@ function drawChart() {
         .domain(
             data.map(function (d) {
                 return d.id;
-            }),
+            })
         )
         .padding(0.1);
 
@@ -151,8 +149,7 @@ function drawChart() {
         .attr("y", (d) => yScale(d.value) - xAxisHeight)
         .attr("width", xScale.bandwidth())
         .attr("height", (d) => chartHeight - yScale(d.value))
-        .attr("fill", (d) => entryColor(d))
-        .attr("data-label", (d) => d.label);
+        .attr("fill", (d) => entryColor(d));
 
     return bars;
 }
@@ -328,9 +325,9 @@ function setTooltipPosition(mouseX: number, mouseY: number): void {
             <div class="chart-area">
                 <div ref="barChart" class="bar-chart"></div>
                 <div ref="legend" class="legend"></div>
-                <div v-if="selectedDataPoint" class="selection-info w-100">
+                <div v-if="selectedDataPoint" class="selection-info">
                     <slot name="selection" :data="selectedDataPoint">
-                        <GCard :title="`Selected: ${selectedDataPoint.label}`" />
+                        Selected: <b>{{ selectedDataPoint.label }}</b>
                     </slot>
                 </div>
             </div>
@@ -400,13 +397,19 @@ function setTooltipPosition(mouseX: number, mouseY: number): void {
 }
 
 .selection-info {
+    background-color: #fff;
+    border: 1px solid #000;
+    border-radius: 5px;
+    padding: 5px;
     z-index: 100;
+    display: block;
+    float: right;
     position: absolute;
     bottom: 0;
     right: 0;
     margin-bottom: 2rem;
     margin-right: 2rem;
     text-align: left;
-    max-width: max(250px, 35%);
+    max-width: 300px;
 }
 </style>

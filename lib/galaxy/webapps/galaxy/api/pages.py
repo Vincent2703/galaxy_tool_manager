@@ -28,7 +28,6 @@ from galaxy.schema.schema import (
     ShareWithPayload,
     ShareWithStatus,
     SharingStatus,
-    UpdatePagePayload,
 )
 from galaxy.webapps.galaxy.api import (
     depends,
@@ -146,7 +145,7 @@ class FastAPIPages:
         trans: ProvidesUserContext = DependsOnTrans,
         payload: CreatePagePayload = Body(...),
     ) -> PageSummary:
-        """Creates a new Page."""
+        """Get a list with details of all Pages available to the user."""
         return self.service.create(trans, payload)
 
     @router.delete(
@@ -322,17 +321,3 @@ class FastAPIPages:
         """Sets a new slug to access this item by URL. The new slug must be unique."""
         self.service.shareable_service.set_slug(trans, id, payload)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-    @router.put(
-        "/api/pages/{id}",
-        summary="Update a page and return summary information.",
-        response_description="The page summary information.",
-    )
-    def update(
-        self,
-        id: PageIdPathParam,
-        trans: ProvidesUserContext = DependsOnTrans,
-        payload: UpdatePagePayload = Body(...),
-    ) -> PageSummary:
-        """Updates an existing Page."""
-        return self.service.update(trans, id, payload)

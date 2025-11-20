@@ -1,4 +1,5 @@
 from typing import (
+    List,
     Optional,
 )
 
@@ -12,6 +13,7 @@ from sqlalchemy.orm.scoping import scoped_session
 
 from galaxy.exceptions import ObjectNotFound
 from galaxy.model import StoreExportAssociation
+from galaxy.model.base import transaction
 from galaxy.schema.schema import ExportObjectType
 from galaxy.structured_app import MinimalManagerApp
 
@@ -32,7 +34,8 @@ class StoreExportTracker:
     def create_export_association(self, object_id: int, object_type: ExportObjectType) -> StoreExportAssociation:
         export_association = StoreExportAssociation(object_id=object_id, object_type=object_type)
         self.session.add(export_association)
-        self.session.commit()
+        with transaction(self.session):
+            self.session.commit()
         return export_association
 
     def set_export_association_metadata(self, export_association_id: int, export_metadata: BaseModel):
@@ -42,7 +45,8 @@ class StoreExportTracker:
         except NoResultFound:
             raise ObjectNotFound("Cannot set export metadata. Reason: Export association not found")
         export_association.export_metadata = export_metadata.model_dump_json()  # type:ignore[assignment]
-        self.session.commit()
+        with transaction(self.session):
+            self.session.commit()
 
     def get_export_association(self, export_association_id: int) -> StoreExportAssociation:
         try:
@@ -54,7 +58,7 @@ class StoreExportTracker:
 
     def get_object_exports(
         self, object_id: int, object_type: ExportObjectType, limit: Optional[int] = None, offset: Optional[int] = None
-    ) -> list[StoreExportAssociation]:
+    ) -> List[StoreExportAssociation]:
         stmt = (
             select(
                 StoreExportAssociation,

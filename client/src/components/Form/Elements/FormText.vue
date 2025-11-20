@@ -16,7 +16,6 @@
                 :class="['ui-input', cls]"
                 :readonly="readonly"
                 :placeholder="placeholder"
-                :state="showState ? (!currentValue ? (optional ? null : false) : true) : null"
                 :style="style"
                 :type="acceptedTypes"
                 :list="`${id}-datalist`" />
@@ -59,14 +58,6 @@ export default {
         placeholder: {
             type: String,
             default: "",
-        },
-        optional: {
-            type: Boolean,
-            default: true,
-        },
-        showState: {
-            type: Boolean,
-            default: false,
         },
         color: {
             type: String,

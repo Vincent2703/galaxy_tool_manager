@@ -1,6 +1,6 @@
 from typing import (
+    List,
     Optional,
-    TYPE_CHECKING,
     Union,
 )
 
@@ -40,9 +40,6 @@ from galaxy.webapps.galaxy.services.base import (
 )
 from galaxy.webapps.galaxy.services.roles import role_to_model
 
-if TYPE_CHECKING:
-    from galaxy.work.context import SessionRequestContext
-
 
 class UsersService(ServiceBase):
     """Common interface/service logic for interactions with users in the context of the API.
@@ -69,7 +66,7 @@ class UsersService(ServiceBase):
 
     def recalculate_disk_usage(
         self,
-        trans: "SessionRequestContext",
+        trans: ProvidesUserContext,
         user_id: int,
     ):
         if trans.anonymous:
@@ -204,11 +201,7 @@ class UsersService(ServiceBase):
         f_email: Optional[str],
         f_name: Optional[str],
         f_any: Optional[str],
-    ) -> list[MaybeLimitedUserModel]:
-        # never give any info to non-authenticated users
-        if not trans.user and not trans.user_is_bootstrap_admin:
-            raise glx_exceptions.AuthenticationRequired("Only registered users can view the list of users")
-
+    ) -> List[MaybeLimitedUserModel]:
         # check for early return conditions
         if deleted:
             if not trans.user_is_admin:
@@ -223,7 +216,10 @@ class UsersService(ServiceBase):
                 and not trans.app.config.expose_user_name
                 and not trans.app.config.expose_user_email
             ):
-                return [UserModel(**trans.user.to_dict())]
+                if trans.user:
+                    return [UserModel(**trans.user.to_dict())]
+                else:
+                    return []
 
         users = get_users_for_index(
             trans.sa_session,
@@ -235,7 +231,7 @@ class UsersService(ServiceBase):
             trans.app.config.expose_user_email,
             trans.app.config.expose_user_name,
         )
-        rval: list[MaybeLimitedUserModel] = []
+        rval: List[MaybeLimitedUserModel] = []
         for user in users:
             user_dict = user.to_dict()
             # If NOT configured to expose_email, do not expose email UNLESS the user is self, or

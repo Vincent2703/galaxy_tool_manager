@@ -1,5 +1,6 @@
 import os
 from typing import (
+    List,
     Optional,
     Protocol,
 )
@@ -26,7 +27,7 @@ SECRETS_NEED_VAULT_MESSAGE = "The file source templates configuration can not be
 
 
 class AppConfigProtocol(Protocol):
-    file_source_templates: Optional[list[RawTemplateConfig]]
+    file_source_templates: Optional[List[RawTemplateConfig]]
     file_source_templates_config_file: Optional[str]
 
 
@@ -80,6 +81,6 @@ class ConfiguredFileSourceTemplates:
         validate_secrets_and_variables(instance, template)
 
 
-def raw_config_to_catalog(raw_config: list[RawTemplateConfig]) -> FileSourceTemplateCatalog:
+def raw_config_to_catalog(raw_config: List[RawTemplateConfig]) -> FileSourceTemplateCatalog:
     effective_root = apply_syntactic_sugar(raw_config)
     return FileSourceTemplateCatalog.model_validate(effective_root)

@@ -1,5 +1,4 @@
 <script setup>
-import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed, ref } from "vue";
 
@@ -39,7 +38,7 @@ function readFile() {
     <div>
         <b-form-file v-model="file" class="mb-1" @input="readFile" />
         <div v-if="waiting">
-            <FontAwesomeIcon :icon="faSpinner" spin />
+            <FontAwesomeIcon icon="spinner" spin />
             Uploading File...
         </div>
         <textarea v-show="currentValue" v-model="currentValue" class="ui-textarea" disabled />

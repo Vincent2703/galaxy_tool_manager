@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { faCopy } from "@fortawesome/free-regular-svg-icons";
-import { faCheck, faEdit } from "@fortawesome/free-solid-svg-icons";
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faCheck, faCopy, faEdit } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BButton } from "bootstrap-vue";
 import { computed, nextTick, ref } from "vue";
@@ -8,6 +8,8 @@ import { computed, nextTick, ref } from "vue";
 import { copy } from "@/utils/clipboard";
 
 import SlugInput from "./SlugInput.vue";
+
+library.add(faCopy, faEdit, faCheck);
 
 const props = defineProps<{
     prefix: string;
@@ -75,10 +77,10 @@ function onCopyOut() {
             title="Edit URL"
             size="md"
             @click="onEdit">
-            <FontAwesomeIcon :icon="faEdit" fixed-width />
+            <FontAwesomeIcon icon="edit" fixed-width />
         </BButton>
         <BButton v-else v-b-tooltip.hover class="inline-icon-button" title="Done" size="md" @click="onSubmit">
-            <FontAwesomeIcon :icon="faCheck" fixed-width />
+            <FontAwesomeIcon icon="check" fixed-width />
         </BButton>
 
         <BButton
@@ -92,13 +94,13 @@ function onCopyOut() {
             @click="onCopy"
             @mouseout="onCopyOut"
             @blur="onCopyOut">
-            <FontAwesomeIcon :icon="faCopy" fixed-width />
+            <FontAwesomeIcon :icon="['far', 'copy']" fixed-width />
         </BButton>
     </div>
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .editable-url {
     word-break: break-all;

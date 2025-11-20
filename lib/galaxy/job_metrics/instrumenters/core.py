@@ -1,13 +1,12 @@
 """The module describes the ``core`` job metrics plugin."""
 
-import datetime
 import json
 import logging
+import time
 from typing import (
     Any,
     Dict,
     List,
-    Optional,
 )
 
 from . import InstrumentPlugin
@@ -17,12 +16,6 @@ from ..formatting import (
     seconds_to_str,
 )
 from ..safety import Safety
-
-try:
-    import zoneinfo
-except ImportError:
-    # Python < 3.9
-    from backports import zoneinfo  # type: ignore[no-redef]
 
 log = logging.getLogger(__name__)
 
@@ -36,16 +29,6 @@ CONTAINER_TYPE = "container_type"
 
 
 class CorePluginFormatter(JobMetricFormatter):
-    def __init__(self, timezone: Optional[str]):
-        self.tz: Optional[zoneinfo.ZoneInfo] = None
-        self.strftime_format = "%Y-%m-%d %H:%M:%S"
-        self.__init_tz(timezone)
-
-    def __init_tz(self, timezone: Optional[str]):
-        if timezone:
-            self.tz = zoneinfo.ZoneInfo(timezone)
-            self.strftime_format = "%Y-%m-%d %H:%M:%S %Z (%z)"
-
     def format(self, key: str, value: Any) -> FormattedMetric:
         if key == CONTAINER_ID:
             return FormattedMetric("Container ID", value)
@@ -53,15 +36,15 @@ class CorePluginFormatter(JobMetricFormatter):
             return FormattedMetric("Container Type", value)
         value = int(value)
         if key == GALAXY_SLOTS_KEY:
-            return FormattedMetric("Cores Allocated", f"{value}")
+            return FormattedMetric("Cores Allocated", "%d" % value)
         elif key == GALAXY_MEMORY_MB_KEY:
-            return FormattedMetric("Memory Allocated (MB)", f"{value}")
+            return FormattedMetric("Memory Allocated (MB)", "%d" % value)
         elif key == RUNTIME_SECONDS_KEY:
             return FormattedMetric("Job Runtime (Wall Clock)", seconds_to_str(value))
         else:
+            # TODO: Use localized version of this from galaxy.ini
             title = "Job Start Time" if key == START_EPOCH_KEY else "Job End Time"
-            dt = datetime.datetime.fromtimestamp(value, tz=self.tz)
-            return FormattedMetric(title, dt.strftime(self.strftime_format))
+            return FormattedMetric(title, time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(value)))
 
 
 class CorePlugin(InstrumentPlugin):
@@ -70,15 +53,11 @@ class CorePlugin(InstrumentPlugin):
     """
 
     plugin_type = "core"
-    formatter = None
+    formatter = CorePluginFormatter()
     default_safety = Safety.SAFE
 
     def __init__(self, **kwargs):
-        self.__init_formatter(kwargs.get("timezone"))
-
-    def __init_formatter(self, timezone: Optional[str]):
-        if CorePlugin.formatter is None:
-            CorePlugin.formatter = CorePluginFormatter(timezone)
+        pass
 
     def pre_execute_instrument(self, job_directory: str) -> List[str]:
         commands = []

@@ -1,6 +1,7 @@
 import logging
 from typing import (
     Callable,
+    Dict,
 )
 
 from sqlalchemy import select
@@ -44,7 +45,7 @@ class GroupsController(BaseShedAPIController):
         super().__init__(app)
         self.group_manager = groups.GroupManager()
 
-    def __get_value_mapper(self, trans) -> dict[str, Callable]:
+    def __get_value_mapper(self, trans) -> Dict[str, Callable]:
         value_mapper = {"id": trans.security.encode_id}
         return value_mapper
 

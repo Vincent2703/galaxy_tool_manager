@@ -92,7 +92,7 @@ class Torque(BaseJobExec):
                     rval[id_] = self._get_job_state(state)
         return rval
 
-    def parse_single_status(self, status, job_id, shell):
+    def parse_single_status(self, status, job_id):
         for line in status.splitlines():
             line = line.split(" = ")
             if line[0].strip() == "job_state":

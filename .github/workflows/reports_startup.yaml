@@ -3,11 +3,9 @@ on:
   push:
     paths-ignore:
       - 'doc/**'
-      - 'packages/**'
   pull_request:
     paths-ignore:
       - 'doc/**'
-      - 'packages/**'
 env:
   YARN_INSTALL_OPTS: --frozen-lockfile
 concurrency:
@@ -20,21 +18,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.13']
+        python-version: ['3.8', '3.13']
     defaults:
       run:
         shell: bash -l {0}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           path: 'galaxy root'
-          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.12.1'
+          cache: 'yarn'
+          cache-dependency-path: 'galaxy root/client/yarn.lock'
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+          cache: 'pip'
+          cache-dependency-path: 'galaxy root/requirements.txt'
       - name: Get full Python version
         id: full-python-version
         shell: bash
@@ -45,7 +47,7 @@ jobs:
           path: 'galaxy root/.venv'
           key: gxy-venv-${{ runner.os }}-${{ steps.full-python-version.outputs.version }}-${{ hashFiles('galaxy root/requirements.txt') }}-reports-startup
       - name: Install tox
-        run: uv tool install tox --with tox-uv
+        run: pip install tox
       - name: Run tests
         run: tox -e reports_startup
         working-directory: 'galaxy root'

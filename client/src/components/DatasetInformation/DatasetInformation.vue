@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { RouterLink } from "vue-router";
-
-import type { HDADetailed } from "@/api";
+import { type HDADetailed } from "@/api";
 import { withPrefix } from "@/utils/redirect";
 import { bytesToString } from "@/utils/utils";
 
-import Heading from "../Common/Heading.vue";
 import HelpText from "../Help/HelpText.vue";
 import DatasetHashes from "@/components/DatasetInformation/DatasetHashes.vue";
 import DatasetSources from "@/components/DatasetInformation/DatasetSources.vue";
@@ -21,9 +18,8 @@ defineProps<Props>();
 
 <template>
     <div v-if="dataset">
-        <Heading id="dataset-information-heading" v-localize h1 separator inline size="md">
-            Dataset Information
-        </Heading>
+        <h2 class="h-md">Dataset Information</h2>
+
         <table id="dataset-details" class="tabletip info_data_table">
             <tbody>
                 <tr>
@@ -56,7 +52,7 @@ defineProps<Props>();
                     <td id="file-size" v-html="bytesToString(dataset.file_size, false)" />
                 </tr>
 
-                <tr v-if="'metadata_dbkey' in dataset">
+                <tr>
                     <td>Dbkey</td>
 
                     <td id="dbkey">
@@ -100,7 +96,6 @@ defineProps<Props>();
                         <div id="history_id">
                             {{ dataset.history_id }}
                             <DecodedId :id="dataset.history_id" />
-                            (<RouterLink :to="`/histories/view?id=${dataset.history_id}`">view</RouterLink>)
                         </div>
                     </td>
                 </tr>

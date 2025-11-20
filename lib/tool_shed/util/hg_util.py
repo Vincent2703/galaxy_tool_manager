@@ -5,7 +5,6 @@ import subprocess
 import tempfile
 from datetime import datetime
 from time import gmtime
-from typing import TYPE_CHECKING
 
 from galaxy.tool_shed.util import basic_util
 from galaxy.tool_shed.util.hg_util import (
@@ -22,15 +21,12 @@ from galaxy.tool_shed.util.hg_util import (
 )
 from galaxy.util import unicodify
 
-if TYPE_CHECKING:
-    from galaxy.util.path import StrPath
-
 log = logging.getLogger(__name__)
 
 INITIAL_CHANGELOG_HASH = "000000000000"
 
 
-def add_changeset(repo_path: "StrPath", path_to_filename_in_archive: "StrPath"):
+def add_changeset(repo_path, path_to_filename_in_archive):
     try:
         subprocess.check_output(["hg", "add", path_to_filename_in_archive], stderr=subprocess.STDOUT, cwd=repo_path)
     except Exception as e:
@@ -55,7 +51,7 @@ def archive_repository_revision(app, repository, archive_dir, changeset_revision
         raise Exception(error_message)
 
 
-def commit_changeset(repo_path: "StrPath", full_path_to_changeset: "StrPath", username: str, message: str) -> None:
+def commit_changeset(repo_path: str, full_path_to_changeset: str, username: str, message: str) -> None:
     try:
         subprocess.check_output(
             ["hg", "commit", "-u", username, "-m", message, full_path_to_changeset],
@@ -171,7 +167,7 @@ def get_rev_label_changeset_revision_from_repository_metadata(
     repo = repository.hg_repo
     changeset_revision = repository_metadata.changeset_revision
     if ctx := get_changectx_for_changeset(repo, changeset_revision):
-        rev = f"{ctx.rev():04d}"
+        rev = "%04d" % ctx.rev()
         if include_date:
             changeset_revision_date = get_readable_ctx_date(ctx)
             if include_hash:
@@ -211,7 +207,7 @@ def get_rev_label_from_changeset_revision(repo, changeset_revision, include_date
     which includes the revision date if the receive include_date is True.
     """
     if ctx := get_changectx_for_changeset(repo, changeset_revision):
-        rev = f"{ctx.rev():04d}"
+        rev = "%04d" % ctx.rev()
         label = get_revision_label_from_ctx(ctx, include_date=include_date)
     else:
         rev = "-1"
@@ -219,7 +215,7 @@ def get_rev_label_from_changeset_revision(repo, changeset_revision, include_date
     return rev, label
 
 
-def remove_path(repo_path: "StrPath", selected_file: "StrPath"):
+def remove_path(repo_path, selected_file):
     cmd = ["hg", "remove", "--force", selected_file]
     try:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, cwd=repo_path)
@@ -240,7 +236,7 @@ def remove_path(repo_path: "StrPath", selected_file: "StrPath"):
         raise Exception(error_message)
 
 
-def init_repository(repo_path: "StrPath"):
+def init_repository(repo_path):
     """
     Create a new Mercurial repository in the given directory.
     """

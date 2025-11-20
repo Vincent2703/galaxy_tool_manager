@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import { type IconDefinition, library } from "@fortawesome/fontawesome-svg-core";
 import { faCheckSquare, faMinusSquare, faSquare } from "@fortawesome/free-regular-svg-icons";
 import { faCaretLeft, faCheck, faFolder, faSpinner, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
@@ -9,12 +9,14 @@ import { computed, ref, watch } from "vue";
 import { type ItemsProvider, SELECTION_STATES, type SelectionState } from "@/components/SelectionDialog/selectionTypes";
 import type Filtering from "@/utils/filtering";
 
-import type { FieldEntry, SelectionItem } from "./selectionTypes";
+import { type FieldEntry, type SelectionItem } from "./selectionTypes";
 
 import FilterMenu from "@/components/Common/FilterMenu.vue";
 import Heading from "@/components/Common/Heading.vue";
 import DataDialogSearch from "@/components/SelectionDialog/DataDialogSearch.vue";
 import StatelessTags from "@/components/TagsMultiselect/StatelessTags.vue";
+
+library.add(faCaretLeft, faCheck, faCheckSquare, faFolder, faMinusSquare, faSpinner, faSquare, faTimes);
 
 const LABEL_FIELD: FieldEntry = { key: "label", sortable: true };
 const SELECT_ICON_FIELD: FieldEntry = { key: "__select_icon__", label: "", sortable: false };
@@ -43,7 +45,6 @@ interface Props {
     searchTitle?: string;
     okButtonText?: string;
     filterClass?: Filtering<any>;
-    watchOnPageChanges?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -70,7 +71,6 @@ const props = withDefaults(defineProps<Props>(), {
     searchTitle: undefined,
     okButtonText: "Select",
     filterClass: undefined,
-    watchOnPageChanges: true,
 });
 
 const emit = defineEmits<{
@@ -143,26 +143,31 @@ function resetFilter() {
     filter.value = "";
 }
 
-function resetPagination(toInitialPage = 1) {
-    currentPage.value = toInitialPage;
-}
-
-if (props.watchOnPageChanges) {
-    watch(
-        () => props.items,
-        () => {
-            if (props.itemsProvider === undefined) {
-                resetPagination();
-            }
-        },
-    );
+function resetPagination() {
+    currentPage.value = 1;
 }
 
 defineExpose({
     resetFilter,
     resetPagination,
-    currentPage,
 });
+
+watch(
+    () => props.items,
+    () => {
+        filtered(props.items);
+    }
+);
+
+watch(
+    () => props.providerUrl,
+    () => {
+        // We need to reset the current page when drilling down sub-folders
+        if (props.itemsProvider !== undefined) {
+            resetPagination();
+        }
+    }
+);
 </script>
 
 <template>

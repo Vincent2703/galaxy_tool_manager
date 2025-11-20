@@ -6,7 +6,6 @@ import { useJobMetricsStore } from "@/stores/jobMetricsStore";
 
 import { worldwideCarbonIntensity, worldwidePowerUsageEffectiveness } from "./CarbonEmissions/carbonEmissionConstants";
 
-import Heading from "../Common/Heading.vue";
 import AwsEstimate from "./AwsEstimate.vue";
 import CarbonEmissions from "./CarbonEmissions/CarbonEmissions.vue";
 
@@ -68,7 +67,7 @@ watch(
     () => {
         getJobMetrics();
     },
-    { immediate: true },
+    { immediate: true }
 );
 
 const ec2Instances = ref<EC2[]>();
@@ -185,7 +184,7 @@ const estimatedServerInstance = computed(() => {
 
 <template>
     <div v-if="pluginsSortedByPluginType.length > 0">
-        <Heading v-if="includeTitle" id="job-metrics-heading" h1 separator inline size="md"> Job Metrics </Heading>
+        <h2 v-if="includeTitle" class="h-md">Job Metrics</h2>
 
         <div v-for="pluginType in pluginsSortedByPluginType" :key="pluginType" class="metrics_plugin">
             <h3 class="metrics_plugin_title m-sm">{{ pluginType }}</h3>

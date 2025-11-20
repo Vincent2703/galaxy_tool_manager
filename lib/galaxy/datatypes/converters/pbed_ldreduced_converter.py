@@ -89,7 +89,8 @@ def main():
     """
     nparm = 7
     if len(sys.argv) < nparm:
-        sys.exit(f"## {prog} called with {sys.argv} - needs {nparm} parameters \n")
+        sys.stderr.write("## %s called with %s - needs %d parameters \n" % (prog, sys.argv, nparm))
+        sys.exit(1)
     inpedfilepath = sys.argv[1]
     base_name = os.path.split(inpedfilepath)[-1]
     winsize = sys.argv[2]

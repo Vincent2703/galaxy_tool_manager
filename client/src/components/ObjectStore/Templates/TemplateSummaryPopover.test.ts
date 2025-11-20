@@ -9,7 +9,7 @@ const localVue = getLocalVue(true);
 
 describe("TemplateSummaryPopover", () => {
     it("should render a popover", async () => {
-        const wrapper = shallowMount(TemplateSummaryPopover as object, {
+        const wrapper = shallowMount(TemplateSummaryPopover, {
             propsData: {
                 target: "test-target-1",
                 template: STANDARD_OBJECT_STORE_TEMPLATE,

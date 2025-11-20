@@ -1,31 +1,32 @@
-<script setup lang="ts">
+<script setup>
+import CopyToClipboard from "components/CopyToClipboard";
+import HelpText from "components/Help/HelpText";
+import { JobConsoleOutputProvider, JobDetailsProvider } from "components/providers/JobProvider";
+import UtcDate from "components/UtcDate";
+import { NON_TERMINAL_STATES } from "components/WorkflowInvocationState/util";
 import { computed, ref, watch } from "vue";
 
 import { GalaxyApi } from "@/api";
-import { type JobConsoleOutput, NON_TERMINAL_STATES, type ShowFullJobResponse } from "@/api/jobs";
-import { JobConsoleOutputProvider, JobDetailsProvider } from "@/components/providers/JobProvider";
 import { rethrowSimple } from "@/utils/simple-error";
 
-import type { JobMessage } from "../../api/jobs";
 import { getJobDuration } from "./utilities";
 
-import Heading from "../Common/Heading.vue";
 import DecodedId from "../DecodedId.vue";
 import CodeRow from "./CodeRow.vue";
-import CopyToClipboard from "@/components/CopyToClipboard.vue";
-import HelpText from "@/components/Help/HelpText.vue";
-import UtcDate from "@/components/UtcDate.vue";
 
-const props = defineProps<{
-    jobId: string;
-    /** If `true`, the job's update and create times, as well as time to finish are shown. */
-    includeTimes?: boolean;
-    /** If provided, this component will skip fetching the invocation ID for the job. */
-    invocationId?: string;
-}>();
+const job = ref(null);
+const invocationId = ref(undefined);
 
-const job = ref<ShowFullJobResponse | null>(null);
-const fetchedInvocationId = ref<string | null | undefined>(props.invocationId);
+const props = defineProps({
+    job_id: {
+        type: String,
+        required: true,
+    },
+    includeTimes: {
+        type: Boolean,
+        default: false,
+    },
+});
 
 const stdout_length = ref(50000);
 const stdout_text = ref("");
@@ -35,31 +36,26 @@ const stderr_text = ref("");
 const stdout_position = computed(() => stdout_text.value.length);
 const stderr_position = computed(() => stderr_text.value.length);
 
-function jobStateIsTerminal(jobState: string) {
+const runTime = computed(() => getJobDuration(job.value));
+
+function jobStateIsTerminal(jobState) {
     return jobState && !NON_TERMINAL_STATES.includes(jobState);
 }
 
-function jobStateIsRunning(jobState: string) {
+function jobStateIsRunning(jobState) {
     return jobState == "running";
 }
 
-const jobIsTerminal = computed(() => (job.value?.state ? jobStateIsTerminal(job.value?.state) : false));
-const jobIsRunning = computed(() => (job.value?.state ? jobStateIsRunning(job.value.state) : false));
-const routeToInvocation = computed(() => `/workflows/invocations/${fetchedInvocationId.value}`);
+const jobIsTerminal = computed(() => jobStateIsTerminal(job?.value?.state));
+const jobIsRunning = computed(() => jobStateIsRunning(job?.value?.state));
+const routeToInvocation = computed(() => `/workflows/invocations/${invocationId.value}`);
 
-// Curious as to why we're trying to access tool_version and traceback like this, when they don't exist on
-// `ShowFullJobResponse`? Possibly historical reasons or maybe the `JobProvider` can return different types (doesn't seem like it)?
-const toolVersion = computed(() =>
-    job.value && "tool_version" in job.value ? (job.value?.tool_version as string) : null,
-);
-const traceback = computed(() => (job.value && "traceback" in job.value ? (job.value?.traceback as string) : null));
-
-const metadataDetail = ref<Record<string, string>>({
+const metadataDetail = ref({
     exit_code: `Tools may use exit codes to indicate specific execution errors. Many programs use 0 to indicate success and non-zero exit codes to indicate errors. Galaxy allows each tool to specify exit codes that indicate errors. https://docs.galaxyproject.org/en/master/dev/schema.html#tool-stdio-exit-code`,
     error_level: `NO_ERROR = 0</br>LOG = 1</br>QC = 1.1</br>WARNING = 2</br>FATAL = 3</br>FATAL_OOM = 4</br>MAX = 4`,
 });
 
-function updateJob(newJob: ShowFullJobResponse) {
+function updateJob(newJob) {
     job.value = newJob;
     if (jobStateIsTerminal(newJob?.state)) {
         if (newJob.tool_stdout) {
@@ -71,7 +67,7 @@ function updateJob(newJob: ShowFullJobResponse) {
     }
 }
 
-function updateConsoleOutputs(output: JobConsoleOutput) {
+function updateConsoleOutputs(output) {
     // Keep stdout in memory and only fetch new text via JobProvider
     if (output) {
         if (output.stdout != null) {
@@ -83,9 +79,9 @@ function updateConsoleOutputs(output: JobConsoleOutput) {
     }
 }
 
-function filterMetadata(jobMessages: JobMessage[]): Partial<JobMessage>[] {
+function filterMetadata(jobMessages) {
     return jobMessages.map((item) => {
-        return Object.entries(item).reduce((acc: Record<string, unknown>, [key, value]) => {
+        return Object.entries(item).reduce((acc, [key, value]) => {
             if (value) {
                 acc[key] = value;
             }
@@ -94,57 +90,56 @@ function filterMetadata(jobMessages: JobMessage[]): Partial<JobMessage>[] {
     });
 }
 
-async function fetchInvocationForJob(jobId: string) {
-    const { data: invocations, error } = await GalaxyApi().GET("/api/invocations", {
-        params: {
-            query: { job_id: jobId },
-        },
-    });
+async function fetchInvocationForJob(jobId) {
+    if (jobId) {
+        const { data: invocations, error } = await GalaxyApi().GET("/api/invocations", {
+            params: {
+                query: { job_id: jobId },
+            },
+        });
 
-    if (error) {
-        rethrowSimple(error);
+        if (error) {
+            rethrowSimple(error);
+        }
+
+        if (invocations.length) {
+            return invocations[0];
+        }
+
+        return null;
     }
-
-    if (invocations.length) {
-        return invocations[0];
-    }
-
-    return null;
 }
 
 // Fetches the invocation for the given job id to get the associated invocation id
 watch(
-    () => props.jobId,
+    () => props.job_id,
     async (newId, oldId) => {
-        if (
-            newId &&
-            (fetchedInvocationId.value === undefined || (fetchedInvocationId.value === null && newId !== oldId))
-        ) {
+        if (newId && (invocationId.value === undefined || newId !== oldId)) {
             const invocation = await fetchInvocationForJob(newId);
             if (invocation) {
-                fetchedInvocationId.value = invocation.id;
+                invocationId.value = invocation.id;
             } else {
-                fetchedInvocationId.value = null;
+                invocationId.value = null;
             }
         }
     },
-    { immediate: true },
+    { immediate: true }
 );
 </script>
 
 <template>
     <div>
-        <JobDetailsProvider auto-refresh :job-id="props.jobId" @update:result="updateJob" />
+        <JobDetailsProvider auto-refresh :job-id="props.job_id" @update:result="updateJob" />
         <JobConsoleOutputProvider
             v-if="jobIsRunning"
             auto-refresh
-            :job-id="props.jobId"
+            :job-id="props.job_id"
             :stdout_position="stdout_position"
             :stdout_length="stdout_length"
             :stderr_position="stderr_position"
             :stderr_length="stderr_length"
             @update:result="updateConsoleOutputs" />
-        <Heading id="job-information-heading" h1 separator inline size="md"> Job Information </Heading>
+        <h2 class="h-md">Job Information</h2>
         <table id="job-information" class="tabletip info_data_table">
             <tbody>
                 <tr v-if="job && job.tool_id">
@@ -163,9 +158,9 @@ watch(
                         <HelpText :uri="`galaxy.jobs.states.${job.state}`" :text="job.state" />
                     </td>
                 </tr>
-                <tr v-if="toolVersion">
+                <tr v-if="job && job.tool_version">
                     <td>Galaxy Tool Version</td>
-                    <td id="galaxy-tool-version">{{ toolVersion }}</td>
+                    <td id="galaxy-tool-version">{{ job.tool_version }}</td>
                 </tr>
                 <tr v-if="job && props.includeTimes">
                     <td>Created</td>
@@ -182,11 +177,11 @@ watch(
                 <tr v-if="job && props.includeTimes && jobIsTerminal">
                     <td>Time To Finish</td>
                     <td id="runtime">
-                        {{ getJobDuration(job) }}
+                        {{ runTime }}
                     </td>
                 </tr>
                 <CodeRow
-                    v-if="job && job.command_line"
+                    v-if="job"
                     id="command-line"
                     help-uri="unix.commandLine"
                     :code-label="'Command Line'"
@@ -204,11 +199,11 @@ watch(
                     :code-label="'Tool Standard Error'"
                     :code-item="stderr_text" />
                 <CodeRow
-                    v-if="traceback"
+                    v-if="job && job.traceback"
                     id="traceback"
                     help-uri="unix.traceback"
                     :code-label="'Unexpected Job Errors'"
-                    :code-item="traceback" />
+                    :code-item="job.traceback" />
                 <tr v-if="job">
                     <td>Tool <HelpText uri="unix.exitCode" text="Exit Code" /></td>
                     <td id="exit-code">{{ job.exit_code }}</td>
@@ -226,9 +221,9 @@ watch(
                                         v-if="metadataDetail[name]"
                                         v-b-tooltip.html
                                         class="tooltipJobInfo"
-                                        :title="metadataDetail[name]">
-                                        <strong>{{ name }}:</strong>
-                                    </span>
+                                        :title="metadataDetail[name]"
+                                        ><strong>{{ name }}:</strong></span
+                                    >
                                     <strong v-else>{{ name }}:</strong>
                                     {{ value }}
                                 </li>
@@ -251,10 +246,10 @@ watch(
                         {{ job.copied_from_job_id }} <DecodedId :id="job.copied_from_job_id" />
                     </td>
                 </tr>
-                <tr v-if="fetchedInvocationId">
+                <tr v-if="invocationId">
                     <td>Workflow Invocation</td>
                     <td>
-                        <router-link :to="routeToInvocation">{{ fetchedInvocationId }}</router-link>
+                        <router-link :to="routeToInvocation">{{ invocationId }}</router-link>
                     </td>
                 </tr>
             </tbody>

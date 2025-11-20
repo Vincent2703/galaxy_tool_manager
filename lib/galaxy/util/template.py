@@ -2,10 +2,6 @@
 
 import sys
 import traceback
-from typing import (
-    Optional,
-    Union,
-)
 
 from Cheetah.Compiler import Compiler
 from Cheetah.NameMapper import NotFound
@@ -16,11 +12,7 @@ from packaging.version import Version
 from galaxy.util.tree_dict import TreeDict
 from . import unicodify
 
-try:
-    from lib2to3.refactor import RefactoringTool
-except ImportError:
-    # Either Python 3.13 or Debian(<=12)/Ubuntu(<=24.10) without the
-    # python3-lib2to3 package
+if sys.version_info >= (3, 13):
     import fissix
     from fissix import (
         fixes as fissix_fixes,
@@ -33,7 +25,7 @@ except ImportError:
     sys.modules["lib2to3.pgen2"] = fissix_pgen2
     sys.modules["lib2to3.refactor"] = fissix_refactor
 
-    from lib2to3.refactor import RefactoringTool
+from lib2to3.refactor import RefactoringTool
 
 from past.translation import myfixes
 
@@ -70,7 +62,7 @@ def fill_template(
     compiler_class=Compiler,
     first_exception=None,
     futurized=False,
-    python_template_version: Optional[Union[str, Version]] = "3",
+    python_template_version="3",
     **kwargs,
 ):
     """Fill a cheetah template out for specified context.
@@ -83,9 +75,7 @@ def fill_template(
         raise TypeError("Template text specified as None to fill_template.")
     if not context:
         context = kwargs
-    if python_template_version is None:
-        python_template_version = Version("3")
-    elif isinstance(python_template_version, str):
+    if isinstance(python_template_version, str):
         python_template_version = Version(python_template_version)
     try:
         klass = Template.compile(source=template_text, compilerClass=compiler_class)

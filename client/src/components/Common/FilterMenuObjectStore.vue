@@ -2,11 +2,11 @@
 import { computed, ref, watch } from "vue";
 
 import { useSelectableObjectStores } from "@/composables/useObjectStores";
-import type { ValidFilter } from "@/utils/filtering";
+import { type ValidFilter } from "@/utils/filtering";
 
 import FilterObjectStoreLink from "./FilterObjectStoreLink.vue";
 
-type FilterType = string | undefined;
+type FilterType = string | boolean | undefined;
 
 interface Props {
     name: string;
@@ -30,25 +30,25 @@ watch(
     () => localValue.value,
     (newFilter: FilterType) => {
         emit("change", props.name, newFilter);
-    },
+    }
 );
 watch(
     () => propValue.value,
     (newFilter: FilterType) => {
         localValue.value = newFilter;
-    },
+    }
 );
 
 const { selectableObjectStores, hasSelectableObjectStores } = useSelectableObjectStores();
 
-function onChange(value: FilterType) {
-    localValue.value = value;
+function onChange(value: string | null) {
+    localValue.value = (value || undefined) as FilterType;
 }
 </script>
 
 <template>
     <div v-if="hasSelectableObjectStores">
         <small>Filter by storage source:</small>
-        <FilterObjectStoreLink :object-stores="selectableObjectStores || []" :value="localValue" @change="onChange" />
+        <FilterObjectStoreLink :object-stores="selectableObjectStores" :value="localValue" @change="onChange" />
     </div>
 </template>

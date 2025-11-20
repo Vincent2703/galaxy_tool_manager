@@ -1,20 +1,14 @@
 from abc import abstractmethod
 from enum import Enum
 from typing import (
-    Any,
     Dict,
     Optional,
     Tuple,
-    TYPE_CHECKING,
-    Union,
 )
 
 from galaxy.util.dictifiable import UsesDictVisibleKeys
 from galaxy.util.odict import odict
 from .parser import ensure_tool_conf_item
-
-if TYPE_CHECKING:
-    from galaxy.tools import Tool
 
 
 class panel_item_types(str, Enum):
@@ -28,7 +22,7 @@ class HasPanelItems:
     """ """
 
     @abstractmethod
-    def panel_items(self) -> "ToolPanelElements":
+    def panel_items(self):
         """Return an ordered dictionary-like object describing tool panel
         items (such as workflows, tools, labels, and sections).
         """
@@ -133,7 +127,7 @@ class ToolSection(UsesDictVisibleKeys, HasPanelItems):
 
         return section_dict
 
-    def panel_items(self) -> "ToolPanelElements":
+    def panel_items(self):
         return self.elems
 
 
@@ -160,8 +154,7 @@ class ToolSectionLabel(UsesDictVisibleKeys):
         return super()._dictify_view_keys()
 
 
-# TODO: replace Any with a Union of panel element types
-class ToolPanelElements(odict[str, Any], HasPanelItems):
+class ToolPanelElements(odict, HasPanelItems):
     """Represents an ordered dictionary of tool entries - abstraction
     used both by tool panel itself (normal and integrated) and its sections.
     """
@@ -171,12 +164,12 @@ class ToolPanelElements(odict[str, Any], HasPanelItems):
     def record_section_for_tool_id(self, tool_id: str, key: str, val: str):
         self._section_by_tool[tool_id] = (key, val)
 
-    def get_section_for_tool_id(self, tool_id: str) -> Union[Tuple[str, str], Tuple[None, None]]:
+    def get_section_for_tool_id(self, tool_id: str) -> Tuple[Optional[str], Optional[str]]:
         if tool_id in self._section_by_tool:
             return self._section_by_tool[tool_id]
         return (None, None)
 
-    def replace_tool_for_id(self, tool_id: str, new_tool: "Tool") -> None:
+    def replace_tool_for_id(self, tool_id: str, new_tool) -> None:
         tool_key = f"tool_{tool_id}"
         for key, val in self.items():
             if key == tool_key:
@@ -267,7 +260,7 @@ class ToolPanelElements(odict[str, Any], HasPanelItems):
     def append_section(self, key: str, section: ToolSection) -> None:
         self[key] = section
 
-    def panel_items(self) -> "ToolPanelElements":
+    def panel_items(self):
         return self
 
     def walk_sections(self):
@@ -301,7 +294,7 @@ class ToolPanelElements(odict[str, Any], HasPanelItems):
         the_copy.update(self)
         return the_copy
 
-    def has_item_recursive(self, item) -> bool:
+    def has_item_recursive(self, item):
         """Check panel and section elements for supplied item."""
         for value in self.values():
             if value == item:

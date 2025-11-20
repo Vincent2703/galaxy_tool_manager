@@ -13,7 +13,7 @@ try:
         OnedataRESTError,
     )
 except ImportError:
-    OnedataFileRESTClient = None  # type: ignore[assignment, misc, unused-ignore]
+    OnedataFileRESTClient = None
 
 from galaxy.util import (
     mapped_chars,
@@ -303,6 +303,6 @@ def _is_not_found_onedata_rest_error(ex):
             return True
 
         if ex.http_code == 400 and ex.category == "posix":
-            return isinstance(ex.details, dict) and ex.details["errno"] == "enoent"
+            return ex.details["errno"] == "enoent"
 
     return False

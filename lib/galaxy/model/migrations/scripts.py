@@ -1,7 +1,9 @@
 import os
 import sys
 from typing import (
+    List,
     Optional,
+    Tuple,
 )
 
 import alembic.config
@@ -66,7 +68,7 @@ def verify_database_is_initialized(db_url: str) -> None:
         engine.dispose()
 
 
-def get_configuration(argv: list[str], cwd: str) -> tuple[DatabaseConfig, DatabaseConfig, bool]:
+def get_configuration(argv: List[str], cwd: str) -> Tuple[DatabaseConfig, DatabaseConfig, bool]:
     """
     Return a 3-item-tuple with configuration values used for managing databases.
     """
@@ -76,7 +78,7 @@ def get_configuration(argv: list[str], cwd: str) -> tuple[DatabaseConfig, Databa
 
 def get_configuration_from_file(
     cwd: str, config_file: Optional[str] = None
-) -> tuple[DatabaseConfig, DatabaseConfig, bool]:
+) -> Tuple[DatabaseConfig, DatabaseConfig, bool]:
     if config_file is None:
         cwds = [cwd, os.path.join(cwd, CONFIG_DIR_NAME)]
         config_file = find_config_file(DEFAULT_CONFIG_NAMES, dirs=cwds)
@@ -101,7 +103,7 @@ def get_configuration_from_file(
     return (gxy_config, tsi_config, is_auto_migrate)
 
 
-def add_db_urls_to_command_arguments(argv: list[str], gxy_url: str, tsi_url: str) -> None:
+def add_db_urls_to_command_arguments(argv: List[str], gxy_url: str, tsi_url: str) -> None:
     _insert_x_argument(argv, f"{TSI}_url", tsi_url)
     _insert_x_argument(argv, f"{GXY}_url", gxy_url)
 
@@ -180,7 +182,7 @@ class LegacyManageDb:
         self._upgrade(gxy_db_url, GXY)
         self._upgrade(tsi_db_url, TSI)
 
-    def rename_config_argument(self, argv: list[str]) -> None:
+    def rename_config_argument(self, argv: List[str]) -> None:
         """
         Rename the optional config argument: we can't use '-c' because that option is used by Alembic.
         """

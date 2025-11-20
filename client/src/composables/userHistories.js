@@ -1,6 +1,5 @@
+import { useHistoryStore } from "stores/historyStore";
 import { computed, unref, watch } from "vue";
-
-import { useHistoryStore } from "@/stores/historyStore";
 
 export function useUserHistories(user) {
     const historyStore = useHistoryStore();
@@ -12,7 +11,7 @@ export function useUserHistories(user) {
                 await historyStore.loadHistories();
             }
         },
-        { immediate: true },
+        { immediate: true }
     );
 
     const currentHistoryId = computed(() => historyStore.currentHistoryId);

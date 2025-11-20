@@ -1,9 +1,10 @@
-<script setup lang="ts">
+<script setup>
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCaretDown } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BDropdown, BDropdownItemButton } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
-import { computed, type PropType, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 import { useUserFlagsStore } from "@/stores/userFlagsStore";
 
@@ -12,22 +13,15 @@ import FormRadio from "./FormRadio.vue";
 import FormSelect from "./FormSelect.vue";
 import FormSelectMany from "./FormSelectMany/FormSelectMany.vue";
 
-export interface SelectOption {
-    label: string;
-    value: any;
-}
+library.add(faCaretDown);
 
-const emit = defineEmits<{
-    (e: "input", value: any): void;
-}>();
-
+const emit = defineEmits(["input"]);
 const props = defineProps({
     value: {
-        type: null as unknown as PropType<any>,
         default: null,
     },
     data: {
-        type: Array as PropType<SelectOption[] | null>,
+        type: Array,
         default: null,
     },
     display: {
@@ -39,7 +33,7 @@ const props = defineProps({
         default: false,
     },
     options: {
-        type: Array as PropType<any[] | null>,
+        type: Array,
         default: null,
     },
     multiple: {
@@ -52,20 +46,20 @@ const currentValue = computed({
     get: () => {
         return props.value;
     },
-    set: (val: any) => {
+    set: (val) => {
         emit("input", val);
     },
 });
 
 /** Provides formatted select options. */
-const currentOptions = computed<SelectOption[]>(() => {
-    const result: SelectOption[] = [];
+const currentOptions = computed(() => {
+    let result = [];
     const data = props.data;
     const options = props.options;
     if (options && options.length > 0) {
-        result.push(...options.map((option) => ({ label: option[0], value: option[1] })));
+        result = options.map((option) => ({ label: option[0], value: option[1] }));
     } else if (data && data.length > 0) {
-        result.push(...data);
+        result = data;
     }
     if (!props.display && !props.multiple && props.optional) {
         result.unshift({
@@ -82,7 +76,7 @@ const { preferredFormSelectElement } = storeToRefs(useUserFlagsStore());
 
 watch(
     () => preferredFormSelectElement.value,
-    (newValue: string | undefined, oldValue: string | undefined) => {
+    (newValue, oldValue) => {
         if (oldValue !== undefined) {
             return;
         }
@@ -102,32 +96,24 @@ watch(
             useMany.value = false;
         }
     },
-    { immediate: true },
+    { immediate: true }
 );
 
 const showSelectPreference = computed(
-    () => props.multiple && props.display !== "checkboxes" && props.display !== "radio" && props.display !== "simple",
+    () => props.multiple && props.display !== "checkboxes" && props.display !== "radio"
 );
 
 const displayMany = computed(() => showSelectPreference.value && useMany.value);
 const showManyButton = computed(() => showSelectPreference.value && !useMany.value);
 const showMultiButton = computed(() => displayMany.value);
-
-defineExpose({
-    displayMany,
-});
 </script>
 
 <template>
-    <div class="form-selection">
+    <div>
         <FormCheck v-if="display === 'checkboxes'" v-model="currentValue" :options="currentOptions" />
         <FormRadio v-else-if="display === 'radio'" v-model="currentValue" :options="currentOptions" />
         <FormSelectMany v-else-if="displayMany" v-model="currentValue" :options="currentOptions" />
-        <FormSelect v-else v-model="currentValue" :multiple="multiple" :optional="optional" :options="currentOptions">
-            <template v-slot:no-options>
-                <slot name="no-options" />
-            </template>
-        </FormSelect>
+        <FormSelect v-else v-model="currentValue" :multiple="multiple" :optional="optional" :options="currentOptions" />
 
         <div v-if="showSelectPreference" class="d-flex">
             <button v-if="showManyButton" class="ui-link ml-1" @click="useMany = true">switch to column select</button>
@@ -137,7 +123,7 @@ defineExpose({
 
             <BDropdown toggle-class="inline-icon-button d-block px-1" variant="link" no-caret>
                 <template v-slot:button-content>
-                    <FontAwesomeIcon :icon="faCaretDown"></FontAwesomeIcon>
+                    <FontAwesomeIcon icon="fa-caret-down"></FontAwesomeIcon>
                     <span class="sr-only">select element preferences</span>
                 </template>
                 <BDropdownItemButton
@@ -159,11 +145,3 @@ defineExpose({
         </div>
     </div>
 </template>
-
-<style scoped lang="scss">
-.form-selection {
-    &:deep(.alert) {
-        margin-bottom: 0;
-    }
-}
-</style>

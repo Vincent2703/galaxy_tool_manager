@@ -4,6 +4,8 @@ import os
 import time
 from typing import (
     Any,
+    Dict,
+    List,
     Optional,
 )
 
@@ -45,7 +47,7 @@ class DataManagerHandler:
             return root.get("tool_path", None)
         return None
 
-    def _data_manager_config_elems_to_xml_file(self, config_elems: list[Element], config_filename: StrPath) -> None:
+    def _data_manager_config_elems_to_xml_file(self, config_elems: List[Element], config_filename: StrPath) -> None:
         """
         Persist the current in-memory list of config_elems to a file named by the value
         of config_filename.
@@ -66,13 +68,13 @@ class DataManagerHandler:
     def install_data_managers(
         self,
         shed_data_manager_conf_filename: StrPath,
-        metadata_dict: dict[str, Any],
-        shed_config_dict: dict[str, Any],
+        metadata_dict: Dict[str, Any],
+        shed_config_dict: Dict[str, Any],
         relative_install_dir: StrPath,
         repository,
         repository_tools_tups,
-    ) -> list["DataManagerInterface"]:
-        rval: list[DataManagerInterface] = []
+    ) -> List["DataManagerInterface"]:
+        rval: List[DataManagerInterface] = []
         if "data_manager" in metadata_dict:
             tpm = tool_panel_manager.ToolPanelManager(self.app)
             repository_tools_by_guid = {}

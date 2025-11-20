@@ -12,6 +12,7 @@ from galaxy.exceptions import (
 )
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.model import Group
+from galaxy.model.base import transaction
 from galaxy.model.scoped_session import galaxy_scoped_session
 from galaxy.schema.fields import Security
 from galaxy.schema.groups import (
@@ -98,7 +99,8 @@ class GroupsManager:
         group = self._get_group(trans.sa_session, group_id)
         group.deleted = True
         trans.sa_session.add(group)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
 
     def purge(self, trans: ProvidesAppContext, group_id: int):
         sa_session = trans.sa_session
@@ -115,7 +117,8 @@ class GroupsManager:
             sa_session.delete(gra)
         # Delete the group
         sa_session.delete(group)
-        sa_session.commit()
+        with transaction(sa_session):
+            sa_session.commit()
 
     def undelete(self, trans: ProvidesAppContext, group_id: int):
         group = self._get_group(trans.sa_session, group_id)
@@ -125,7 +128,8 @@ class GroupsManager:
             )
         group.deleted = False
         trans.sa_session.add(group)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
 
     def _url_for(self, trans, name, **kwargs):
         return trans.url_builder(name, **kwargs)

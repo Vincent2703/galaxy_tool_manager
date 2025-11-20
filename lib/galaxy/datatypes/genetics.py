@@ -17,7 +17,9 @@ import os
 import re
 import sys
 from typing import (
+    Dict,
     IO,
+    List,
     Optional,
     Union,
 )
@@ -47,9 +49,8 @@ from galaxy.util import (
     unicodify,
 )
 from galaxy.util.compression_utils import FileObjType
-from .util.generic_util import display_as_url
 
-log = logging.getLogger(__name__)
+gal_Log = logging.getLogger(__name__)
 verbose = False
 
 # https://genome.ucsc.edu/goldenpath/help/hgGenomeHelp.html
@@ -90,7 +91,7 @@ class GenomeGraphs(Tabular):
         """
         return open(dataset.get_file_name(), "rb")
 
-    def ucsc_links(self, dataset: DatasetProtocol, type: str, app, base_url: str) -> list:
+    def ucsc_links(self, dataset: DatasetProtocol, type: str, app, base_url: str) -> List:
         """
         from the ever-helpful angie hinrichs angie@soe.ucsc.edu
         a genome graphs call looks like this
@@ -120,7 +121,13 @@ class GenomeGraphs(Tabular):
                         action="display_at",
                         filename=f"ucsc_{site_name}",
                     )
-                    display_url = display_as_url(app, base_url, str(dataset.id), type)
+                    display_url = "%s%s/display_as?id=%i&display_app=%s&authz_method=display_at" % (
+                        base_url,
+                        app.url_for(controller="root"),
+                        dataset.id,
+                        type,
+                    )
+                    display_url = quote_plus(display_url)
                     # was display_url = quote_plus( "%s/display_as?id=%i&display_app=%s" % (base_url, dataset.id, type) )
                     # redirect_url = quote_plus( "%sdb=%s&position=%s:%s-%s&hgt.customText=%%s" % (site_url, dataset.dbkey, chrom, start, stop) )
                     sl = [
@@ -345,23 +352,23 @@ class Rgenetics(Html):
         super().set_meta(dataset, overwrite=overwrite, **kwd)
         if not overwrite:
             if verbose:
-                log.debug("@@@ rgenetics set_meta called with overwrite = False")
+                gal_Log.debug("@@@ rgenetics set_meta called with overwrite = False")
             return
         try:
             efp = dataset.extra_files_path
         except Exception:
             if verbose:
-                log.debug(f"@@@rgenetics set_meta failed {sys.exc_info()[0]} - dataset {dataset.name} has no efp ?")
+                gal_Log.debug(f"@@@rgenetics set_meta failed {sys.exc_info()[0]} - dataset {dataset.name} has no efp ?")
             return
         try:
             flist = os.listdir(efp)
         except Exception:
             if verbose:
-                log.debug(f"@@@rgenetics set_meta failed {sys.exc_info()[0]} - dataset {dataset.name} has no efp ?")
+                gal_Log.debug(f"@@@rgenetics set_meta failed {sys.exc_info()[0]} - dataset {dataset.name} has no efp ?")
             return
         if len(flist) == 0:
             if verbose:
-                log.debug(f"@@@rgenetics set_meta failed - {dataset.name} efp {efp} is empty?")
+                gal_Log.debug(f"@@@rgenetics set_meta failed - {dataset.name} efp {efp} is empty?")
             return
         self.regenerate_primary_file(dataset)
         if not dataset.info:
@@ -384,6 +391,16 @@ class SNPMatrix(Rgenetics):
         else:
             dataset.peek = "file does not exist"
             dataset.blurb = "file purged from disk"
+
+    def sniff(self, filename: str) -> bool:
+        """need to check the file header hex code"""
+        with open(filename, "b") as infile:
+            head = infile.read(16)
+        head = [hex(x) for x in head]
+        if head != "":
+            return False
+        else:
+            return True
 
 
 class Lped(Rgenetics):
@@ -651,7 +668,7 @@ class RexpBase(Html):
         """Returns the mime type of the datatype"""
         return "text/html"
 
-    def get_phecols(self, phenolist: list, maxConc: int = 20) -> list:
+    def get_phecols(self, phenolist: List, maxConc: int = 20) -> List:
         """
         sept 2009: cannot use whitespace to split - make a more complex structure here
         and adjust the methods that rely on this structure
@@ -672,16 +689,13 @@ class RexpBase(Html):
             if nrows == 0:  # set up from header
                 head = row
                 totcols = len(row)
-                concordance: list[dict] = [{} for x in head]
+                concordance: List[Dict] = [{} for x in head]
             else:
                 for col, code in enumerate(row):  # keep column order correct
                     if col >= totcols:
-                        log.warning(
-                            "### get_phecols error in pheno file - row %d col %d (%s) longer than header %s",
-                            nrows,
-                            col,
-                            row,
-                            head,
+                        gal_Log.warning(
+                            "### get_phecols error in pheno file - row %d col %d (%s) longer than header %s"
+                            % (nrows, col, row, head)
                         )
                     else:
                         concordance[col].setdefault(code, 0)  # first one is zero
@@ -834,7 +848,7 @@ class RexpBase(Html):
             flist = os.listdir(dataset.extra_files_path)
         except Exception:
             if verbose:
-                log.debug("@@@rexpression set_meta failed - no dataset?")
+                gal_Log.debug("@@@rexpression set_meta failed - no dataset?")
             return
         bn = dataset.metadata.base_name
         if not bn:

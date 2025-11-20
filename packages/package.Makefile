@@ -13,7 +13,6 @@ PROJECT_NAME?=galaxy-$(shell basename $(CURDIR))
 PROJECT_NAME:=$(subst _,-,$(PROJECT_NAME))
 BRANCH?=$(shell git rev-parse --abbrev-ref HEAD)
 TEST_DIR?=tests
-DIST=dist
 TESTS?=$(SOURCE_DIR) $(TEST_DIR)
 
 .PHONY: clean-pyc clean-build docs clean
@@ -44,50 +43,23 @@ clean-tests:
 	rm -fr .tox/
 
 setup-venv:
-	uv sync --all-extras
+	if [ ! -d $(VENV) ]; then virtualenv $(VENV); exit; fi;
+	$(IN_VENV) pip install -r dev-requirements.txt
 
-_test: 
-	uv run pytest $(TESTS)
+test:
+	$(IN_VENV) pytest $(TESTS)
 
-test: setup-venv _test
+develop:
+	python setup.py develop
 
-_dist:
-	uv build --out-dir $(DIST)
-	ls -l $(DIST)
-
-dist: setup-venv clean _dist
-
-_setup-mypy-venv: setup-venv
-	uv pip install -r ../../lib/galaxy/dependencies/pinned-typecheck-requirements.txt
-
-_mypy:
-	uv run mypy .
-
-mypy: _setup-mypy-venv _mypy
+dist: clean
+	$(IN_VENV) python -m build
+	ls -l dist
 
 _twine-exists: ; @which twine > /dev/null
 
-_setup-lint-venv: setup-venv
-	uv pip install -r ../../lib/galaxy/dependencies/pinned-lint-requirements.txt
-
-_lint:
-	uv run ruff check .
-
-lint: _setup-lint-venv _lint
-
 lint-dist: _twine-exists dist
 	$(IN_VENV) twine check dist/*
-
-# black doesn't actually work on symlinked files because they are outside
-# the current directory
-
-#_setup-format-venv: setup-venv
-#	uv pip install isort black
-#_isort:
-#	uv run isort --sp ../../.isort.cfg . 
-#_black:
-#	uv run black --config ../pyproject.toml .
-#format: _setup-format-venv _isort _black
 
 _release-test-artifacts:
 	$(IN_VENV) twine upload -r test dist/*
@@ -119,3 +91,6 @@ push-release:
 	echo "Makefile doesn't manually push release."
 
 release: release-local push-release
+
+mypy:
+	mypy .

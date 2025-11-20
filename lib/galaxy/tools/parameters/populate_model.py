@@ -1,6 +1,8 @@
 import logging
 from typing import (
     Any,
+    Dict,
+    List,
 )
 
 from galaxy.util.expressions import ExpressionContext
@@ -9,7 +11,7 @@ from .basic import ImplicitConversionRequired
 log = logging.getLogger(__name__)
 
 
-def populate_model(request_context, inputs, state_inputs, group_inputs: list[dict[str, Any]], other_values=None):
+def populate_model(request_context, inputs, state_inputs, group_inputs: List[Dict[str, Any]], other_values=None):
     """
     Populates the tool model consumed by the client form builder.
     """
@@ -21,7 +23,7 @@ def populate_model(request_context, inputs, state_inputs, group_inputs: list[dic
             tool_dict = input.to_dict(request_context)
             group_size = len(group_state)
             tool_dict["cache"] = [None] * group_size
-            group_cache: list[list[dict[str, Any]]] = tool_dict["cache"]
+            group_cache: List[List[Dict[str, Any]]] = tool_dict["cache"]
             for i in range(group_size):
                 group_cache[i] = []
                 populate_model(request_context, input.inputs, group_state[i], group_cache[i], other_values)

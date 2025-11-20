@@ -3,28 +3,26 @@
         <b-alert :show="messageVisible" :variant="messageVariant"> {{ messageText }} </b-alert>
         <div v-if="itemsVisible" class="card-header">
             There are {{ itemsLength }}
-            <GButton
-                size="small"
-                tooltip
-                tooltip-placement="bottom"
+            <b-button
+                size="sm"
                 :disabled="busy"
                 :title="tooltipAll"
+                data-placement="bottom"
                 @click.prevent="executeAll()">
                 <span :class="icon" />
-            </GButton>
+            </b-button>
             {{ plural }} available.
         </div>
         <b-table v-if="itemsVisible" striped no-sort-reset :fields="fields" :items="items">
             <template v-slot:cell(execute)="data">
-                <GButton
-                    size="small"
-                    tooltip
-                    tooltip-placement="bottom"
+                <b-button
+                    size="sm"
                     :disabled="busy"
                     :title="tooltip"
+                    data-placement="bottom"
                     @click.prevent="execute([data.item.id])">
                     <span :class="icon" />
-                </GButton>
+                </b-button>
             </template>
             <template v-slot:cell(links)="data">
                 <li v-for="link in data.item.links" :key="link.name">
@@ -34,17 +32,13 @@
         </b-table>
     </div>
 </template>
-
 <script>
 import BootstrapVue from "bootstrap-vue";
 import Vue from "vue";
 
-import GButton from "@/components/BaseComponents/GButton.vue";
-
 Vue.use(BootstrapVue);
 
 export default {
-    components: { GButton },
     props: {
         icon: {
             type: String,

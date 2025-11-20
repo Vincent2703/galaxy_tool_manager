@@ -24,9 +24,9 @@
                 </b-row>
                 <b-row>
                     <b-col>
-                        <GButton :pressed.sync="showCommandLine" outline>
+                        <b-button :pressed.sync="showCommandLine" variant="outline-secondary">
                             {{ showCommandLine ? "Hide" : "Show" }} Command Line
-                        </GButton>
+                        </b-button>
                     </b-col>
                 </b-row>
             </b-container>
@@ -39,32 +39,31 @@
                 responsive
                 striped>
                 <template v-slot:cell(actions)="row">
-                    <GButtonGroup>
-                        <GButton tooltip title="Rerun" target="_top" :href="jobs[row.index]['runUrl']">
+                    <b-button-group>
+                        <b-button v-b-tooltip.hover title="Rerun" target="_top" :href="jobs[row.index]['runUrl']">
                             <span class="fa fa-redo" />
-                        </GButton>
-                        <GButton
+                        </b-button>
+                        <b-button
                             :id="'job-' + jobs[row.index]['encId']"
-                            tooltip
+                            v-b-tooltip.hover
                             title="View Info"
                             :to="{ name: 'DataManagerJob', params: { id: jobs[row.index]['encId'] } }">
                             <span class="fa fa-info-circle" />
-                        </GButton>
-                        <GButton
+                        </b-button>
+                        <b-button
                             v-if="!showCommandLine"
-                            outline
                             :pressed.sync="row.detailsShowing"
                             @click.stop="row.toggleDetails()">
                             {{ row.detailsShowing ? "Hide" : "Show" }} Command Line
-                        </GButton>
-                    </GButtonGroup>
+                        </b-button>
+                    </b-button-group>
                 </template>
                 <template v-slot:row-details="row">
                     <b-card>
                         <h2 class="h-text">Command Line</h2>
                         <pre class="code"><code class="command-line">{{ row.item.commandLine }}</code></pre>
                         <template v-slot:footer>
-                            <GButton class="mt-3" @click="row.toggleDetails"> Hide Info </GButton>
+                            <b-button class="mt-3" @click="row.toggleDetails">Hide Info</b-button>
                         </template>
                     </b-card>
                 </template>
@@ -75,18 +74,13 @@
 
 <script>
 import axios from "axios";
+import { getAppRoot } from "onload/loadConfig";
 
-import { getAppRoot } from "@/onload/loadConfig";
-
-import Alert from "@/components/Alert.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
-import GButtonGroup from "@/components/BaseComponents/GButtonGroup.vue";
+import Alert from "components/Alert.vue";
 
 export default {
     components: {
         Alert,
-        GButton,
-        GButtonGroup,
     },
     props: {
         id: {

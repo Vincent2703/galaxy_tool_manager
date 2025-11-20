@@ -4,6 +4,7 @@ from functools import wraps
 from typing import (
     Any,
     Callable,
+    Dict,
     Optional,
 )
 from urllib.parse import urljoin
@@ -93,7 +94,7 @@ class ShedApiInteractor:
         api_version = config.get("api_version", "v1")
         return api_version
 
-    def version(self) -> dict[str, Any]:
+    def version(self) -> Dict[str, Any]:
         response = self.get("version")
         response.raise_for_status()
         return response.json()
@@ -103,7 +104,7 @@ class ShedApiInteractor:
         return self.url
 
 
-def create_user(admin_interactor: ShedApiInteractor, user_dict: dict[str, Any], assert_ok=True) -> dict[str, Any]:
+def create_user(admin_interactor: ShedApiInteractor, user_dict: Dict[str, Any], assert_ok=True) -> Dict[str, Any]:
     email = user_dict["email"]
     if "password" not in user_dict:
         user_dict["password"] = "testpass"
@@ -117,7 +118,7 @@ def create_user(admin_interactor: ShedApiInteractor, user_dict: dict[str, Any], 
 
 def ensure_user_with_email(
     admin_api_interactor: ShedApiInteractor, email: str, password: Optional[str]
-) -> dict[str, Any]:
+) -> Dict[str, Any]:
     all_users_response = admin_api_interactor.get("users")
     try:
         all_users_response.raise_for_status()

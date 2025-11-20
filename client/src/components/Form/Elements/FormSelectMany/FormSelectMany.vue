@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faLongArrowAltLeft, faLongArrowAltRight, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { refDebounced } from "@vueuse/core";
-import { BFormInput } from "bootstrap-vue";
+import { BButton, BFormInput } from "bootstrap-vue";
 import { computed, nextTick, type PropType, reactive, ref, type UnwrapRef } from "vue";
 
 import { useUid } from "@/composables/utils/uid";
@@ -11,7 +12,7 @@ import { useHighlight } from "./useHighlight";
 import { filterOptions } from "./worker/filterOptions";
 import { useSelectMany } from "./worker/selectMany";
 
-import GButton from "@/components/BaseComponents/GButton.vue";
+library.add(faLongArrowAltLeft, faLongArrowAltRight, faTimes);
 
 type SelectValue = Record<string, unknown> | string | number | null;
 
@@ -108,7 +109,7 @@ const workerRunning = refDebounced(running, 400);
 function handleHighlight(
     event: MouseEvent | KeyboardEvent,
     index: number,
-    highlightHandler: UnwrapRef<ReturnType<typeof useHighlight>>,
+    highlightHandler: UnwrapRef<ReturnType<typeof useHighlight>>
 ) {
     if (event.shiftKey && event.ctrlKey) {
         highlightHandler.rangeRemoveHighlight(index);
@@ -320,30 +321,28 @@ const selectedCount = computed(() => {
                     :class="{ hidden: searchValue === '' }"
                     title="Clear search"
                     @click="searchValue = ''">
-                    <FontAwesomeIcon :icon="faTimes" />
+                    <FontAwesomeIcon icon="fa-times" />
                 </button>
             </fieldset>
 
-            <GButton
+            <BButton
                 class="toggle-button case-sensitivity"
-                outline
-                color="blue"
-                :pressed.sync="caseSensitive"
-                :aria-pressed="`${caseSensitive}`"
+                :variant="caseSensitive ? 'primary' : 'outline-primary'"
                 role="switch"
-                title="case sensitive">
+                :aria-checked="`${caseSensitive}`"
+                title="case sensitive"
+                @click="caseSensitive = !caseSensitive">
                 Aa
-            </GButton>
-            <GButton
+            </BButton>
+            <BButton
                 class="toggle-button use-regex"
-                outline
-                color="blue"
-                :pressed.sync="useRegex"
-                :aria-pressed="`${useRegex}`"
+                :variant="useRegex ? 'primary' : 'outline-primary'"
                 role="switch"
-                title="use regex">
+                :aria-checked="`${useRegex}`"
+                title="use regex"
+                @click="useRegex = !useRegex">
                 .*
-            </GButton>
+            </BButton>
         </fieldset>
 
         <div class="options-box border rounded mt-2">
@@ -351,17 +350,11 @@ const selectedCount = computed(() => {
                 <span>
                     Unselected
                     <span class="font-weight-normal unselected-count"> ({{ unselectedCount }}) </span>
-                    <slot name="column-heading-end" />
                 </span>
-                <GButton
-                    class="selection-button select"
-                    data-description="select many select all"
-                    :title="selectText"
-                    color="blue"
-                    @click="selectAll">
+                <BButton class="selection-button select" :title="selectText" variant="primary" @click="selectAll">
                     {{ selectText }}
-                    <FontAwesomeIcon :icon="faLongArrowAltRight" />
-                </GButton>
+                    <FontAwesomeIcon icon="fa-long-arrow-alt-right" />
+                </BButton>
             </div>
 
             <div
@@ -377,7 +370,7 @@ const selectedCount = computed(() => {
                     :class="{ highlighted: highlightUnselected.highlightedIndexes.includes(i) }"
                     @click="(e) => selectOption(e, i)"
                     @keydown="(e) => optionOnKey('unselected', e, i)">
-                    <slot name="label-area" v-bind="{ option, selected: false }">
+                    <slot name="label-area" v-bind="option">
                         {{ option.label }}
                     </slot>
                 </button>
@@ -391,12 +384,11 @@ const selectedCount = computed(() => {
                 <span>
                     Selected
                     <span class="font-weight-normal selected-count"> ({{ selectedCount }}) </span>
-                    <slot name="column-heading-end" />
                 </span>
-                <GButton class="selection-button deselect" :title="deselectText" color="blue" @click="deselectAll">
-                    <FontAwesomeIcon :icon="faLongArrowAltLeft" />
+                <BButton class="selection-button deselect" :title="deselectText" variant="primary" @click="deselectAll">
+                    <FontAwesomeIcon icon="fa-long-arrow-alt-left" />
                     {{ deselectText }}
-                </GButton>
+                </BButton>
             </div>
 
             <div
@@ -412,7 +404,7 @@ const selectedCount = computed(() => {
                     :class="{ highlighted: highlightSelected.highlightedIndexes.includes(i) }"
                     @click="(e) => deselectOption(e, i)"
                     @keydown="(e) => optionOnKey('selected', e, i)">
-                    <slot name="label-area" v-bind="{ option, selected: true }">
+                    <slot name="label-area" v-bind="option">
                         {{ option.label }}
                     </slot>
                 </button>
@@ -431,7 +423,7 @@ const selectedCount = computed(() => {
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .form-select-many {
     .search-bar {
@@ -474,7 +466,6 @@ const selectedCount = computed(() => {
     }
 
     .toggle-button {
-        display: block;
         padding-left: 0;
         padding-right: 0;
     }

@@ -4,25 +4,22 @@ import shutil
 import tempfile
 from math import isinf
 from typing import (
+    cast,
+    List,
     Optional,
-    Sequence,
     Type,
     TypeVar,
 )
 
 from galaxy.tool_util.parser.factory import get_tool_source
-from galaxy.tool_util.parser.output_objects import from_tool_source
-from galaxy.tool_util.unittest_utils import functional_test_tool_path
-from galaxy.tool_util_models.tool_outputs import (
+from galaxy.tool_util.parser.output_models import (
+    from_tool_source,
     ToolOutput,
     ToolOutputCollection,
     ToolOutputDataset,
 )
+from galaxy.tool_util.unittest_utils import functional_test_tool_path
 from galaxy.util import galaxy_directory
-from galaxy.util.resources import (
-    as_file,
-    resource_path,
-)
 from galaxy.util.unittest import TestCase
 
 TOOL_XML_1 = """
@@ -53,11 +50,6 @@ TOOL_XML_1 = """
         <resource type="cuda_device_count_min">1</resource>
         <resource type="cuda_device_count_max">2</resource>
         <resource type="shm_size">67108864</resource>
-        <credentials name="Apollo" version="gmod.org/apollo" label="Apollo credential set" description="Please provide credentials for Apollo">
-            <variable name="server" inject_as_env="apollo_url" optional="true" label="Your Apollo server" description="URL of your Apollo server" />
-            <secret name="username" inject_as_env="apollo_user" optional="true" label="Your Apollo username" description="Username for Apollo" />
-            <secret name="password" inject_as_env="apollo_pass" optional="true" label="Your Apollo password" description="Password for Apollo" />
-        </credentials>
     </requirements>
     <outputs>
         <data name="out1" format="bam" from_work_dir="out1.bam" />
@@ -167,26 +159,6 @@ requirements:
 containers:
   - type: docker
     identifier: "awesome/bowtie"
-credentials:
-  - name: Apollo
-    version: gmod.org/apollo
-    secrets:
-      - name: username
-        label: Your Apollo username
-        description: Username for Apollo
-        inject_as_env: apollo_user
-        optional: true
-      - name: password
-        label: Your Apollo password
-        description: Password for Apollo
-        inject_as_env: apollo_pass
-        optional: true
-    variables:
-      - name: server
-        label: Your Apollo server
-        description: URL of your Apollo server
-        inject_as_env: apollo_url
-        optional: true
 outputs:
   out1:
     format: bam
@@ -290,7 +262,7 @@ class BaseLoaderTestCase(TestCase):
         return self._get_tool_source()
 
     @property
-    def _output_models(self) -> Sequence[ToolOutput]:
+    def _output_models(self) -> List[ToolOutput]:
         return from_tool_source(self._tool_source)
 
     def _get_tool_source(self, source_file_name=None, source_contents=None, macro_contents=None):
@@ -375,7 +347,7 @@ class TestXmlLoader(BaseLoaderTestCase):
         assert self._tool_source.parse_action_module() is None
 
     def test_requirements(self):
-        requirements, containers, resource_requirements, _, credentials = self._tool_source.parse_requirements()
+        requirements, containers, resource_requirements = self._tool_source.parse_requirements_and_containers()
         assert requirements[0].type == "package"
         assert list(containers)[0].identifier == "mycool/bwa"
         assert resource_requirements[0].resource_type == "cores_min"
@@ -386,10 +358,6 @@ class TestXmlLoader(BaseLoaderTestCase):
         assert resource_requirements[5].resource_type == "cuda_device_count_max"
         assert resource_requirements[6].resource_type == "shm_size"
         assert not resource_requirements[0].runtime_required
-        assert credentials[0].name == "Apollo"
-        assert credentials[0].version == "gmod.org/apollo"
-        assert len(credentials[0].secrets) == 2
-        assert len(credentials[0].variables) == 1
 
     def test_outputs(self):
         outputs, output_collections = self._tool_source.parse_outputs(object())
@@ -449,7 +417,7 @@ class TestXmlLoader(BaseLoaderTestCase):
 
     def test_xrefs(self):
         xrefs = self._tool_source.parse_xrefs()
-        assert xrefs == [{"value": "bwa", "type": "bio.tools"}]
+        assert xrefs == [{"value": "bwa", "reftype": "bio.tools"}]
 
     def test_exit_code(self):
         tool_source = self._get_tool_source(
@@ -565,9 +533,7 @@ class TestYamlLoader(BaseLoaderTestCase):
         assert self._tool_source.parse_action_module() is None
 
     def test_requirements(self):
-        software_requirements, containers, resource_requirements, _, credentials = (
-            self._tool_source.parse_requirements()
-        )
+        software_requirements, containers, resource_requirements = self._tool_source.parse_requirements_and_containers()
         assert software_requirements.to_dict() == [{"name": "bwa", "type": "package", "version": "1.0.1", "specs": []}]
         assert len(containers) == 1
         assert containers[0].to_dict() == {
@@ -596,9 +562,6 @@ class TestYamlLoader(BaseLoaderTestCase):
             "resource_type": "shm_size",
             "value_or_expression": 67108864,
         }
-        assert len(credentials) == 1
-        assert len(credentials[0].secrets) == 2
-        assert len(credentials[0].variables) == 1
 
     def test_outputs(self):
         outputs, output_collections = self._tool_source.parse_outputs(object())
@@ -660,7 +623,7 @@ class TestYamlLoader(BaseLoaderTestCase):
 
     def test_xrefs(self):
         xrefs = self._tool_source.parse_xrefs()
-        assert xrefs == [{"value": "bwa", "type": "bio.tools"}]
+        assert xrefs == [{"value": "bwa", "reftype": "bio.tools"}]
 
     def test_sanitize(self):
         assert self._tool_source.parse_sanitize() is True
@@ -985,23 +948,6 @@ class TestCollectionCatGroupTag(FunctionalTestToolTestCase):
         assert output_dataset_model.metadata_source == "input1"
 
 
-def test_old_invalid_citation_dont_cause_failure_to_load():
-    with as_file(resource_path(__name__, "invalid_citation.xml")) as tool_path:
-        tool_source = get_tool_source(tool_path)
-    assert tool_source.parse_citations() == []
-
-
-def test_invalid_citation_not_allowed_in_modern_tools():
-    with as_file(resource_path(__name__, "invalid_citation_24.2.xml")) as tool_path:
-        tool_source = get_tool_source(tool_path)
-    exc = None
-    try:
-        tool_source.parse_citations()
-    except Exception as e:
-        exc = e
-    assert exc is not None
-
-
 class TestToolProvidedMetadata2(FunctionalTestToolTestCase):
     test_path = "tool_provided_metadata_2.xml"
 
@@ -1025,4 +971,4 @@ T = TypeVar("T")
 
 def assert_output_model_of_type(obj, clazz: Type[T]) -> T:
     assert isinstance(obj, clazz)
-    return obj
+    return cast(T, obj)

@@ -2,8 +2,12 @@ import logging
 from typing import (
     Any,
     cast,
+    Dict,
+    List,
     Literal,
     Optional,
+    Set,
+    Tuple,
     Union,
 )
 from uuid import uuid4
@@ -34,6 +38,7 @@ from galaxy.files.plugins import (
 from galaxy.files.sources import (
     BaseFilesSource,
     file_source_type_is_browsable,
+    FilesSourceProperties,
     PluginKind,
     SupportsBrowsing,
 )
@@ -119,8 +124,8 @@ class UserFileSourceModel(BaseModel):
     type: FileSourceTemplateType
     template_id: str
     template_version: int
-    variables: Optional[dict[str, TemplateVariableValueType]]
-    secrets: list[str]
+    variables: Optional[Dict[str, TemplateVariableValueType]]
+    secrets: List[str]
 
 
 class UserDefinedFileSourcesConfig(BaseModel):
@@ -227,7 +232,7 @@ class FileSourceInstancesManager:
         redirect_uri = f"{galaxy_root}/oauth2_callback"
         return redirect_uri
 
-    def index(self, trans: ProvidesUserContext) -> list[UserFileSourceModel]:
+    def index(self, trans: ProvidesUserContext) -> List[UserFileSourceModel]:
         stores = self._sa_session.query(UserFileSource).filter(UserFileSource.user_id == trans.user.id).all()
         return [self._to_model(trans, s) for s in stores]
 
@@ -406,7 +411,7 @@ class FileSourceInstancesManager:
         trans: ProvidesUserContext,
         payload: CanTestPluginStatus,
         template: FileSourceTemplate,
-    ) -> tuple[Optional[TemplateParameters], Optional[PluginAspectStatus]]:
+    ) -> Tuple[Optional[TemplateParameters], Optional[PluginAspectStatus]]:
         template_server_configuration = self._resolver.template_server_configuration(
             trans.user, template.id, template.version
         )
@@ -429,7 +434,7 @@ class FileSourceInstancesManager:
         payload: CanTestPluginStatus,
         template: FileSourceTemplate,
         template_parameters: TemplateParameters,
-    ) -> tuple[Optional[FileSourceConfiguration], PluginAspectStatus]:
+    ) -> Tuple[Optional[FileSourceConfiguration], PluginAspectStatus]:
         configuration = None
         exception = None
         try:
@@ -440,7 +445,7 @@ class FileSourceInstancesManager:
 
     def _connection_status(
         self, trans: ProvidesUserContext, target: CanTestPluginStatus, configuration: FileSourceConfiguration
-    ) -> tuple[Optional[BaseFilesSource], PluginAspectStatus]:
+    ) -> Tuple[Optional[BaseFilesSource], PluginAspectStatus]:
         file_source = None
         exception = None
         if isinstance(target, (UpgradeTestTarget, UpdateTestTarget)):
@@ -558,7 +563,7 @@ class UserDefinedFileSourcesImpl(UserDefinedFileSources):
         user_object_store: UserFileSource = self._sa_session.query(UserFileSource).filter(index_filter).one()
         return user_object_store
 
-    def _file_source_properties_from_uri(self, uri: str) -> Optional[dict[str, Any]]:
+    def _file_source_properties_from_uri(self, uri: str) -> Optional[FilesSourceProperties]:
         user_file_source = self._user_file_source(uri)
         if not user_file_source:
             return None
@@ -566,7 +571,7 @@ class UserDefinedFileSourcesImpl(UserDefinedFileSources):
             return None
         return self._file_source_properties(user_file_source)
 
-    def _file_source_properties(self, user_file_source: UserFileSource) -> dict[str, Any]:
+    def _file_source_properties(self, user_file_source: UserFileSource) -> FilesSourceProperties:
         secrets = recover_secrets(user_file_source, self._app_vault, self._app_config)
         environment = prepare_environment(user_file_source, self._app_vault, self._app_config)
         template_server_configuration = self.template_server_configuration(
@@ -604,20 +609,20 @@ class UserDefinedFileSourcesImpl(UserDefinedFileSources):
         file_source = self._file_source(files_source_properties)
         return FileSourceScore(file_source, len(url))
 
-    def _file_source(self, files_source_properties: dict[str, Any]) -> BaseFilesSource:
-        plugin_source = plugin_source_from_dict([files_source_properties])
+    def _file_source(self, files_source_properties: FilesSourceProperties) -> BaseFilesSource:
+        plugin_source = plugin_source_from_dict([cast(Dict[str, Any], files_source_properties)])
         file_source = self._plugin_loader.load_plugins(
             plugin_source,
             self._file_sources_config,
         )[0]
         return file_source
 
-    def _all_user_file_source_properties(self, user_context: FileSourcesUserContext) -> list[dict[str, Any]]:
+    def _all_user_file_source_properties(self, user_context: FileSourcesUserContext) -> List[FilesSourceProperties]:
         username_filter = User.__table__.c.username == user_context.username
         user: Optional[User] = self._sa_session.query(User).filter(username_filter).one_or_none()
         if user is None:
             return []
-        all_file_source_properties: list[dict[str, Any]] = []
+        all_file_source_properties: List[FilesSourceProperties] = []
         for user_file_source in user.file_sources:
             if user_file_source.hidden:
                 continue
@@ -625,12 +630,6 @@ class UserDefinedFileSourcesImpl(UserDefinedFileSources):
                 files_source_properties = self._file_source_properties(user_file_source)
             except ValidationError:
                 log.warning(f"Problem validating user_file_source {user_file_source.uuid}, skipping load.")
-                continue
-            except Exception:
-                log.exception(
-                    f"Problem loading user_file_source {user_file_source.uuid}, skipping load and deactivating file source."
-                )
-                user_file_source.active = False
                 continue
             all_file_source_properties.append(files_source_properties)
         return all_file_source_properties
@@ -665,23 +664,22 @@ class UserDefinedFileSourcesImpl(UserDefinedFileSources):
         for_serialization: bool,
         user_context: FileSourcesUserContext,
         browsable_only: Optional[bool] = False,
-        include_kind: Optional[set[PluginKind]] = None,
-        exclude_kind: Optional[set[PluginKind]] = None,
-    ) -> list[dict[str, Any]]:
+        include_kind: Optional[Set[PluginKind]] = None,
+        exclude_kind: Optional[Set[PluginKind]] = None,
+    ) -> List[FilesSourceProperties]:
         """Write out user file sources as list of config dictionaries."""
         if user_context.anonymous:
             return []
 
         as_dicts = []
         for files_source_properties in self._all_user_file_source_properties(user_context):
-            files_source_type = files_source_properties["type"]
-            plugin_type_class = self._plugin_loader.get_plugin_type_class(files_source_type)
-            plugin_kind = plugin_type_class.plugin_kind
+            plugin_kind = PluginKind.rfs
             if include_kind and plugin_kind not in include_kind:
                 continue
             if exclude_kind and plugin_kind in exclude_kind:
                 continue
-            is_browsable = file_source_type_is_browsable(plugin_type_class)
+            files_source_type = files_source_properties["type"]
+            is_browsable = file_source_type_is_browsable(self._plugin_loader.get_plugin_type_class(files_source_type))
             if browsable_only and not is_browsable:
                 continue
             file_source = self._file_source(files_source_properties)
@@ -696,8 +694,8 @@ def configuration_to_file_source_properties(
     label: str,
     doc: Optional[str],
     id: str,
-) -> dict[str, Any]:
-    file_source_properties = file_source_configuration.model_dump()
+) -> FilesSourceProperties:
+    file_source_properties = cast(FilesSourceProperties, file_source_configuration.model_dump())
     file_source_properties["label"] = label
     file_source_properties["doc"] = doc
     file_source_properties["id"] = id

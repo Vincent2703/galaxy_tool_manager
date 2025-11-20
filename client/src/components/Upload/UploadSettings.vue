@@ -1,14 +1,17 @@
 <script setup>
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCog } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 import UploadOption from "./UploadOption.vue";
 import Popper from "@/components/Popper/Popper.vue";
 
+library.add(faCog);
+
 defineProps({
     deferred: {
         type: Boolean,
-        default: undefined,
+        default: null,
     },
     disabled: {
         type: Boolean,
@@ -28,9 +31,9 @@ const emit = defineEmits(["input"]);
 </script>
 
 <template>
-    <Popper placement="bottom" title="Upload Configuration" mode="primary-title" trigger="click">
+    <Popper placement="bottom" title="Upload Configuration" mode="primary-title" trigger="click-to-open">
         <template v-slot:reference>
-            <FontAwesomeIcon class="cursor-pointer" :icon="faCog" />
+            <FontAwesomeIcon class="cursor-pointer" icon="fa-cog" />
         </template>
         <div class="upload-settings-content px-2 py-2 no-highlight">
             <table class="upload-settings-table grid">
@@ -46,7 +49,7 @@ const emit = defineEmits(["input"]);
                         :value="toPosixLines"
                         @click="emit('input', 'toPosixLines')" />
                     <UploadOption
-                        v-if="deferred !== undefined"
+                        v-if="deferred !== null"
                         class="upload-deferred"
                         title="Defer dataset resolution"
                         :value="deferred"
@@ -59,7 +62,7 @@ const emit = defineEmits(["input"]);
 </template>
 
 <style lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 .upload-settings-content {
     position: relative;
     .upload-settings-cover {

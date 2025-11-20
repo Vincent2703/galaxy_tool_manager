@@ -1,13 +1,13 @@
 import { defineStore } from "pinia";
 import { computed, set } from "vue";
 
-import { type HDADetailed, type HistoryContentItemBase, isInaccessible } from "@/api";
+import { type DatasetEntry, type HistoryContentItemBase, isInaccessible } from "@/api";
 import { fetchDatasetDetails } from "@/api/datasets";
 import { useKeyedCache } from "@/composables/keyedCache";
 
 export const useDatasetStore = defineStore("datasetStore", () => {
     const shouldFetch = computed(() => {
-        return (dataset?: HDADetailed) => {
+        return (dataset?: DatasetEntry) => {
             if (!dataset) {
                 return true;
             }
@@ -19,15 +19,15 @@ export const useDatasetStore = defineStore("datasetStore", () => {
         };
     });
 
-    const { storedItems, getItemById, getItemLoadError, isLoadingItem, fetchItemById } = useKeyedCache<HDADetailed>(
+    const { storedItems, getItemById, isLoadingItem, fetchItemById } = useKeyedCache<DatasetEntry>(
         fetchDatasetDetails,
-        shouldFetch,
+        shouldFetch
     );
 
     function saveDatasets(historyContentsPayload: HistoryContentItemBase[]) {
         const datasetList = historyContentsPayload.filter(
-            (entry) => entry.history_content_type === "dataset",
-        ) as HDADetailed[];
+            (entry) => entry.history_content_type === "dataset"
+        ) as DatasetEntry[];
         for (const dataset of datasetList) {
             set(storedItems.value, dataset.id, dataset);
         }
@@ -36,7 +36,6 @@ export const useDatasetStore = defineStore("datasetStore", () => {
     return {
         storedDatasets: storedItems,
         getDataset: getItemById,
-        getDatasetError: getItemLoadError,
         isLoadingDataset: isLoadingItem,
         fetchDataset: fetchItemById,
         saveDatasets,

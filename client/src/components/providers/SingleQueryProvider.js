@@ -1,6 +1,5 @@
 import hash from "object-hash";
-
-import { LastQueue } from "@/utils/lastQueue";
+import { LastQueue } from "utils/lastQueue";
 
 import { HasAttributesMixin } from "./utils";
 
@@ -102,7 +101,7 @@ export const SingleQueryProvider = (lookup, stopRefresh = (result) => false) => 
                         this.error = err;
                         this.$emit("error", err);
                         console.debug("Failed to fulfill promise.", err);
-                    },
+                    }
                 );
             },
         },

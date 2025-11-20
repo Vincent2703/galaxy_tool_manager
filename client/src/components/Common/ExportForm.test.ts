@@ -10,7 +10,7 @@ describe("ExportForm.vue", () => {
     let wrapper: any;
 
     beforeEach(async () => {
-        wrapper = mount(ExportForm as object, {
+        wrapper = mount(ExportForm, {
             propsData: {},
             localVue,
         });
@@ -75,12 +75,12 @@ describe("ExportForm.vue", () => {
 
     function expectExportButtonDisabled() {
         expect(wrapper.find(".export-button").exists()).toBeTruthy();
-        expect(wrapper.find(".export-button").attributes("aria-disabled")).toBeTruthy();
+        expect(wrapper.find(".export-button").attributes("disabled")).toBeTruthy();
     }
 
     function expectExportButtonEnabled() {
         expect(wrapper.find(".export-button").exists()).toBeTruthy();
-        expect(wrapper.find(".export-button").attributes("aria-disabled")).toBeFalsy();
+        expect(wrapper.find(".export-button").attributes("disabled")).toBeFalsy();
     }
 
     async function setNameInput(newValue: string) {

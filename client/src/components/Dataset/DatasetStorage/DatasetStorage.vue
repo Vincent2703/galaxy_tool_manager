@@ -5,7 +5,6 @@ import { type DatasetStorageDetails, GalaxyApi } from "@/api";
 import { errorMessageAsString, rethrowSimple } from "@/utils/simple-error";
 
 import RelocateLink from "./RelocateLink.vue";
-import Heading from "@/components/Common/Heading.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 import DescribeObjectStore from "@/components/ObjectStore/DescribeObjectStore.vue";
 
@@ -67,9 +66,7 @@ watch(props, fetch, { immediate: true });
 
 <template>
     <div>
-        <Heading v-if="includeTitle" id="dataset-storage-heading" h1 separator inline size="md">
-            Dataset Storage
-        </Heading>
+        <h2 v-if="includeTitle" class="h-md">Dataset Storage</h2>
         <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
         <LoadingSpan v-else-if="storageInfo == null"> </LoadingSpan>
         <div v-else-if="discarded">

@@ -1,8 +1,10 @@
 import threading
 from typing import (
     Any,
+    Dict,
+    Generic,
+    List,
     Optional,
-    runtime_checkable,
     TYPE_CHECKING,
     TypeVar,
     Union,
@@ -13,6 +15,7 @@ from typing_extensions import Protocol
 from galaxy.model.base import ModelMapping
 from galaxy.model.tool_shed_install import HasToolBox
 from galaxy.security.idencoding import IdEncodingHelper
+from galaxy.tool_shed.cache import ToolShedRepositoryCache
 from galaxy.tool_util.data import (
     OutputDataset,
     ToolDataTableManager,
@@ -20,7 +23,7 @@ from galaxy.tool_util.data import (
 from galaxy.tool_util.toolbox.base import AbstractToolBox
 
 if TYPE_CHECKING:
-    from galaxy.tool_shed.galaxy_install.installed_repository_manager import InstalledRepositoryManager
+    import galaxy.tool_shed.metadata.installed_repository_manger
 
 
 class DataManagerInterface(Protocol):
@@ -29,7 +32,7 @@ class DataManagerInterface(Protocol):
 
     def process_result(self, out_data): ...
 
-    def write_bundle(self, out: dict[str, OutputDataset]) -> dict[str, OutputDataset]: ...
+    def write_bundle(self, out: Dict[str, OutputDataset]) -> Dict[str, OutputDataset]: ...
 
 
 class DataManagersInterface(Protocol):
@@ -42,22 +45,22 @@ class DataManagersInterface(Protocol):
 
     def get_manager(self, data_manager_id: str) -> Optional[DataManagerInterface]: ...
 
-    def remove_manager(self, manager_ids: Union[str, list[str]]) -> None: ...
+    def remove_manager(self, manager_ids: Union[str, List[str]]) -> None: ...
 
 
-ToolBoxType = TypeVar("ToolBoxType", bound="AbstractToolBox", contravariant=True)
+ToolBoxType = TypeVar("ToolBoxType", bound="AbstractToolBox")
 
 
-@runtime_checkable
-class InstallationTarget(HasToolBox, Protocol[ToolBoxType]):
+class InstallationTarget(HasToolBox, Generic[ToolBoxType]):
     data_managers: DataManagersInterface
     install_model: ModelMapping
+    model: ModelMapping
     security: IdEncodingHelper
     config: Any
-    installed_repository_manager: "InstalledRepositoryManager"
+    installed_repository_manager: "galaxy.tool_shed.metadata.installed_repository_manger.InstalledRepositoryManager"
+    watchers: Any  # TODO: interface...
     _toolbox_lock: threading.RLock
-
-    @property
-    def tool_data_tables(self) -> ToolDataTableManager: ...
+    tool_shed_repository_cache: Optional[ToolShedRepositoryCache]
+    tool_data_tables: ToolDataTableManager
 
     def wait_for_toolbox_reload(self, old_toolbox: ToolBoxType) -> None: ...

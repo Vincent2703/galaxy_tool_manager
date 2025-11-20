@@ -29,7 +29,11 @@ defineProps<Props>();
                     :text="localize(`${upload ? 'Required' : 'Filtered'} format(s):`)" />
                 <strong>{{ orList(extensions) }}</strong>
             </div>
-            <HelpText uri="galaxy.datasets.formatVsDatatypeVsExtension" :text="localize('format?')" />
+            <strong>
+                <i>
+                    <HelpText uri="galaxy.datasets.formatVsDatatypeVsExtension" :text="localize('format?')" />
+                </i>
+            </strong>
         </BAlert>
     </div>
 </template>

@@ -12,8 +12,6 @@ const modulesToTransform = [
     "winbox",
     "pretty-bytes",
     "@fortawesome",
-    "ro-crate-zip-explorer",
-    "yaml",
 ].join("|");
 
 // Override verbatimModuleSyntax to false to allow jest to transform the module syntax like it wants.

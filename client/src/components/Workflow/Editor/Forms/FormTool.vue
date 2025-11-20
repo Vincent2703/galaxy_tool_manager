@@ -8,58 +8,59 @@
         :options="configForm"
         :message-text="messageText"
         :message-variant="messageVariant"
-        allow-editing-credentials
         @onChangeVersion="onChangeVersion"
         @onUpdateFavorites="onUpdateFavorites">
-        <FormElement
-            id="__label"
-            :value="label"
-            title="Label"
-            help="Add a step label."
-            :error="uniqueErrorLabel"
-            @input="onLabel" />
-        <FormElement
-            id="__annotation"
-            :value="annotation"
-            title="Step Annotation"
-            :area="true"
-            help="Add an annotation or notes to this step. Annotations are available when a workflow is viewed."
-            @input="onAnnotation" />
-        <FormConditional :step="step" @onUpdateStep="(id, step) => $emit('onUpdateStep', id, step)" />
-        <div class="mt-2 mb-4">
-            <Heading h2 separator bold size="sm"> Tool Parameters </Heading>
-            <FormDisplay
-                :id="id"
-                :key="formKey"
-                :inputs="inputs"
-                :errors="errors"
-                text-enable="Set in Advance"
-                text-disable="Set at Runtime"
-                :workflow-building-mode="true"
-                @onChange="onChange" />
-        </div>
-        <div class="mt-2 mb-4">
-            <Heading h2 separator bold size="sm"> Additional Options </Heading>
-            <FormSection
-                :id="stepId"
-                :key="formKey"
-                :node-inputs="stepInputs"
-                :node-outputs="stepOutputs"
-                :step="step"
-                :datatypes="datatypes"
-                :post-job-actions="postJobActions"
-                @onChange="onChangePostJobActions" />
-        </div>
+        <template v-slot:body>
+            <FormElement
+                id="__label"
+                :value="label"
+                title="Label"
+                help="Add a step label."
+                :error="uniqueErrorLabel"
+                @input="onLabel" />
+            <FormElement
+                id="__annotation"
+                :value="annotation"
+                title="Step Annotation"
+                :area="true"
+                help="Add an annotation or notes to this step. Annotations are available when a workflow is viewed."
+                @input="onAnnotation" />
+            <FormConditional :step="step" @onUpdateStep="(id, step) => $emit('onUpdateStep', id, step)" />
+            <div class="mt-2 mb-4">
+                <Heading h2 separator bold size="sm"> Tool Parameters </Heading>
+                <FormDisplay
+                    :id="id"
+                    :key="formKey"
+                    :inputs="inputs"
+                    :errors="errors"
+                    text-enable="Set in Advance"
+                    text-disable="Set at Runtime"
+                    :workflow-building-mode="true"
+                    @onChange="onChange" />
+            </div>
+            <div class="mt-2 mb-4">
+                <Heading h2 separator bold size="sm"> Additional Options </Heading>
+                <FormSection
+                    :id="stepId"
+                    :key="formKey"
+                    :node-inputs="stepInputs"
+                    :node-outputs="stepOutputs"
+                    :step="step"
+                    :datatypes="datatypes"
+                    :post-job-actions="postJobActions"
+                    @onChange="onChangePostJobActions" />
+            </div>
+        </template>
     </ToolCard>
 </template>
 
 <script>
 import { storeToRefs } from "pinia";
+import Utils from "utils/utils";
 import { ref, toRef, watch } from "vue";
 
 import { useWorkflowStores } from "@/composables/workflowStores";
 import { useRefreshFromStore } from "@/stores/refreshFromStore";
-import Utils from "@/utils/utils";
 
 import { useStepProps } from "../composables/useStepProps";
 import { useUniqueLabelError } from "../composables/useUniqueLabelError";
@@ -94,7 +95,7 @@ export default {
     emits: ["onSetData", "onUpdateStep", "onChangePostJobActions", "onAnnotation", "onLabel"],
     setup(props, { emit }) {
         const { stepId, annotation, label, stepInputs, stepOutputs, configForm, postJobActions } = useStepProps(
-            toRef(props, "step"),
+            toRef(props, "step")
         );
         const { stepStore } = useWorkflowStores();
         const uniqueErrorLabel = useUniqueLabelError(stepStore, label);
@@ -104,7 +105,7 @@ export default {
 
         watch(
             () => formKey.value,
-            () => (mainValues.value = null),
+            () => (mainValues.value = null)
         );
 
         return {
@@ -209,7 +210,6 @@ export default {
         postChanges(newVersion) {
             const payload = Object.assign({}, this.mainValues);
             const options = this.configForm;
-            const toolUuid = options.uuid;
             let toolId = options.id;
             let toolVersion = options.version;
             if (newVersion) {
@@ -218,7 +218,6 @@ export default {
             }
             this.$emit("onSetData", this.stepId, {
                 tool_id: toolId,
-                tool_uuid: toolUuid,
                 tool_version: toolVersion,
                 type: "tool",
                 inputs: payload,

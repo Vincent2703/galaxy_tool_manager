@@ -1,4 +1,5 @@
-"""API asynchronous job running mechanisms can use to get a fresh OIDC token."""
+""" API asynchronous job running mechanisms can use to get a fresh OIDC token.
+"""
 
 import logging
 

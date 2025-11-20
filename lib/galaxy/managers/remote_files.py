@@ -1,6 +1,11 @@
 import hashlib
 import logging
-from typing import Optional
+from operator import itemgetter
+from typing import (
+    Optional,
+    Set,
+    Tuple,
+)
 
 from galaxy import exceptions
 from galaxy.files import (
@@ -8,8 +13,10 @@ from galaxy.files import (
     FileSourcePath,
     ProvidesFileSourcesUserContext,
 )
-from galaxy.files.models import FilesSourceOptions
-from galaxy.files.sources import PluginKind
+from galaxy.files.sources import (
+    FilesSourceOptions,
+    PluginKind,
+)
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.schema.remote_files import (
     AnyRemoteFilesListResponse,
@@ -20,7 +27,10 @@ from galaxy.schema.remote_files import (
     RemoteFilesTarget,
 )
 from galaxy.structured_app import MinimalManagerApp
-from galaxy.util import jstree
+from galaxy.util import (
+    jstree,
+    smart_str,
+)
 
 log = logging.getLogger(__name__)
 
@@ -40,12 +50,12 @@ class RemoteFilesManager:
         format: Optional[RemoteFilesFormat],
         recursive: Optional[bool],
         disable: Optional[RemoteFilesDisableMode],
-        write_intent: Optional[bool] = False,
+        writeable: Optional[bool] = False,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         query: Optional[str] = None,
         sort_by: Optional[str] = None,
-    ) -> tuple[AnyRemoteFilesListResponse, int]:
+    ) -> Tuple[AnyRemoteFilesListResponse, int]:
         """Returns a list of remote files and directories available to the user and the total count of them."""
 
         user_file_source_context = ProvidesFileSourcesUserContext(user_ctx)
@@ -81,7 +91,7 @@ class RemoteFilesManager:
         file_source = file_source_path.file_source
 
         opts = FilesSourceOptions()
-        opts.write_intent = write_intent or False
+        opts.writeable = writeable or False
         try:
             index, count = file_source.list(
                 file_source_path.path,
@@ -102,17 +112,17 @@ class RemoteFilesManager:
             raise exceptions.InternalServerError(message)
         if format == RemoteFilesFormat.flat:
             # rip out directories, ensure sorted by path
-            index = [i for i in index if i.class_ == "File"]
-            index = sorted(index, key=lambda x: x.path)
+            index = [i for i in index if i["class"] == "File"]
+            index = sorted(index, key=itemgetter("path"))
         elif format == RemoteFilesFormat.jstree:
             if disable is None:
                 disable = RemoteFilesDisableMode.folders
 
             jstree_paths = []
             for ent in index:
-                path = ent.path
-                path_hash = hashlib.sha1(path.encode()).hexdigest()
-                if ent.class_ == "Directory":
+                path = ent["path"]
+                path_hash = hashlib.sha1(smart_str(path)).hexdigest()
+                if ent["class"] == "Directory":
                     path_type = "folder"
                     disabled = True if disable == RemoteFilesDisableMode.folders else False
                 else:
@@ -138,8 +148,8 @@ class RemoteFilesManager:
         self,
         user_context: ProvidesUserContext,
         browsable_only: Optional[bool] = True,
-        include_kind: Optional[set[PluginKind]] = None,
-        exclude_kind: Optional[set[PluginKind]] = None,
+        include_kind: Optional[Set[PluginKind]] = None,
+        exclude_kind: Optional[Set[PluginKind]] = None,
     ):
         """Display plugin information for each of the gxfiles:// URI targets available."""
         user_file_source_context = ProvidesFileSourcesUserContext(user_context)
@@ -164,7 +174,7 @@ class RemoteFilesManager:
         file_source_path = self._file_sources.get_file_source_path(target)
         file_source = file_source_path.file_source
         try:
-            result = file_source.create_entry(entry_data, user_context=user_file_source_context)
+            result = file_source.create_entry(entry_data.dict(), user_context=user_file_source_context)
         except exceptions.MessageException:
             log.warning(f"Problem creating entry {entry_data.name} in file source {entry_data.target}", exc_info=True)
             raise
@@ -173,7 +183,7 @@ class RemoteFilesManager:
             log.warning(message, exc_info=True)
             raise exceptions.InternalServerError(message)
         return CreatedEntryResponse(
-            name=result.name,
-            uri=result.uri,
-            external_link=result.external_link,
+            name=result["name"],
+            uri=result["uri"],
+            external_link=result.get("external_link", None),
         )

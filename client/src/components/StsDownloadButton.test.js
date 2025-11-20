@@ -6,7 +6,8 @@ import MockAdapter from "axios-mock-adapter";
 import flushPromises from "flush-promises";
 import { createPinia } from "pinia";
 import { getLocalVue } from "tests/jest/helpers";
-import { setupMockConfig } from "tests/jest/mockConfig";
+
+import { useServerMock } from "@/api/client/__mocks__";
 
 import StsDownloadButton from "./StsDownloadButton.vue";
 
@@ -21,8 +22,14 @@ const FALLBACK_URL = "http://cow.com/direct_download";
 const DOWNLOAD_ENDPOINT = "http://cow.com/prepare_download";
 const STORAGE_REQUEST_ID = "moocow1235";
 
+const { server, http } = useServerMock();
+
 async function mountStsDownloadButtonWrapper(config) {
-    setupMockConfig(config);
+    server.use(
+        http.get("/api/configuration", ({ response }) => {
+            return response(200).json(config);
+        })
+    );
 
     const pinia = createPinia();
     const wrapper = mount(StsDownloadButton, {

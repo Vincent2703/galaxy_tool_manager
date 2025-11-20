@@ -1,15 +1,14 @@
 from typing import (
-    Annotated,
     Any,
+    Dict,
+    List,
+    Literal,
     Optional,
+    Type,
     Union,
 )
 
-from pydantic import (
-    Field,
-    RootModel,
-)
-from typing_extensions import Literal
+from pydantic import RootModel
 
 from galaxy.util.config_templates import (
     ConfiguredOAuth2Sources,
@@ -31,22 +30,7 @@ from galaxy.util.config_templates import (
     UserDetailsDict,
 )
 
-FileSourceTemplateType = Literal[
-    "ftp",
-    "posix",
-    "s3fs",
-    "azure",
-    "onedata",
-    "webdav",
-    "dropbox",
-    "googledrive",
-    "elabftw",
-    "inveniordm",
-    "zenodo",
-    "rspace",
-    "dataverse",
-    "huggingface",
-]
+FileSourceTemplateType = Literal["ftp", "posix", "s3fs", "azure", "onedata", "webdav", "dropbox", "googledrive"]
 
 
 class PosixFileSourceTemplateConfiguration(StrictModel):
@@ -211,144 +195,25 @@ class WebdavFileSourceConfiguration(StrictModel):
     writable: bool = False
 
 
-class eLabFTWFileSourceTemplateConfiguration(StrictModel):  # noqa
-    type: Literal["elabftw"]
-    endpoint: Union[str, TemplateExpansion]
-    api_key: Union[str, TemplateExpansion]
-    writable: Union[bool, TemplateExpansion] = True
-    template_start: Optional[str] = None
-    template_end: Optional[str] = None
-
-
-class eLabFTWFileSourceConfiguration(StrictModel):  # noqa
-    type: Literal["elabftw"]
-    endpoint: str
-    api_key: str
-    writable: bool = True
-
-
-class InvenioFileSourceTemplateConfiguration(StrictModel):
-    type: Literal["inveniordm"]
-    url: Union[str, TemplateExpansion]
-    public_name: Union[str, TemplateExpansion]
-    token: Union[str, TemplateExpansion]
-    writable: Union[bool, TemplateExpansion] = True
-    template_start: Optional[str] = None
-    template_end: Optional[str] = None
-
-
-class InvenioFileSourceConfiguration(StrictModel):
-    type: Literal["inveniordm"]
-    url: str
-    public_name: str
-    token: str
-    writable: bool = True
-
-
-class ZenodoFileSourceTemplateConfiguration(StrictModel):
-    type: Literal["zenodo"]
-    url: Union[str, TemplateExpansion]
-    public_name: Union[str, TemplateExpansion]
-    token: Union[str, TemplateExpansion]
-    writable: Union[bool, TemplateExpansion] = True
-    template_start: Optional[str] = None
-    template_end: Optional[str] = None
-
-
-class ZenodoFileSourceConfiguration(StrictModel):
-    type: Literal["zenodo"]
-    url: str
-    public_name: str
-    token: str
-    writable: bool = True
-
-
-class RSpaceFileSourceTemplateConfiguration(StrictModel):
-    type: Literal["rspace"]
-    endpoint: Union[str, TemplateExpansion]
-    api_key: Union[str, TemplateExpansion]
-    writable: Union[bool, TemplateExpansion] = True
-    template_start: Optional[str] = None
-    template_end: Optional[str] = None
-
-
-class RSpaceFileSourceConfiguration(StrictModel):
-    type: Literal["rspace"]
-    endpoint: str
-    api_key: str
-    writable: bool = True
-
-
-class DataverseFileSourceTemplateConfiguration(StrictModel):
-    type: Literal["dataverse"]
-    url: Union[str, TemplateExpansion]
-    public_name: Union[str, TemplateExpansion]
-    token: Union[str, TemplateExpansion]
-    writable: Union[bool, TemplateExpansion] = True
-    template_start: Optional[str] = None
-    template_end: Optional[str] = None
-
-
-class DataverseFileSourceConfiguration(StrictModel):
-    type: Literal["dataverse"]
-    url: str
-    public_name: str
-    token: str
-    writable: bool = True
-
-
-class HuggingFaceFileSourceTemplateConfiguration(StrictModel):
-    type: Literal["huggingface"]
-    token: Union[str, TemplateExpansion, None] = None
-    endpoint: Union[str, TemplateExpansion, None] = None
-    template_start: Optional[str] = None
-    template_end: Optional[str] = None
-
-
-class HuggingFaceFileSourceConfiguration(StrictModel):
-    type: Literal["huggingface"]
-    token: Optional[str] = None
-    endpoint: Optional[str] = None
-
-
-FileSourceTemplateConfiguration = Annotated[
-    Union[
-        PosixFileSourceTemplateConfiguration,
-        S3FSFileSourceTemplateConfiguration,
-        FtpFileSourceTemplateConfiguration,
-        AzureFileSourceTemplateConfiguration,
-        OnedataFileSourceTemplateConfiguration,
-        WebdavFileSourceTemplateConfiguration,
-        DropboxFileSourceTemplateConfiguration,
-        GoogleDriveFileSourceTemplateConfiguration,
-        eLabFTWFileSourceTemplateConfiguration,
-        InvenioFileSourceTemplateConfiguration,
-        ZenodoFileSourceTemplateConfiguration,
-        RSpaceFileSourceTemplateConfiguration,
-        DataverseFileSourceTemplateConfiguration,
-        HuggingFaceFileSourceTemplateConfiguration,
-    ],
-    Field(discriminator="type"),
+FileSourceTemplateConfiguration = Union[
+    PosixFileSourceTemplateConfiguration,
+    S3FSFileSourceTemplateConfiguration,
+    FtpFileSourceTemplateConfiguration,
+    AzureFileSourceTemplateConfiguration,
+    OnedataFileSourceTemplateConfiguration,
+    WebdavFileSourceTemplateConfiguration,
+    DropboxFileSourceTemplateConfiguration,
+    GoogleDriveFileSourceTemplateConfiguration,
 ]
-
-FileSourceConfiguration = Annotated[
-    Union[
-        PosixFileSourceConfiguration,
-        S3FSFileSourceConfiguration,
-        FtpFileSourceConfiguration,
-        AzureFileSourceConfiguration,
-        OnedataFileSourceConfiguration,
-        WebdavFileSourceConfiguration,
-        DropboxFileSourceConfiguration,
-        GoogleDriveFileSourceConfiguration,
-        eLabFTWFileSourceConfiguration,
-        InvenioFileSourceConfiguration,
-        ZenodoFileSourceConfiguration,
-        RSpaceFileSourceConfiguration,
-        DataverseFileSourceConfiguration,
-        HuggingFaceFileSourceConfiguration,
-    ],
-    Field(discriminator="type"),
+FileSourceConfiguration = Union[
+    PosixFileSourceConfiguration,
+    S3FSFileSourceConfiguration,
+    FtpFileSourceConfiguration,
+    AzureFileSourceConfiguration,
+    OnedataFileSourceConfiguration,
+    WebdavFileSourceConfiguration,
+    DropboxFileSourceConfiguration,
+    GoogleDriveFileSourceConfiguration,
 ]
 
 
@@ -371,8 +236,8 @@ class FileSourceTemplateBase(StrictModel):
     # template by hiding but keep it in the catalog for backward
     # compatibility for users with existing stores of that template.
     hidden: bool = False
-    variables: Optional[list[TemplateVariable]] = None
-    secrets: Optional[list[TemplateSecret]] = None
+    variables: Optional[List[TemplateVariable]] = None
+    secrets: Optional[List[TemplateSecret]] = None
 
 
 class FileSourceTemplateSummary(FileSourceTemplateBase):
@@ -381,23 +246,23 @@ class FileSourceTemplateSummary(FileSourceTemplateBase):
 
 class FileSourceTemplate(FileSourceTemplateBase):
     configuration: FileSourceTemplateConfiguration
-    environment: Optional[list[TemplateEnvironmentEntry]] = None
+    environment: Optional[List[TemplateEnvironmentEntry]] = None
 
     @property
     def type(self):
         return self.configuration.type
 
 
-FileSourceTemplateCatalog = RootModel[list[FileSourceTemplate]]
+FileSourceTemplateCatalog = RootModel[List[FileSourceTemplate]]
 
 
 class FileSourceTemplateSummaries(RootModel):
-    root: list[FileSourceTemplateSummary]
+    root: List[FileSourceTemplateSummary]
 
 
 def template_to_configuration(
     template: FileSourceTemplate,
-    variables: dict[str, TemplateVariableValueType],
+    variables: Dict[str, TemplateVariableValueType],
     secrets: SecretsDict,
     user_details: UserDetailsDict,
     environment: EnvironmentDict,
@@ -410,7 +275,7 @@ def template_to_configuration(
     return to_configuration_object(raw_config)
 
 
-TypesToConfigurationClasses: dict[FileSourceTemplateType, type[FileSourceConfiguration]] = {
+TypesToConfigurationClasses: Dict[FileSourceTemplateType, Type[FileSourceConfiguration]] = {
     "ftp": FtpFileSourceConfiguration,
     "posix": PosixFileSourceConfiguration,
     "s3fs": S3FSFileSourceConfiguration,
@@ -419,12 +284,6 @@ TypesToConfigurationClasses: dict[FileSourceTemplateType, type[FileSourceConfigu
     "webdav": WebdavFileSourceConfiguration,
     "dropbox": DropboxFileSourceConfiguration,
     "googledrive": GoogleDriveFileSourceConfiguration,
-    "elabftw": eLabFTWFileSourceConfiguration,
-    "inveniordm": InvenioFileSourceConfiguration,
-    "zenodo": ZenodoFileSourceConfiguration,
-    "rspace": RSpaceFileSourceConfiguration,
-    "dataverse": DataverseFileSourceConfiguration,
-    "huggingface": HuggingFaceFileSourceConfiguration,
 }
 
 
@@ -453,7 +312,7 @@ def get_oauth2_config_or_none(template: FileSourceTemplate) -> Optional[OAuth2Co
     return get_oauth2_config(template)
 
 
-def to_configuration_object(configuration_dict: dict[str, Any]) -> FileSourceConfiguration:
+def to_configuration_object(configuration_dict: Dict[str, Any]) -> FileSourceConfiguration:
     if "type" not in configuration_dict:
         raise KeyError("Configuration objects require a file source 'type' key, none found.")
     object_store_type = configuration_dict["type"]

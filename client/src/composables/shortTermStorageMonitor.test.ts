@@ -1,10 +1,7 @@
 import flushPromises from "flush-promises";
-import { suppressDebugConsole } from "tests/jest/helpers";
 
 import { useServerMock } from "@/api/client/__mocks__";
 import { useShortTermStorageMonitor } from "@/composables/shortTermStorageMonitor";
-
-import type { StoredTaskStatus } from "./genericTaskMonitor";
 
 const PENDING_TASK_ID = "pending-fake-task-id";
 const COMPLETED_TASK_ID = "completed-fake-task-id";
@@ -29,7 +26,7 @@ describe("useShortTermStorageMonitor", () => {
                     default:
                         return response("4XX").json({ err_msg: "Not found", err_code: 404 }, { status: 404 });
                 }
-            }),
+            })
         );
     });
 
@@ -55,7 +52,6 @@ describe("useShortTermStorageMonitor", () => {
     });
 
     it("should indicate the task status request failed when the request failed", async () => {
-        suppressDebugConsole(); // expected API failure
         const { waitForTask, requestHasFailed, isRunning, isCompleted, taskStatus } = useShortTermStorageMonitor();
 
         expect(requestHasFailed.value).toBe(false);
@@ -69,14 +65,11 @@ describe("useShortTermStorageMonitor", () => {
 
     it("should load the status from the stored monitoring data", async () => {
         const { loadStatus, isRunning, isCompleted, hasFailed, taskStatus } = useShortTermStorageMonitor();
-        const expectedStatus = "READY";
-        const storedStatus: StoredTaskStatus = {
-            taskStatus: expectedStatus,
-        };
+        const storedStatus = "READY";
 
         loadStatus(storedStatus);
 
-        expect(taskStatus.value).toBe(expectedStatus);
+        expect(taskStatus.value).toBe(storedStatus);
         expect(isRunning.value).toBe(false);
         expect(isCompleted.value).toBe(true);
         expect(hasFailed.value).toBe(false);
@@ -97,7 +90,6 @@ describe("useShortTermStorageMonitor", () => {
         });
 
         it("should indicate is final state when the task has failed", async () => {
-            suppressDebugConsole(); // expected API failure
             const { waitForTask, isFinalState, isRunning, isCompleted, hasFailed, taskStatus } =
                 useShortTermStorageMonitor();
 

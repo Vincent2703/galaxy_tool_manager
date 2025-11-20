@@ -1,10 +1,17 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faExclamationCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { ref, watch } from "vue";
 
-import type { NotificationCategory, NotificationChannel, UserNotificationPreferences } from "@/api/notifications";
+import {
+    type NotificationCategory,
+    type NotificationChannel,
+    type UserNotificationPreferences,
+} from "@/api/notifications";
 import { snakeCaseToTitleCase } from "@/utils/strings";
+
+library.add(faExclamationCircle);
 
 interface NotificationsChannelSettingsProps {
     preferences: UserNotificationPreferences;
@@ -25,7 +32,7 @@ watch(
     () => value.value,
     (newValue) => {
         emit("onChange", props.category, props.channel, newValue);
-    },
+    }
 );
 </script>
 

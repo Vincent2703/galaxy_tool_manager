@@ -24,19 +24,18 @@ class TestAllowListSanitization(SeleniumIntegrationTestCase):
     def test_html_output_sanitized(self):
         self.login()
         hda_id = self.run_html_output()
-        self.navigate_to(self.build_url(f"datasets/{hda_id}/preview"))
+        self.get(f"datasets/{hda_id}/preview")
         self.wait_for_selector_visible("[data-description='sanitization warning']")
         self.assert_selector_absent("[data-description='allowlist link']")
         self.screenshot("sanitization warning")
         assert self.switch_to_frame()
         self.assert_selector_absent("[data-description='hello-world']")
-        self.switch_to_default_content()
 
     @selenium_test
     def test_html_output_sanitized_admin(self):
         self.admin_login()
         hda_id = self.run_html_output()
-        self.navigate_to(self.build_url(f"datasets/{hda_id}/preview"))
+        self.get(f"datasets/{hda_id}/preview")
         self.wait_for_selector_visible("[data-description='sanitization warning']")
         self.wait_for_selector_visible("[data-description='allowlist link']")
         self.screenshot("sanitization warning admin")
@@ -49,6 +48,5 @@ class TestAllowListSanitization(SeleniumIntegrationTestCase):
             self.assert_selector_absent("[data-description='allowlist link']")
             assert self.switch_to_frame()
             self.wait_for_selector("[data-description='hello-world']")
-            self.switch_to_default_content()
         finally:
             self._delete("/api/sanitize_allow?tool_id=html_output", admin=True)

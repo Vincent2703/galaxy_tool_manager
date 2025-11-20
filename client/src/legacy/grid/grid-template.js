@@ -1,5 +1,5 @@
 // dependencies
-import purify from "dompurify";
+import { sanitize } from "dompurify";
 
 // grid view templates
 export default {
@@ -10,9 +10,9 @@ export default {
             tmpl = this.grid_header(options) + this.grid_table(options);
         } else {
             tmpl = `<div class="loading-elt-overlay"></div><table><tr><td width="75%">${this.grid_header(
-                options,
+                options
             )}</td><td></td><td></td></tr><tr><td width="100%" id="grid-message" valign="top"></td><td></td><td></td></tr></table>${this.grid_table(
-                options,
+                options
             )}`;
         }
 
@@ -332,7 +332,7 @@ export default {
             status = "done";
         }
         return `<p><div class="${status}message transient-message">${_.escape(
-            options.message,
+            options.message
         )}</div><div style="clear: both"></div></p>`;
     },
 
@@ -537,7 +537,7 @@ export default {
 
     // template for filter items
     filter_element: function (filter_key, filter_value) {
-        filter_value = purify.sanitize(filter_value);
+        filter_value = sanitize(filter_value);
         return `<span class="text-filter-val">${filter_value}<a href="javascript:void(0);" filter_key="${filter_key}" filter_val="${filter_value}"><i class="fa fa-times" style="padding-left: 5px; padding-bottom: 6px;"/></a></span>`;
     },
 };

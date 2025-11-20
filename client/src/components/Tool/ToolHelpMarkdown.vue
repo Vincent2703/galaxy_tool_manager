@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
-import { useGxUris } from "@/components/Markdown/gxuris";
 import { markup } from "@/components/ObjectStore/configurationMarkdown";
 import { useFormattedToolHelp } from "@/composables/formattedToolHelp";
+import { getAppRoot } from "@/onload/loadConfig";
+
+import HelpPopover from "@/components/Help/HelpPopover.vue";
 
 const props = defineProps<{
     content: string;
@@ -16,7 +18,38 @@ const { formattedContent } = useFormattedToolHelp(markdownHtml);
 
 const helpHtml = ref<HTMLDivElement>();
 
-const { internalHelpReferences, MarkdownHelpPopovers } = useGxUris(helpHtml);
+interface InternalTypeReference {
+    element: HTMLElement;
+    term: string;
+}
+
+const internalHelpReferences = ref<InternalTypeReference[]>([]);
+
+function setupPopovers() {
+    internalHelpReferences.value.length = 0;
+    if (helpHtml.value) {
+        const links = helpHtml.value.getElementsByTagName("a");
+        Array.from(links).forEach((link) => {
+            if (link.href.startsWith("gxhelp://")) {
+                const uri = link.href.substr("gxhelp://".length);
+                internalHelpReferences.value.push({ element: link, term: uri });
+                link.href = `${getAppRoot()}help/terms/${uri}`;
+                link.style.color = "inherit";
+                link.style.textDecorationLine = "underline";
+                link.style.textDecorationStyle = "dashed";
+            }
+        });
+        const imgs = helpHtml.value.getElementsByTagName("img");
+        Array.from(imgs).forEach((img) => {
+            if (img.src.startsWith("gxstatic://")) {
+                const rest = img.src.substr("gxstatic://".length);
+                img.src = `${getAppRoot()}static/${rest}`;
+            }
+        });
+    }
+}
+
+onMounted(setupPopovers);
 </script>
 
 <template>
@@ -27,6 +60,8 @@ const { internalHelpReferences, MarkdownHelpPopovers } = useGxUris(helpHtml);
         -->
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div ref="helpHtml" v-html="formattedContent" />
-        <MarkdownHelpPopovers :elements="internalHelpReferences" />
+        <span v-for="(value, i) in internalHelpReferences" :key="i">
+            <HelpPopover :target="value.element" :term="value.term" />
+        </span>
     </span>
 </template>

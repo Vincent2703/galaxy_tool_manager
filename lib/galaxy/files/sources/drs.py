@@ -1,15 +1,18 @@
 import logging
 import re
-from typing import Union
-
-from galaxy.files.models import (
-    BaseFileSourceConfiguration,
-    BaseFileSourceTemplateConfiguration,
-    FilesSourceRuntimeContext,
+from typing import (
+    cast,
+    Dict,
+    Optional,
 )
-from galaxy.util.config_templates import TemplateExpansion
+
+from typing_extensions import Unpack
+
+from galaxy.files import OptionalUserContext
 from . import (
     BaseFilesSource,
+    FilesSourceOptions,
+    FilesSourceProperties,
     PluginKind,
 )
 from .util import fetch_drs_to_file
@@ -17,58 +20,59 @@ from .util import fetch_drs_to_file
 log = logging.getLogger(__name__)
 
 
-class DRSFileSourceTemplateConfiguration(BaseFileSourceTemplateConfiguration):
-    # `url_regex` is not templated because it needs to be set at initialization with no RuntimeContext available.
-    url_regex: str = r"^drs://"
-    force_http: Union[bool, TemplateExpansion] = False
-    http_headers: Union[dict[str, str], TemplateExpansion] = {}
+class DRSFilesSourceProperties(FilesSourceProperties, total=False):
+    url_regex: str
+    force_http: bool
+    http_headers: Dict[str, str]
 
 
-class DRSFileSourceConfiguration(BaseFileSourceConfiguration):
-    url_regex: str = r"^drs://"
-    force_http: bool = False
-    http_headers: dict[str, str] = {}
-
-
-class DRSFilesSource(BaseFilesSource[DRSFileSourceTemplateConfiguration, DRSFileSourceConfiguration]):
+class DRSFilesSource(BaseFilesSource):
     plugin_type = "drs"
     plugin_kind = PluginKind.drs
 
-    template_config_class = DRSFileSourceTemplateConfiguration
-    resolved_config_class = DRSFileSourceConfiguration
-
-    def __init__(self, template_config: DRSFileSourceTemplateConfiguration):
-        defaults = dict(
+    def __init__(self, **kwd: Unpack[FilesSourceProperties]):
+        kwds: FilesSourceProperties = dict(
             id="_drs",
             label="DRS file",
             doc="DRS file handler",
             writable=False,
         )
-        template_config = self._apply_defaults_to_template(defaults, template_config)
-        super().__init__(template_config)
-        assert self.template_config.url_regex, "DRSFilesSource requires a url_regex to be set in the configuration"
-        self._url_regex = re.compile(self.template_config.url_regex)
+        kwds.update(kwd)
+        props: DRSFilesSourceProperties = cast(DRSFilesSourceProperties, self._parse_common_config_opts(kwds))
+        self._url_regex_str = props.pop("url_regex", r"^drs://")
+        assert self._url_regex_str
+        self._url_regex = re.compile(self._url_regex_str)
+        self._force_http = props.pop("force_http", False)
+        self._props = props
 
     @property
     def _allowlist(self):
         return self._file_sources_config.fetch_url_allowlist
 
     def _realize_to(
-        self, source_path: str, native_path: str, context: FilesSourceRuntimeContext[DRSFileSourceConfiguration]
+        self,
+        source_path: str,
+        native_path: str,
+        user_context: OptionalUserContext = None,
+        opts: Optional[FilesSourceOptions] = None,
     ):
-        user_context = context.user_data.context if context.user_data.context else None
-        config = context.config
+        props = self._serialization_props(user_context)
+        headers = props.pop("http_headers", {}) or {}
         fetch_drs_to_file(
             source_path,
             native_path,
-            user_context=user_context,
+            user_context,
             fetch_url_allowlist=self._allowlist,
-            headers=config.http_headers,
-            force_http=config.force_http,
+            headers=headers,
+            force_http=self._force_http,
         )
 
     def _write_from(
-        self, target_path: str, native_path: str, context: FilesSourceRuntimeContext[DRSFileSourceConfiguration]
+        self,
+        target_path: str,
+        native_path: str,
+        user_context: OptionalUserContext = None,
+        opts: Optional[FilesSourceOptions] = None,
     ):
         raise NotImplementedError()
 
@@ -77,6 +81,14 @@ class DRSFilesSource(BaseFilesSource[DRSFileSourceTemplateConfiguration, DRSFile
             return match.span()[1]
         else:
             return 0
+
+    def _serialization_props(self, user_context: OptionalUserContext = None) -> DRSFilesSourceProperties:
+        effective_props = {}
+        for key, val in self._props.items():
+            effective_props[key] = self._evaluate_prop(val, user_context=user_context)
+        effective_props["url_regex"] = self._url_regex_str
+        effective_props["force_http"] = self._force_http
+        return cast(DRSFilesSourceProperties, effective_props)
 
 
 __all__ = ("DRSFilesSource",)

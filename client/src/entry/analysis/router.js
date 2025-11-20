@@ -1,123 +1,93 @@
+import { getGalaxyInstance } from "app";
+import CitationsList from "components/Citation/CitationsList";
+import ClientError from "components/ClientError";
+import CollectionEditView from "components/Collections/common/CollectionEditView";
+import DatasetList from "components/Dataset/DatasetList";
+import DatasetAttributes from "components/DatasetInformation/DatasetAttributes";
+import DatasetDetails from "components/DatasetInformation/DatasetDetails";
+import DatasetError from "components/DatasetInformation/DatasetError";
+import FormGeneric from "components/Form/FormGeneric";
+import GalaxyWizard from "components/GalaxyWizard";
+import HelpTerm from "components/Help/HelpTerm";
+import HistoryExportTasks from "components/History/Export/HistoryExport";
+import HistoryPublished from "components/History/HistoryPublished";
+import HistoryView from "components/History/HistoryView";
+import HistoryMultipleView from "components/History/Multiple/MultipleView";
+import { HistoryExport } from "components/HistoryExport/index";
+import HistoryImport from "components/HistoryImport";
+import InteractiveTools from "components/InteractiveTools/InteractiveTools";
+import JobDetails from "components/JobInformation/JobDetails";
+import CarbonEmissionsCalculations from "components/JobMetrics/CarbonEmissions/CarbonEmissionsCalculations";
+import ToolLanding from "components/Landing/ToolLanding";
+import WorkflowLanding from "components/Landing/WorkflowLanding";
+import PageDisplay from "components/PageDisplay/PageDisplay";
+import PageEditor from "components/PageEditor/PageEditor";
+import ToolSuccess from "components/Tool/ToolSuccess";
+import ToolsList from "components/ToolsList/ToolsList";
+import ToolsJson from "components/ToolsView/ToolsSchemaJson/ToolsJson";
+import TourList from "components/Tour/TourList";
+import TourRunner from "components/Tour/TourRunner";
+import { APIKey } from "components/User/APIKey";
+import CustomBuilds from "components/User/CustomBuilds";
+import { ExternalIdentities } from "components/User/ExternalIdentities";
+import NotificationsPreferences from "components/User/Notifications/NotificationsPreferences";
+import UserPreferences from "components/User/UserPreferences";
+import UserPreferencesForm from "components/User/UserPreferencesForm";
+import VisualizationsList from "components/Visualizations/Index";
+import VisualizationFrame from "components/Visualizations/VisualizationFrame";
+import VisualizationPublished from "components/Visualizations/VisualizationPublished";
+import HistoryInvocations from "components/Workflow/HistoryInvocations";
+import TrsImport from "components/Workflow/Import/TrsImport";
+import TrsSearch from "components/Workflow/Import/TrsSearch";
+import InvocationReport from "components/Workflow/InvocationReport";
+import WorkflowList from "components/Workflow/List/WorkflowList";
+import StoredWorkflowInvocations from "components/Workflow/StoredWorkflowInvocations";
+import WorkflowCreate from "components/Workflow/WorkflowCreate";
+import WorkflowExport from "components/Workflow/WorkflowExport";
+import WorkflowImport from "components/Workflow/WorkflowImport";
+import Analysis from "entry/analysis/modules/Analysis";
+import CenterFrame from "entry/analysis/modules/CenterFrame";
+import Home from "entry/analysis/modules/Home";
+import Login from "entry/analysis/modules/Login";
+import WorkflowEditorModule from "entry/analysis/modules/WorkflowEditor";
+import AdminRoutes from "entry/analysis/routes/admin-routes";
+import LibraryRoutes from "entry/analysis/routes/library-routes";
+import StorageDashboardRoutes from "entry/analysis/routes/storageDashboardRoutes";
+import { getAppRoot } from "onload/loadConfig";
 import Vue from "vue";
 import VueRouter from "vue-router";
 
-import { getGalaxyInstance } from "@/app";
-import { HistoryExport } from "@/components/HistoryExport/index";
-import { APIKey } from "@/components/User/APIKey";
-import { ExternalIdentities } from "@/components/User/ExternalIdentities";
-import AdminRoutes from "@/entry/analysis/routes/admin-routes";
-import LibraryRoutes from "@/entry/analysis/routes/library-routes";
-import StorageRoutes from "@/entry/analysis/routes/storage-routes";
-import { getAppRoot } from "@/onload/loadConfig";
+import AvailableDatatypes from "@/components/AvailableDatatypes/AvailableDatatypes";
+import CreateFileSourceInstance from "@/components/FileSources/Instances/CreateInstance";
+import GridHistory from "@/components/Grid/GridHistory";
+import GridPage from "@/components/Grid/GridPage";
+import CreateObjectStoreInstance from "@/components/ObjectStore/Instances/CreateInstance";
 import { requireAuth } from "@/router/guards";
 import { parseBool } from "@/utils/utils";
 
 import { patchRouterPush } from "./router-push";
 
-import CenterFrame from "./modules/CenterFrame.vue";
 import AboutGalaxy from "@/components/AboutGalaxy.vue";
-import AvailableDatatypes from "@/components/AvailableDatatypes/AvailableDatatypes.vue";
-import CitationsList from "@/components/Citation/CitationsList.vue";
-import ClientError from "@/components/ClientError.vue";
-import CollectionEditView from "@/components/Collections/common/CollectionEditView.vue";
-import DisplayCollectionAsSheet from "@/components/Collections/common/DisplayCollectionAsSheet.vue";
-import ListWizard from "@/components/Collections/ListWizard.vue";
-import RulesStandalone from "@/components/Collections/RulesStandalone.vue";
-import DatasetList from "@/components/Dataset/DatasetList.vue";
-import DatasetView from "@/components/Dataset/DatasetView.vue";
-import DatasetDetails from "@/components/DatasetInformation/DatasetDetails.vue";
-import RecentDownloads from "@/components/Downloads/RecentDownloads.vue";
-import CreateFileSourceInstance from "@/components/FileSources/Instances/CreateInstance.vue";
 import EditFileSourceInstance from "@/components/FileSources/Instances/EditInstance.vue";
 import ManageFileSourceIndex from "@/components/FileSources/Instances/ManageIndex.vue";
 import UpgradeFileSourceInstance from "@/components/FileSources/Instances/UpgradeInstance.vue";
 import CreateUserFileSource from "@/components/FileSources/Templates/CreateUserFileSource.vue";
-import FormGeneric from "@/components/Form/FormGeneric.vue";
-import GalaxyWizard from "@/components/GalaxyWizard.vue";
 import GridInvocation from "@/components/Grid/GridInvocation.vue";
-import GridPage from "@/components/Grid/GridPage.vue";
 import GridVisualization from "@/components/Grid/GridVisualization.vue";
-import HelpTerm from "@/components/Help/HelpTerm.vue";
 import HistoryArchiveWizard from "@/components/History/Archiving/HistoryArchiveWizard.vue";
-import HistoryExportTasks from "@/components/History/Export/HistoryExport.vue";
-import HistoryAccessibility from "@/components/History/HistoryAccessibility.vue";
 import HistoryDatasetPermissions from "@/components/History/HistoryDatasetPermissions.vue";
-import HistoryList from "@/components/History/HistoryList.vue";
-import HistoryPublished from "@/components/History/HistoryPublished.vue";
-import HistoryView from "@/components/History/HistoryView.vue";
-import HistoryMultipleView from "@/components/History/Multiple/MultipleView.vue";
-import HistoryImport from "@/components/HistoryImport.vue";
-import ZipImportResults from "@/components/ImportData/zip/ZipImportResults.vue";
-import ZipImportWizard from "@/components/ImportData/zip/ZipImportWizard.vue";
-import InteractiveToolFrame from "@/components/InteractiveTools/InteractiveToolFrame.vue";
-import InteractiveTools from "@/components/InteractiveTools/InteractiveTools.vue";
-import JobDetails from "@/components/JobInformation/JobDetails.vue";
-import CarbonEmissionsCalculations from "@/components/JobMetrics/CarbonEmissions/CarbonEmissionsCalculations.vue";
-import ToolLanding from "@/components/Landing/ToolLanding.vue";
-import WorkflowLanding from "@/components/Landing/WorkflowLanding.vue";
 import NotificationsList from "@/components/Notifications/NotificationsList.vue";
-import CreateObjectStoreInstance from "@/components/ObjectStore/Instances/CreateInstance.vue";
 import EditObjectStoreInstance from "@/components/ObjectStore/Instances/EditInstance.vue";
 import ManageObjectStoreIndex from "@/components/ObjectStore/Instances/ManageIndex.vue";
 import UpgradeObjectStoreInstance from "@/components/ObjectStore/Instances/UpgradeInstance.vue";
 import CreateUserObjectStore from "@/components/ObjectStore/Templates/CreateUserObjectStore.vue";
-import PageView from "@/components/Page/PageView.vue";
-import PageForm from "@/components/PageDisplay/PageForm.vue";
-import PageEditor from "@/components/PageEditor/PageEditor.vue";
 import Sharing from "@/components/Sharing/SharingPage.vue";
-import ToolReport from "@/components/Tool/ToolReport.vue";
-import ToolSuccess from "@/components/Tool/ToolSuccess.vue";
-import ToolOntologies from "@/components/ToolsList/ToolOntologies.vue";
-import ToolsList from "@/components/ToolsList/ToolsList.vue";
-import ToolsJson from "@/components/ToolsView/ToolsSchemaJson/ToolsJson.vue";
-import TourList from "@/components/Tour/TourList.vue";
-import CredentialsManagement from "@/components/User/Credentials/CredentialsManagement.vue";
-import CustomBuilds from "@/components/User/CustomBuilds.vue";
 import HistoryStorageOverview from "@/components/User/DiskUsage/Visualizations/HistoryStorageOverview.vue";
-import NotificationsPreferences from "@/components/User/Notifications/NotificationsPreferences.vue";
 import UserDatasetPermissions from "@/components/User/UserDatasetPermissions.vue";
-import UserPreferences from "@/components/User/UserPreferences.vue";
-import UserPreferencesForm from "@/components/User/UserPreferencesForm.vue";
-import DisplayApplication from "@/components/Visualizations/DisplayApplication.vue";
-import VisualizationsList from "@/components/Visualizations/Index.vue";
-import VisualizationCreate from "@/components/Visualizations/VisualizationCreate.vue";
-import VisualizationDisplay from "@/components/Visualizations/VisualizationDisplay.vue";
-import VisualizationPublished from "@/components/Visualizations/VisualizationPublished.vue";
-import HistoryInvocations from "@/components/Workflow/HistoryInvocations.vue";
-import TrsImport from "@/components/Workflow/Import/TrsImport.vue";
-import TrsSearch from "@/components/Workflow/Import/TrsSearch.vue";
-import InvocationReport from "@/components/Workflow/InvocationReport.vue";
-import WorkflowList from "@/components/Workflow/List/WorkflowList.vue";
 import WorkflowPublished from "@/components/Workflow/Published/WorkflowPublished.vue";
-import WorkflowRerun from "@/components/Workflow/Run/WorkflowRerun.vue";
-import WorkflowRun from "@/components/Workflow/Run/WorkflowRun.vue";
-import StoredWorkflowInvocations from "@/components/Workflow/StoredWorkflowInvocations.vue";
-import WorkflowCreate from "@/components/Workflow/WorkflowCreate.vue";
-import WorkflowExport from "@/components/Workflow/WorkflowExport.vue";
-import WorkflowImport from "@/components/Workflow/WorkflowImport.vue";
 import WorkflowInvocationState from "@/components/WorkflowInvocationState/WorkflowInvocationState.vue";
-import Analysis from "@/entry/analysis/modules/Analysis.vue";
-import Home from "@/entry/analysis/modules/Home.vue";
-import Login from "@/entry/analysis/modules/Login.vue";
-import Register from "@/entry/analysis/modules/Register.vue";
-import WorkflowEditorModule from "@/entry/analysis/modules/WorkflowEditor.vue";
 
 Vue.use(VueRouter);
-
-// Async component for CustomToolEditor to reduce bundle size
-// NOTE: We use the full async component factory pattern instead of simple dynamic imports
-// (i.e., `() => import("@/components/Tool/CustomToolEditor.vue")`) due to what I think are router limitations.  Revisit with vr-4
-const CustomToolEditor = () => ({
-    component: import("@/components/Tool/CustomToolEditor.vue"),
-    loading: {
-        template: '<div class="text-center"><i class="fa fa-spinner fa-spin"></i> Loading Tool Editor...</div>',
-    },
-    error: {
-        template: '<div class="alert alert-danger">Failed to load Tool Editor</div>',
-    },
-    delay: 200,
-    timeout: 10000,
-});
 
 // patches $router.push() to trigger an event and hide duplication warnings
 patchRouterPush(VueRouter);
@@ -160,11 +130,13 @@ export function getRouter(Galaxy) {
                 component: Login,
                 redirect: redirectLoggedIn(),
             },
-            /** Registration entry route */
+            /** Page editor */
             {
-                path: "/register/start",
-                component: Register,
-                redirect: redirectLoggedIn(),
+                path: "/pages/editor",
+                component: PageEditor,
+                props: (route) => ({
+                    pageId: route.query.id,
+                }),
             },
             /** Workflow editor */
             {
@@ -180,12 +152,8 @@ export function getRouter(Galaxy) {
             },
             {
                 path: "/published/page",
-                component: PageView,
-                props: (route) => ({
-                    pageId: route.query.id,
-                    embed: route.query.embed ? parseBool(route.query.embed) : undefined,
-                    showHeading: route.query.heading ? parseBool(route.query.heading) : undefined,
-                }),
+                component: PageDisplay,
+                props: (route) => ({ pageId: route.query.id }),
             },
             {
                 path: "/published/visualization",
@@ -197,7 +165,6 @@ export function getRouter(Galaxy) {
                 component: WorkflowPublished,
                 props: (route) => ({
                     id: route.query.id,
-                    version: route.query.version,
                     zoom: route.query.zoom ? parseFloat(route.query.zoom) : undefined,
                     embed: route.query.embed ? parseBool(route.query.embed) : undefined,
                     showButtons: route.query.buttons ? parseBool(route.query.buttons) : undefined,
@@ -222,7 +189,7 @@ export function getRouter(Galaxy) {
                 children: [
                     ...AdminRoutes,
                     ...LibraryRoutes,
-                    ...StorageRoutes,
+                    ...StorageDashboardRoutes,
                     {
                         path: "",
                         alias: "root",
@@ -248,20 +215,13 @@ export function getRouter(Galaxy) {
                         redirect: redirectAnon(),
                     },
                     {
-                        path: "collection/new_list",
-                        component: ListWizard,
-                        props: (route) => ({
-                            initialAdvanced: parseBool(route.query.advanced),
-                        }),
-                    },
-                    {
                         path: "collection/:collectionId/edit",
                         component: CollectionEditView,
                         props: true,
                     },
                     {
-                        path: "collection/:collectionId/sheet",
-                        component: DisplayCollectionAsSheet,
+                        path: "datasets/:datasetId/edit",
+                        component: DatasetAttributes,
                         props: true,
                     },
                     {
@@ -269,9 +229,18 @@ export function getRouter(Galaxy) {
                         component: DatasetList,
                     },
                     {
-                        path: "datasets/:datasetId/report",
-                        component: ToolReport,
+                        path: "datasets/:datasetId/details",
+                        name: "DatasetDetails",
+                        component: DatasetDetails,
                         props: true,
+                    },
+                    {
+                        path: "datasets/:datasetId/preview",
+                        component: CenterFrame,
+                        props: (route) => ({
+                            src: `/datasets/${route.params.datasetId}/display/?preview=True`,
+                            isPreview: true,
+                        }),
                     },
                     {
                         // legacy route, potentially used by 3rd parties
@@ -280,26 +249,13 @@ export function getRouter(Galaxy) {
                         props: true,
                     },
                     {
-                        // Consolidated route for dataset view with optional tab
-                        // Handles /datasets/{id}, /datasets/{id}/details, /datasets/{id}/visualize, etc.
-                        path: "datasets/:datasetId/:tab?",
-                        name: "DatasetDetails",
-                        component: DatasetView,
-                        props: (route) => ({
-                            datasetId: route.params.datasetId,
-                            tab: route.params.tab,
-                            displayOnly: route.query.displayOnly === "true",
-                        }),
+                        path: "datasets/:datasetId/error",
+                        component: DatasetError,
+                        props: true,
                     },
                     {
                         path: "datatypes",
                         component: AvailableDatatypes,
-                    },
-                    {
-                        path: "display_applications/:datasetId/:appName/:linkName",
-                        component: DisplayApplication,
-                        props: true,
-                        redirect: redirectAnon(),
                     },
                     {
                         path: "histories/import",
@@ -323,9 +279,11 @@ export function getRouter(Galaxy) {
                     },
                     {
                         path: "histories/sharing",
-                        component: HistoryAccessibility,
+                        component: Sharing,
                         props: (route) => ({
-                            historyId: route.query.id,
+                            id: route.query.id,
+                            pluralName: "Histories",
+                            modelClass: "History",
                         }),
                     },
                     {
@@ -350,7 +308,7 @@ export function getRouter(Galaxy) {
                     },
                     {
                         path: "histories/list_published",
-                        component: HistoryList,
+                        component: GridHistory,
                         props: (route) => ({
                             activeList: "published",
                             username: route.query["f-username"],
@@ -358,7 +316,7 @@ export function getRouter(Galaxy) {
                     },
                     {
                         path: "histories/archived",
-                        component: HistoryList,
+                        component: GridHistory,
                         props: {
                             activeList: "archived",
                         },
@@ -366,7 +324,7 @@ export function getRouter(Galaxy) {
                     },
                     {
                         path: "histories/list",
-                        component: HistoryList,
+                        component: GridHistory,
                         props: {
                             activeList: "my",
                         },
@@ -374,7 +332,7 @@ export function getRouter(Galaxy) {
                     },
                     {
                         path: "histories/list_shared",
-                        component: HistoryList,
+                        component: GridHistory,
                         props: {
                             activeList: "shared",
                         },
@@ -400,12 +358,6 @@ export function getRouter(Galaxy) {
                     {
                         path: "interactivetool_entry_points/list",
                         component: InteractiveTools,
-                    },
-                    {
-                        path: "interactivetool_entry_points/:entryId/display",
-                        component: InteractiveToolFrame,
-                        props: true,
-                        name: "InteractiveToolDisplay",
                     },
                     {
                         path: "jobs/submission/success",
@@ -479,37 +431,28 @@ export function getRouter(Galaxy) {
                     },
                     {
                         path: "pages/create",
-                        component: PageForm,
-                        props: (route) => ({
-                            invocationId: route.query.invocation_id,
-                            mode: "create",
-                        }),
+                        component: FormGeneric,
+                        props: (route) => {
+                            let url = "/page/create";
+                            const invocation_id = route.query.invocation_id;
+                            if (invocation_id) {
+                                url += `?invocation_id=${invocation_id}`;
+                            }
+                            return {
+                                url: url,
+                                redirect: "/pages/list",
+                                active_tab: "user",
+                            };
+                        },
                     },
                     {
                         path: "pages/edit",
-                        component: PageForm,
+                        component: FormGeneric,
                         props: (route) => ({
-                            id: route.query.id,
-                            mode: "edit",
+                            url: `/page/edit?id=${route.query.id}`,
+                            redirect: "/pages/list",
+                            active_tab: "user",
                         }),
-                    },
-                    {
-                        path: "/pages/editor",
-                        component: PageEditor,
-                        props: (route) => ({
-                            pageId: route.query.id,
-                        }),
-                    },
-                    {
-                        path: "/tools/editor",
-                        component: CustomToolEditor,
-                        redirect: redirectAnon(),
-                    },
-                    {
-                        path: "/tools/editor/:toolUuid",
-                        component: CustomToolEditor,
-                        redirect: redirectAnon(),
-                        props: true,
                     },
                     {
                         path: "pages/sharing",
@@ -552,20 +495,8 @@ export function getRouter(Galaxy) {
                     },
                     {
                         path: "tours/:tourId",
-                        component: CenterFrame,
-                        props: (route) => ({
-                            src: "/welcome",
-                        }),
-                    },
-                    {
-                        path: "rules",
-                        component: RulesStandalone,
-                        props: (route) => {
-                            return {
-                                mode: "standalone",
-                                ...route.query,
-                            };
-                        },
+                        component: TourRunner,
+                        props: true,
                     },
                     {
                         path: "tools/list",
@@ -577,30 +508,20 @@ export function getRouter(Galaxy) {
                         },
                     },
                     {
-                        path: "tools/list/ontologies",
-                        component: ToolOntologies,
-                        props: true,
-                    },
-                    {
                         path: "tools/json",
                         component: ToolsJson,
                     },
                     {
                         path: "tool_landings/:uuid",
                         component: ToolLanding,
-                        props: (route) => ({
-                            uuid: route.params.uuid,
-                            public: Boolean(route.query.public),
-                            secret: route.query.client_secret,
-                        }),
-                        beforeEnter: requireAuth,
+                        props: true,
                     },
                     {
                         path: "workflow_landings/:uuid",
                         component: WorkflowLanding,
                         props: (route) => ({
                             uuid: route.params.uuid,
-                            public: (route.query.public || "").toLowerCase() === "true",
+                            public: route.query.public.toLowerCase() === "true",
                             secret: route.query.client_secret,
                         }),
                         beforeEnter: requireAuth,
@@ -608,16 +529,15 @@ export function getRouter(Galaxy) {
                     {
                         path: "user",
                         component: UserPreferences,
+                        props: {
+                            enableQuotas: Galaxy.config.enable_quotas,
+                            userId: Galaxy.user.id,
+                        },
                         redirect: redirectAnon(),
                     },
                     {
                         path: "user/api_key",
                         component: APIKey,
-                        redirect: redirectAnon(),
-                    },
-                    {
-                        path: "user/credentials",
-                        component: CredentialsManagement,
                         redirect: redirectAnon(),
                     },
                     {
@@ -660,14 +580,8 @@ export function getRouter(Galaxy) {
                         }),
                     },
                     {
-                        path: "visualizations/create/:visualization",
-                        component: VisualizationCreate,
-                        name: "VisualizationsCreate",
-                        props: true,
-                    },
-                    {
                         path: "visualizations/display",
-                        component: VisualizationDisplay,
+                        component: VisualizationFrame,
                         name: "VisualizationsDisplay",
                         props: (route) => ({
                             datasetId: route.query.dataset_id,
@@ -699,23 +613,14 @@ export function getRouter(Galaxy) {
                         props: {
                             activeList: "my",
                         },
-                        redirect: redirectAnon("/visualizations/list_published"),
+                        redirect: redirectAnon(),
                     },
                     {
                         path: "visualizations/list_published",
                         component: GridVisualization,
-                        props: (route) => ({
-                            activeList: "published",
-                            username: route.query["f-username"],
-                        }),
-                    },
-                    {
-                        path: "visualizations/list_shared",
-                        component: GridVisualization,
                         props: {
-                            activeList: "shared",
+                            activeList: "published",
                         },
-                        redirect: redirectAnon(),
                     },
                     {
                         path: "workflows/create",
@@ -754,15 +659,11 @@ export function getRouter(Galaxy) {
                         }),
                     },
                     {
-                        // Consolidated route for workflow invocation state with optional success query param
-                        // Handles /workflows/invocations/{id}, /workflows/invocations/{id}/steps, /workflows/invocations/{id}/inputs, etc.
-                        path: "workflows/invocations/:invocationId/:tab?",
+                        path: "workflows/invocations/:invocationId",
                         component: WorkflowInvocationState,
                         props: (route) => ({
                             invocationId: route.params.invocationId,
-                            tab: route.params.tab,
                             isFullPage: true,
-                            success: Boolean(route.query.success),
                         }),
                     },
                     {
@@ -789,23 +690,14 @@ export function getRouter(Galaxy) {
                     },
                     {
                         path: "workflows/run",
-                        component: WorkflowRun,
+                        component: Home,
                         redirect: redirectAnon(),
                         props: (route) => ({
-                            workflowId: route.query.id,
-                            version: route.query.version,
-                            instance: route.query.instance,
-                            preferSimpleForm: Galaxy.config.simplified_workflow_run_ui === "prefer",
-                            simpleFormTargetHistory: Galaxy.config.simplified_workflow_run_ui_target_history,
-                            simpleFormUseJobCache: Galaxy.config.simplified_workflow_run_ui_job_cache === "on",
-                        }),
-                    },
-                    {
-                        path: "workflows/rerun",
-                        component: WorkflowRerun,
-                        redirect: redirectAnon(),
-                        props: (route) => ({
-                            invocationId: route.query.invocation_id,
+                            config: Galaxy.config,
+                            query: {
+                                workflow_id: route.query.id,
+                                version: route.query.version,
+                            },
                         }),
                     },
                     {
@@ -836,29 +728,6 @@ export function getRouter(Galaxy) {
                         path: "workflows/:storedWorkflowId/invocations",
                         component: StoredWorkflowInvocations,
                         props: true,
-                    },
-                    {
-                        path: "import/zip",
-                        name: "ZipImportWizard",
-                        component: ZipImportWizard,
-                        props: true,
-                        redirect: redirectAnon(),
-                    },
-                    {
-                        path: "import/zip/results",
-                        name: "ZipImportResults",
-                        component: ZipImportResults,
-                        props: (route) => ({
-                            workflowFileCount: Number(route.params.workflowFileCount),
-                            regularFileCount: Number(route.params.regularFileCount),
-                        }),
-                        redirect: redirectAnon(),
-                    },
-                    {
-                        path: "downloads",
-                        name: "RecentDownloads",
-                        component: RecentDownloads,
-                        redirect: redirectAnon(),
                     },
                 ],
             },

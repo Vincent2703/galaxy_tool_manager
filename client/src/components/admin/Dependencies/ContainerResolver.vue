@@ -14,7 +14,7 @@
     </span>
 </template>
 <script>
-import DisplayRaw from "./DisplayRaw.vue";
+import DisplayRaw from "./DisplayRaw";
 
 export const DESCRIPTION = {
     explicit:

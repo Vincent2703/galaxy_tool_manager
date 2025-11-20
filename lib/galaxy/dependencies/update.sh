@@ -29,14 +29,10 @@ done
 shift $((OPTIND - 1))
 
 # Create a virtual environment in a tmp directory and install uv into it
-if command -v uv >/dev/null; then
-    uv="$(command -v uv)"
-else
-    uv_venv=$(mktemp -d "${TMPDIR:-/tmp}/uv_venv.XXXXXXXXXX")
-    python3 -m venv "${uv_venv}"
-    "${uv_venv}/bin/python" -m pip install uv
-    uv="${uv_venv}/bin/uv"
-fi
+uv_venv=$(mktemp -d "${TMPDIR:-/tmp}/uv_venv.XXXXXXXXXX")
+python3 -m venv "${uv_venv}"
+"${uv_venv}/bin/python" -m pip install uv
+uv="${uv_venv}/bin/uv"
 
 # Run uv (this may update pyproject.toml and uv.lock).
 if [ -n "$pkg" ]; then
@@ -46,12 +42,6 @@ else
 fi
 
 # Update pinned requirements files.
-UV_EXPORT_OPTIONS='--frozen --no-annotate --no-hashes'
-# shellcheck disable=SC2086
-${uv} export ${UV_EXPORT_OPTIONS} --no-dev > "$this_directory/pinned-requirements.txt"
-# shellcheck disable=SC2086
-${uv} export ${UV_EXPORT_OPTIONS} --only-group=test > "$this_directory/pinned-test-requirements.txt"
-# shellcheck disable=SC2086
-${uv} export ${UV_EXPORT_OPTIONS} --only-group=dev > "$this_directory/dev-requirements.txt"
-# shellcheck disable=SC2086
-${uv} export ${UV_EXPORT_OPTIONS} --only-group=typecheck > "$this_directory/pinned-typecheck-requirements.txt"
+${uv} export --frozen --no-hashes --no-dev > "$this_directory/pinned-requirements.txt"
+${uv} export --frozen --no-hashes --only-group=dev > "$this_directory/dev-requirements.txt"
+${uv} export --frozen --no-hashes --only-group=typecheck > "$this_directory/pinned-typecheck-requirements.txt"

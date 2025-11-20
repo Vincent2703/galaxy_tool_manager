@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import (
     Any,
     cast,
+    Dict,
     Optional,
 )
 
@@ -17,12 +18,10 @@ from fastapi.responses import (
     RedirectResponse,
 )
 from fastapi.staticfiles import StaticFiles
-from slowapi import (
-    _rate_limit_exceeded_handler,
-    Limiter,
+from starlette_graphene3 import (
+    GraphQLApp,
+    make_graphiql_handler,
 )
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from galaxy.webapps.base.api import (
     add_exception_handler,
@@ -30,10 +29,12 @@ from galaxy.webapps.base.api import (
     include_all_package_routers,
 )
 from galaxy.webapps.openapi.utils import get_openapi
+from tool_shed.structured_app import ToolShedApp
 from tool_shed.webapp.api2 import (
     ensure_valid_session,
     get_trans,
 )
+from tool_shed.webapp.graphql.schema import schema
 
 log = logging.getLogger(__name__)
 
@@ -122,6 +123,16 @@ def frontend_route(controller, path):
     app.get(path, response_class=HTMLResponse)(index)
 
 
+def mount_graphql(app: FastAPI, tool_shed_app: ToolShedApp):
+    context = {
+        "session": tool_shed_app.model.context,
+        "security": tool_shed_app.security,
+    }
+    g_app = GraphQLApp(schema, on_get=make_graphiql_handler(), context_value=context, root_value=context)
+    app.mount("/graphql", g_app)
+    app.mount("/api/graphql", g_app)
+
+
 FRONT_END_ROUTES = [
     "/",
     "/admin",
@@ -138,11 +149,9 @@ FRONT_END_ROUTES = [
     "/repositories_by_owner/{username}",
     "/repositories/{repository_id}",
     "/repositories_search",
-    "/tools/{trs_tool_id}/versions/{version}",
     "/_component_showcase",
     "/user/api_key",
     "/user/change_password",
-    "/user/change_password_success",
     "/view/{username}",
     "/view/{username}/{repository_name}",
     "/view/{username}/{repository_name}/{changeset_revision}",
@@ -153,15 +162,10 @@ LEGACY_ROUTES = {
 }
 
 
-limiter = Limiter(key_func=get_remote_address)
-
-
 def initialize_fast_app(gx_webapp, tool_shed_app):
     app = get_fastapi_instance()
     add_exception_handler(app)
     add_request_id_middleware(app)
-    app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
     from .config import SHED_API_VERSION
 
     def mount_static(directory: Path):
@@ -176,6 +180,8 @@ def initialize_fast_app(gx_webapp, tool_shed_app):
 
         for from_route, to_route in LEGACY_ROUTES.items():
             redirect_route(app, from_route, to_route)
+
+        mount_graphql(app, tool_shed_app)
 
         mount_static(FRONTEND / "static")
         if TOOL_SHED_USE_HMR:
@@ -203,7 +209,7 @@ def get_fastapi_instance() -> FastAPI:
     )
 
 
-def get_openapi_schema() -> dict[str, Any]:
+def get_openapi_schema() -> Dict[str, Any]:
     """
     Dumps openAPI schema without starting a full app and webserver.
     """

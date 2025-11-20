@@ -10,8 +10,7 @@
 </template>
 <script>
 import { getInstalledRepositories, resetRepositoryMetadata } from "./AdminServices";
-
-import BaseList from "./BaseList.vue";
+import BaseList from "./BaseList";
 
 export default {
     components: {

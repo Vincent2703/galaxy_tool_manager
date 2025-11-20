@@ -2,16 +2,17 @@
 import { BModal } from "bootstrap-vue";
 import { computed, ref } from "vue";
 
-import type { WorkflowLabel } from "./Editor/types";
+import { type WorkflowLabel } from "./labels";
 
 import LabelSelector from "./LabelSelector.vue";
 
-const props = defineProps<{
-    argumentName: string;
+interface MarkdownSelectorProps {
     labelTitle?: string;
-    labels: Array<WorkflowLabel>;
-}>();
+    labels: WorkflowLabel[];
+    argumentName?: string;
+}
 
+const props = defineProps<MarkdownSelectorProps>();
 const selectedValue = ref<WorkflowLabel | undefined>(undefined);
 const modalShow = ref(true);
 
@@ -43,7 +44,7 @@ function onCancel() {
                 v-model="selectedValue"
                 class="ml-2"
                 :has-labels="hasLabels"
-                :label-title="labelTitle ?? ''"
+                :label-title="labelTitle"
                 :labels="labels" />
         </BModal>
     </span>

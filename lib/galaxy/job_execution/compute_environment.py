@@ -5,9 +5,9 @@ from abc import (
 )
 from typing import (
     Any,
+    Dict,
 )
 
-from galaxy.job_execution.datasets import DeferrableObjectsT
 from galaxy.job_execution.setup import JobIO
 from galaxy.model import Job
 
@@ -21,9 +21,6 @@ class ComputeEnvironment(metaclass=ABCMeta):
     """Definition of the job as it will be run on the (potentially) remote
     compute server.
     """
-
-    def __init__(self):
-        self.materialized_objects: dict[str, DeferrableObjectsT] = {}
 
     @abstractmethod
     def output_names(self):
@@ -94,7 +91,7 @@ class ComputeEnvironment(metaclass=ABCMeta):
         """URL to access Galaxy API from for this compute environment."""
 
     @abstractmethod
-    def get_file_sources_dict(self) -> dict[str, Any]:
+    def get_file_sources_dict(self) -> Dict[str, Any]:
         """Return file sources dict for current user."""
 
 
@@ -119,7 +116,7 @@ class SharedComputeEnvironment(SimpleComputeEnvironment, ComputeEnvironment):
         self.job_io = job_io
         self.job = job
 
-    def get_file_sources_dict(self) -> dict[str, Any]:
+    def get_file_sources_dict(self) -> Dict[str, Any]:
         return self.job_io.file_sources_dict
 
     def output_names(self):

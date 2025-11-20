@@ -1,7 +1,7 @@
 import { shallowMount } from "@vue/test-utils";
 import { getLocalVue } from "tests/jest/helpers";
 
-import ObjectStoreRestrictionSpan from "./ObjectStoreRestrictionSpan.vue";
+import ObjectStoreRestrictionSpan from "./ObjectStoreRestrictionSpan";
 
 const localVue = getLocalVue();
 

@@ -1,4 +1,5 @@
 import json
+from typing import List
 from unittest import SkipTest
 from uuid import uuid4
 
@@ -30,7 +31,7 @@ class TagsApiTests(ApiTestCase):
 
         new_tags = ["APITag"]
         update_history_tags_response = self._update_tags_using_tags_api(item_id, new_tags)
-        self._assert_status_code_is_ok(update_history_tags_response)
+        self._assert_status_code_is(update_history_tags_response, 204)
         self._assert_tags_in_item(item_id, new_tags)
 
         # other users can't create or update tags
@@ -50,7 +51,7 @@ class TagsApiTests(ApiTestCase):
         item = item_response.json()
         return item
 
-    def _assert_tags_in_item(self, item_id, expected_tags: list[str]):
+    def _assert_tags_in_item(self, item_id, expected_tags: List[str]):
         item = self._get_item(item_id)
         assert "tags" in item
         assert item["tags"] == expected_tags

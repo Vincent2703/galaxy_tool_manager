@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { faPlus, faUndo } from "@fortawesome/free-solid-svg-icons";
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faColumns, faPlus, faUndo } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BBadge, BButton, BButtonGroup } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
@@ -20,6 +21,8 @@ import ActivityPanel from "@/components/Panels/ActivityPanel.vue";
 
 const route = useRoute();
 const router = useRouter();
+
+library.add(faColumns, faPlus, faUndo);
 
 const filter = ref("");
 const showAdvanced = ref(false);
@@ -72,10 +75,10 @@ async function createAndPin() {
 
 /** Reset to _default_ state; showing 4 latest updated histories */
 function pinRecent() {
-    historyStore.clearPinnedHistories();
+    historyStore.pinnedHistories = [];
     Toast.info(
         "Showing the 4 most recently updated histories in Multiview. Pin histories to History Multiview by selecting them in the panel.",
-        "History Multiview",
+        "History Multiview"
     );
 }
 

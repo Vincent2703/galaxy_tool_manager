@@ -1,4 +1,5 @@
 from typing import (
+    List,
     Optional,
 )
 
@@ -41,7 +42,7 @@ class ToolShedRepositoriesService:
         self._install_model_context = install_model_context
         self._tool_shed_registry = tool_shed_registry
 
-    def index(self, request: InstalledToolShedRepositoryIndexRequest) -> list[InstalledToolShedRepository]:
+    def index(self, request: InstalledToolShedRepositoryIndexRequest) -> List[InstalledToolShedRepository]:
         repositories = self._get_tool_shed_repositories(
             name=request.name,
             owner=request.owner,

@@ -16,7 +16,6 @@ from http.cookies import (
     SimpleCookie,
 )
 from importlib import import_module
-from typing import NoReturn
 from urllib.parse import urljoin
 
 import routes
@@ -36,7 +35,7 @@ log = logging.getLogger(__name__)
 #: time of the most recent server startup
 server_starttime = int(time.time())
 try:
-    meta_json = json.loads(resource_string(__name__, "meta.json"))
+    meta_json = json.loads(resource_string(__package__, "meta.json"))
     server_starttime = meta_json.get("epoch") or server_starttime
 except Exception:
     meta_json = {}
@@ -506,7 +505,7 @@ class Response:
     def get_content_type(self):
         return self.headers.get("content-type", None)
 
-    def send_redirect(self, url: str) -> NoReturn:
+    def send_redirect(self, url):
         """
         Send an HTTP redirect response to (target `url`)
         """
@@ -531,7 +530,7 @@ class Response:
         """
         if isinstance(self.status, int):
             exception = webob.exc.status_map.get(self.status)
-            return f"{exception.code} {exception.title}"
+            return "%d %s" % (exception.code, exception.title)
         else:
             return self.status
 

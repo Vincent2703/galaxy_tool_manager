@@ -18,7 +18,6 @@ from galaxy.jobs.runners.util.job_script import (
     ScriptIntegrityChecks,
     write_script,
 )
-from galaxy.model import Dataset
 from galaxy.tool_util.deps.container_classes import (
     Container,
     TRAP_KILL_CONTAINER,
@@ -34,6 +33,13 @@ CAPTURE_RETURN_CODE = "return_code=$?"
 YIELD_CAPTURED_CODE = 'sh -c "exit $return_code"'
 SETUP_GALAXY_FOR_METADATA = """
 [ "$GALAXY_VIRTUAL_ENV" = "None" ] && GALAXY_VIRTUAL_ENV="$_GALAXY_VIRTUAL_ENV"; _galaxy_setup_environment True"""
+PREPARE_DIRS = """mkdir -p working outputs configs
+if [ -d _working ]; then
+    rm -rf working/ outputs/ configs/; cp -R _working working; cp -R _outputs outputs; cp -R _configs configs
+else
+    cp -R working _working; cp -R outputs _outputs; cp -R configs _configs
+fi
+cd working"""
 
 
 def build_command(
@@ -119,9 +125,12 @@ def build_command(
     # Don't need to create a separate tool working directory for Pulsar
     # jobs - that is handled by Pulsar.
     if create_tool_working_directory:
-        # Working (and outputs, configs) are backed up and restored in the job script for both Galaxy and Pulsar jobs,
-        # but Pulsar automatically changes into the working dir, whereas Galaxy does not.
-        commands_builder.prepend_command("cd working")
+        # usually working will already exist, but it will not for task
+        # split jobs.
+
+        # Copy working and outputs before job submission so that these can be restored on resubmission
+        # xref https://github.com/galaxyproject/galaxy/issues/3289
+        commands_builder.prepend_command(PREPARE_DIRS)
 
     __handle_remote_command_line_building(commands_builder, job_wrapper, for_pulsar=for_pulsar)
 
@@ -252,7 +261,7 @@ def __handle_metadata(
     metadata_kwds = remote_command_params.get("metadata_kwds", {})
     exec_dir = metadata_kwds.get("exec_dir", abspath(getcwd()))
     tmp_dir = metadata_kwds.get("tmp_dir", job_wrapper.working_directory)
-    dataset_files_path = metadata_kwds.get("dataset_files_path", Dataset.file_path)
+    dataset_files_path = metadata_kwds.get("dataset_files_path", runner.app.model.Dataset.file_path)
     output_fnames = metadata_kwds.get("output_fnames", job_wrapper.job_io.get_output_fnames())
     config_root = metadata_kwds.get("config_root", None)
     config_file = metadata_kwds.get("config_file", None)
@@ -288,17 +297,13 @@ def __handle_metadata(
 
 def __copy_if_exists_command(work_dir_output):
     source_file, destination = work_dir_output
-    is_directory = True if destination.endswith("_files") else False
-    test_flag = "-d" if is_directory else "-f"
-    recursive_flag = " -r" if is_directory else ""
-    delete_destination_dir = f" rmdir {destination}; " if is_directory else ""
     if "?" in source_file or "*" in source_file:
         source_file = source_file.replace("*", '"*"').replace("?", '"?"')
     # Check if source and destination exist.
     # Users can purge outputs before the job completes,
     # in that case we don't want to copy the output to a purged path.
     # Static, non work_dir_output files are handled in job_finish code.
-    return f'\nif [ {test_flag} "{source_file}" -a {test_flag} "{destination}" ] ; then{delete_destination_dir} cp{recursive_flag} "{source_file}" "{destination}" ; fi'
+    return f'\nif [ -f "{source_file}" -a -f "{destination}" ] ; then cp "{source_file}" "{destination}" ; fi'
 
 
 class CommandsBuilder:

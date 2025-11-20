@@ -16,6 +16,7 @@ from galaxy.model import (
     Library,
     LibraryDatasetDatasetAssociation,
 )
+from galaxy.model.base import transaction
 from galaxy.security.validate_user_input import validate_password
 from galaxy.util import inflector
 from galaxy.util.hash_util import new_secure_hash_v2
@@ -25,7 +26,6 @@ from galaxy.web.legacy_framework.grids import (
     GridOperation,
 )
 from tool_shed.util.web_util import escape
-from tool_shed.webapp import model
 
 log = logging.getLogger(__name__)
 compliance_log = logging.getLogger("COMPLIANCE")
@@ -100,34 +100,39 @@ class Admin:
                 message = "Enter a valid name and a description."
                 status = "error"
                 ok = False
-            elif get_role_id(trans.sa_session, model.Role, name):
+            elif get_role_id(trans.sa_session, trans.app.model.Role, name):
                 message = "Role names must be unique and a role with that name already exists, so choose another name."
                 status = "error"
                 ok = False
             else:
                 # Create the role
-                role = model.Role(name=name, description=description, type=model.Role.types.ADMIN)
+                role = trans.app.model.Role(name=name, description=description, type=trans.app.model.Role.types.ADMIN)
                 trans.sa_session.add(role)
                 # Create the UserRoleAssociations
-                for user in [trans.sa_session.get(model.User, x) for x in in_users]:
-                    ura = model.UserRoleAssociation(user, role)
+                for user in [trans.sa_session.get(trans.app.model.User, x) for x in in_users]:
+                    ura = trans.app.model.UserRoleAssociation(user, role)
                     trans.sa_session.add(ura)
                 # Create the GroupRoleAssociations
-                for group in [trans.sa_session.get(model.Group, x) for x in in_groups]:
-                    gra = model.GroupRoleAssociation(group, role)
+                for group in [trans.sa_session.get(trans.app.model.Group, x) for x in in_groups]:
+                    gra = trans.app.model.GroupRoleAssociation(group, role)
                     trans.sa_session.add(gra)
                 if create_group_for_role_checked:
                     # Create the group
-                    group = model.Group(name=name)
+                    group = trans.app.model.Group(name=name)
                     trans.sa_session.add(group)
                     # Associate the group with the role
-                    gra = model.GroupRoleAssociation(group, role)
+                    gra = trans.model.GroupRoleAssociation(group, role)
                     trans.sa_session.add(gra)
                     num_in_groups = len(in_groups) + 1
                 else:
                     num_in_groups = len(in_groups)
-                trans.sa_session.commit()
-                message = f"Role '{role.name}' has been created with {len(in_users)} associated users and {num_in_groups} associated groups.  "
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
+                message = "Role '%s' has been created with %d associated users and %d associated groups.  " % (
+                    role.name,
+                    len(in_users),
+                    num_in_groups,
+                )
                 if create_group_for_role_checked:
                     message += (
                         "One of the groups associated with this role is the newly created group with the same name."
@@ -136,9 +141,9 @@ class Admin:
                     web.url_for(controller="admin", action="roles", message=util.sanitize_text(message), status="done")
                 )
         if ok:
-            for user in get_current_users(trans.sa_session, model.User):
+            for user in get_current_users(trans.sa_session, trans.app.model.User):
                 out_users.append((user.id, user.email))
-            for group in get_current_groups(trans.sa_session, model.Group):
+            for group in get_current_groups(trans.sa_session, trans.app.model.Group):
                 out_groups.append((group.id, group.name))
         return trans.fill_template(
             "/webapps/tool_shed/admin/dataset_security/role/role_create.mako",
@@ -174,7 +179,7 @@ class Admin:
                 message = "Enter a valid name"
                 status = "error"
             else:
-                if get_role_id(trans.sa_session, model.Role, new_name) != role.id:
+                if get_role_id(trans.sa_session, trans.app.model.Role, new_name) != role.id:
                     message = "A role with that name already exists"
                     status = "error"
                 else:
@@ -182,7 +187,8 @@ class Admin:
                         role.name = new_name
                         role.description = new_description
                         trans.sa_session.add(role)
-                        trans.sa_session.commit()
+                        with transaction(trans.sa_session):
+                            trans.sa_session.commit()
                         message = f"Role '{old_name}' has been renamed to '{new_name}'"
                     return trans.response.send_redirect(
                         web.url_for(
@@ -207,10 +213,10 @@ class Admin:
             )
         role = get_role(trans, id)
         if params.get("role_members_edit_button", False):
-            in_users = [trans.sa_session.get(model.User, x) for x in util.listify(params.in_users)]
+            in_users = [trans.sa_session.get(trans.app.model.User, x) for x in util.listify(params.in_users)]
             if trans.webapp.name == "galaxy":
                 for ura in role.users:
-                    user = trans.sa_session.get(model.User, ura.user_id)
+                    user = trans.sa_session.get(trans.app.model.User, ura.user_id)
                     if user not in in_users:
                         # Delete DefaultUserPermissions for previously associated users that have been removed from the role
                         for dup in user.default_permissions:
@@ -221,11 +227,16 @@ class Admin:
                             for dhp in history.default_permissions:
                                 if role == dhp.role:
                                     trans.sa_session.delete(dhp)
-                        trans.sa_session.commit()
-            in_groups = [trans.sa_session.get(model.Group, x) for x in util.listify(params.in_groups)]
+                        with transaction(trans.sa_session):
+                            trans.sa_session.commit()
+            in_groups = [trans.sa_session.get(trans.app.model.Group, x) for x in util.listify(params.in_groups)]
             trans.app.security_agent.set_entity_role_associations(roles=[role], users=in_users, groups=in_groups)
             trans.sa_session.refresh(role)
-            message = f"Role '{role.name}' has been updated with {len(in_users)} associated users and {len(in_groups)} associated groups"
+            message = "Role '%s' has been updated with %d associated users and %d associated groups" % (
+                role.name,
+                len(in_users),
+                len(in_groups),
+            )
             trans.response.send_redirect(
                 web.url_for(controller="admin", action="roles", message=util.sanitize_text(message), status=status)
             )
@@ -233,12 +244,12 @@ class Admin:
         out_users = []
         in_groups = []
         out_groups = []
-        for user in get_current_users(trans.sa_session, model.User):
+        for user in get_current_users(trans.sa_session, trans.app.model.User):
             if user in [x.user for x in role.users]:
                 in_users.append((user.id, user.email))
             else:
                 out_users.append((user.id, user.email))
-        for group in get_current_groups(trans.sa_session, model.Group):
+        for group in get_current_groups(trans.sa_session, trans.app.model.Group):
             if group in [x.group for x in role.groups]:
                 in_groups.append((group.id, group.name))
             else:
@@ -292,12 +303,13 @@ class Admin:
                 web.url_for(controller="admin", action="roles", message=message, status="error")
             )
         ids = util.listify(id)
-        message = f"Deleted {len(ids)} roles: "
+        message = "Deleted %d roles: " % len(ids)
         for role_id in ids:
             role = get_role(trans, role_id)
             role.deleted = True
             trans.sa_session.add(role)
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
             message += f" {role.name} "
         trans.response.send_redirect(
             web.url_for(controller="admin", action="roles", message=util.sanitize_text(message), status="done")
@@ -313,7 +325,8 @@ class Admin:
                 web.url_for(controller="admin", action="roles", message=message, status="error")
             )
         ids = util.listify(id)
-        undeleted_roles = []
+        count = 0
+        undeleted_roles = ""
         for role_id in ids:
             role = get_role(trans, role_id)
             if not role.deleted:
@@ -323,9 +336,11 @@ class Admin:
                 )
             role.deleted = False
             trans.sa_session.add(role)
-            trans.sa_session.commit()
-            undeleted_roles.append(role.name)
-        message = "Undeleted {} roles: {}".format(len(undeleted_roles), " ".join(undeleted_roles))
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
+            count += 1
+            undeleted_roles += f" {role.name}"
+        message = "Undeleted %d roles: %s" % (count, undeleted_roles)
         trans.response.send_redirect(
             web.url_for(controller="admin", action="roles", message=util.sanitize_text(message), status="done")
         )
@@ -347,7 +362,7 @@ class Admin:
                 web.url_for(controller="admin", action="roles", message=util.sanitize_text(message), status="error")
             )
         ids = util.listify(id)
-        message = f"Purged {len(ids)} roles: "
+        message = "Purged %d roles: " % len(ids)
         for role_id in ids:
             role = get_role(trans, role_id)
             if not role.deleted:
@@ -357,7 +372,7 @@ class Admin:
                 )
             # Delete UserRoleAssociations
             for ura in role.users:
-                user = trans.sa_session.get(model.User, ura.user_id)
+                user = trans.sa_session.get(trans.app.model.User, ura.user_id)
                 # Delete DefaultUserPermissions for associated users
                 for dup in user.default_permissions:
                     if role == dup.role:
@@ -374,7 +389,8 @@ class Admin:
             # Delete DatasetPermissionss
             for dp in role.dataset_actions:
                 trans.sa_session.delete(dp)
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
             message += f" {role.name} "
         trans.response.send_redirect(
             web.url_for(controller="admin", action="roles", message=util.sanitize_text(message), status="done")
@@ -422,14 +438,15 @@ class Admin:
                 message = "Enter a valid name"
                 status = "error"
             else:
-                if get_group_id(trans.sa_session, model.Group, new_name) != group.id:
+                if get_group_id(trans.sa_session, trans.app.model.Group, new_name) != group.id:
                     message = "A group with that name already exists"
                     status = "error"
                 else:
                     if group.name != new_name:
                         group.name = new_name
                         trans.sa_session.add(group)
-                        trans.sa_session.commit()
+                        with transaction(trans.sa_session):
+                            trans.sa_session.commit()
                         message = f"Group '{old_name}' has been renamed to '{new_name}'"
                     return trans.response.send_redirect(
                         web.url_for(
@@ -451,11 +468,15 @@ class Admin:
         status = params.get("status", "done")
         group = get_group(trans, params.id)
         if params.get("group_roles_users_edit_button", False):
-            in_roles = [trans.sa_session.get(model.Role, x) for x in util.listify(params.in_roles)]
-            in_users = [trans.sa_session.get(model.User, x) for x in util.listify(params.in_users)]
+            in_roles = [trans.sa_session.get(trans.app.model.Role, x) for x in util.listify(params.in_roles)]
+            in_users = [trans.sa_session.get(trans.app.model.User, x) for x in util.listify(params.in_users)]
             trans.app.security_agent.set_entity_group_associations(groups=[group], roles=in_roles, users=in_users)
             trans.sa_session.refresh(group)
-            message += f"Group '{group.name}' has been updated with {len(in_roles)} associated roles and {len(in_users)} associated users"
+            message += "Group '%s' has been updated with %d associated roles and %d associated users" % (
+                group.name,
+                len(in_roles),
+                len(in_users),
+            )
             trans.response.send_redirect(
                 web.url_for(controller="admin", action="groups", message=util.sanitize_text(message), status=status)
             )
@@ -463,17 +484,21 @@ class Admin:
         out_roles = []
         in_users = []
         out_users = []
-        for role in get_current_roles(trans.sa_session, model.Role):
+        for role in get_current_roles(trans.sa_session, trans.app.model.Role):
             if role in [x.role for x in group.roles]:
                 in_roles.append((role.id, role.name))
             else:
                 out_roles.append((role.id, role.name))
-        for user in get_current_users(trans.sa_session, model.User):
+        for user in get_current_users(trans.sa_session, trans.app.model.User):
             if user in [x.user for x in group.users]:
                 in_users.append((user.id, user.email))
             else:
                 out_users.append((user.id, user.email))
-        message += f"Group {group.name} is currently associated with {len(in_roles)} roles and {len(in_users)} users"
+        message += "Group %s is currently associated with %d roles and %d users" % (
+            group.name,
+            len(in_roles),
+            len(in_users),
+        )
         return trans.fill_template(
             "/webapps/tool_shed/admin/dataset_security/group/group.mako",
             group=group,
@@ -504,7 +529,7 @@ class Admin:
                 message = "Enter a valid name."
                 status = "error"
                 ok = False
-            elif get_group_id(trans.sa_session, model.Group, name):
+            elif get_group_id(trans.sa_session, trans.app.model.Group, name):
                 message = (
                     "Group names must be unique and a group with that name already exists, so choose another name."
                 )
@@ -512,29 +537,35 @@ class Admin:
                 ok = False
             else:
                 # Create the group
-                group = model.Group(name=name)
+                group = trans.app.model.Group(name=name)
                 trans.sa_session.add(group)
-                trans.sa_session.commit()
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
                 # Create the UserRoleAssociations
-                for user in [trans.sa_session.get(model.User, x) for x in in_users]:
-                    uga = model.UserGroupAssociation(user, group)
+                for user in [trans.sa_session.get(trans.app.model.User, x) for x in in_users]:
+                    uga = trans.app.model.UserGroupAssociation(user, group)
                     trans.sa_session.add(uga)
                 # Create the GroupRoleAssociations
-                for role in [trans.sa_session.get(model.Role, x) for x in in_roles]:
-                    gra = model.GroupRoleAssociation(group, role)
+                for role in [trans.sa_session.get(trans.app.model.Role, x) for x in in_roles]:
+                    gra = trans.app.model.GroupRoleAssociation(group, role)
                     trans.sa_session.add(gra)
                 if create_role_for_group_checked:
                     # Create the role
-                    role = model.Role(name=name, description=f"Role for group {name}")
+                    role = trans.app.model.Role(name=name, description=f"Role for group {name}")
                     trans.sa_session.add(role)
                     # Associate the role with the group
-                    gra = model.GroupRoleAssociation(group, role)
+                    gra = trans.model.GroupRoleAssociation(group, role)
                     trans.sa_session.add(gra)
                     num_in_roles = len(in_roles) + 1
                 else:
                     num_in_roles = len(in_roles)
-                trans.sa_session.commit()
-                message = f"Group '{group.name}' has been created with {len(in_users)} associated users and {num_in_roles} associated roles.  "
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
+                message = "Group '%s' has been created with %d associated users and %d associated roles.  " % (
+                    group.name,
+                    len(in_users),
+                    num_in_roles,
+                )
                 if create_role_for_group_checked:
                     message += (
                         "One of the roles associated with this group is the newly created role with the same name."
@@ -543,9 +574,9 @@ class Admin:
                     web.url_for(controller="admin", action="groups", message=util.sanitize_text(message), status="done")
                 )
         if ok:
-            for user in get_current_users(trans.sa_session, model.User):
+            for user in get_current_users(trans.sa_session, trans.app.model.User):
                 out_users.append((user.id, user.email))
-            for role in get_current_roles(trans.sa_session, model.Role):
+            for role in get_current_roles(trans.sa_session, trans.app.model.Role):
                 out_roles.append((role.id, role.name))
         return trans.fill_template(
             "/webapps/tool_shed/admin/dataset_security/group/group_create.mako",
@@ -570,12 +601,13 @@ class Admin:
                 web.url_for(controller="admin", action="groups", message=message, status="error")
             )
         ids = util.listify(id)
-        message = f"Deleted {len(ids)} groups: "
+        message = "Deleted %d groups: " % len(ids)
         for group_id in ids:
             group = get_group(trans, group_id)
             group.deleted = True
             trans.sa_session.add(group)
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
             message += f" {group.name} "
         trans.response.send_redirect(
             web.url_for(controller="admin", action="groups", message=util.sanitize_text(message), status="done")
@@ -591,7 +623,8 @@ class Admin:
                 web.url_for(controller="admin", action="groups", message=message, status="error")
             )
         ids = util.listify(id)
-        undeleted_groups = []
+        count = 0
+        undeleted_groups = ""
         for group_id in ids:
             group = get_group(trans, group_id)
             if not group.deleted:
@@ -603,9 +636,11 @@ class Admin:
                 )
             group.deleted = False
             trans.sa_session.add(group)
-            trans.sa_session.commit()
-            undeleted_groups.append(group.name)
-        message = "Undeleted {} groups: {}".format(len(undeleted_groups), " ".join(undeleted_groups))
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
+            count += 1
+            undeleted_groups += f" {group.name}"
+        message = "Undeleted %d groups: %s" % (count, undeleted_groups)
         trans.response.send_redirect(
             web.url_for(controller="admin", action="groups", message=util.sanitize_text(message), status="done")
         )
@@ -622,7 +657,7 @@ class Admin:
                 web.url_for(controller="admin", action="groups", message=util.sanitize_text(message), status="error")
             )
         ids = util.listify(id)
-        message = f"Purged {len(ids)} groups: "
+        message = "Purged %d groups: " % len(ids)
         for group_id in ids:
             group = get_group(trans, group_id)
             if not group.deleted:
@@ -639,7 +674,8 @@ class Admin:
             # Delete GroupRoleAssociations
             for gra in group.roles:
                 trans.sa_session.delete(gra)
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
             message += f" {group.name} "
         trans.response.send_redirect(
             web.url_for(controller="admin", action="groups", message=util.sanitize_text(message), status="done")
@@ -674,11 +710,10 @@ class Admin:
                 else:
                     user.set_password_cleartext(password)
                     trans.sa_session.add(user)
-                    trans.sa_session.commit()
+                    with transaction(trans.sa_session):
+                        trans.sa_session.commit()
             if not message and not status:
-                message = "Passwords reset for {} {}.".format(
-                    len(user_ids), inflector.cond_plural(len(user_ids), "user")
-                )
+                message = "Passwords reset for %d %s." % (len(user_ids), inflector.cond_plural(len(user_ids), "user"))
                 status = "done"
             trans.response.send_redirect(
                 web.url_for(controller="admin", action="users", message=util.sanitize_text(message), status=status)
@@ -700,7 +735,7 @@ class Admin:
                 web.url_for(controller="admin", action="users", message=message, status="error")
             )
         ids = util.listify(id)
-        message = f"Deleted {len(ids)} users: "
+        message = "Deleted %d users: " % len(ids)
         for user_id in ids:
             user = get_user(trans, user_id)
             user.deleted = True
@@ -728,7 +763,8 @@ class Admin:
                 user.username = uname_hash
 
             trans.sa_session.add(user)
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
             message += f" {user.email} "
         trans.response.send_redirect(
             web.url_for(controller="admin", action="users", message=util.sanitize_text(message), status="done")
@@ -744,7 +780,8 @@ class Admin:
                 web.url_for(controller="admin", action="users", message=message, status="error")
             )
         ids = util.listify(id)
-        undeleted_users = []
+        count = 0
+        undeleted_users = ""
         for user_id in ids:
             user = get_user(trans, user_id)
             if not user.deleted:
@@ -754,16 +791,18 @@ class Admin:
                 )
             user.deleted = False
             trans.sa_session.add(user)
-            trans.sa_session.commit()
-            undeleted_users.append(user.email)
-        message = "Undeleted {} users: {}".format(len(undeleted_users), " ".join(undeleted_users))
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
+            count += 1
+            undeleted_users += f" {user.email}"
+        message = "Undeleted %d users: %s" % (count, undeleted_users)
         trans.response.send_redirect(
             web.url_for(controller="admin", action="users", message=util.sanitize_text(message), status="done")
         )
 
     @web.expose
     @web.require_admin
-    def purge_user(self, trans, **kwd) -> None:
+    def purge_user(self, trans, **kwd):
         # This method should only be called for a User that has previously been deleted.
         # We keep the User in the database ( marked as purged ), and stuff associated
         # with the user's private role in case we want the ability to unpurge the user
@@ -775,6 +814,7 @@ class Admin:
         # - UserGroupAssociation where user_id == User.id
         # - UserRoleAssociation where user_id == User.id EXCEPT FOR THE PRIVATE ROLE
         # - UserAddress where user_id == User.id
+        # Purging Histories and Datasets must be handled via the cleanup_datasets.py script
         id = kwd.get("id", None)
         if not id:
             message = "No user ids received for purging"
@@ -782,7 +822,7 @@ class Admin:
                 web.url_for(controller="admin", action="users", message=util.sanitize_text(message), status="error")
             )
         ids = util.listify(id)
-        message = f"Purged {len(ids)} users: "
+        message = "Purged %d users: " % len(ids)
         for user_id in ids:
             user = get_user(trans, user_id)
             if not user.deleted:
@@ -792,6 +832,20 @@ class Admin:
                     web.url_for(controller="admin", action="users", message=util.sanitize_text(message), status="error")
                 )
             private_role = trans.app.security_agent.get_private_user_role(user)
+            # Delete History
+            for h in user.active_histories:
+                trans.sa_session.refresh(h)
+                for hda in h.active_datasets:
+                    # Delete HistoryDatasetAssociation
+                    d = trans.sa_session.get(trans.app.model.Dataset, hda.dataset_id)
+                    # Delete Dataset
+                    if not d.deleted:
+                        d.deleted = True
+                        trans.sa_session.add(d)
+                    hda.deleted = True
+                    trans.sa_session.add(hda)
+                h.deleted = True
+                trans.sa_session.add(h)
             # Delete UserGroupAssociations
             for uga in user.groups:
                 trans.sa_session.delete(uga)
@@ -799,10 +853,14 @@ class Admin:
             for ura in user.roles:
                 if ura.role_id != private_role.id:
                     trans.sa_session.delete(ura)
+            # Delete UserAddresses
+            for address in user.addresses:
+                trans.sa_session.delete(address)
             # Purge the user
             user.purged = True
             trans.sa_session.add(user)
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
             message += f"{user.email} "
         trans.response.send_redirect(
             web.url_for(controller="admin", action="users", message=util.sanitize_text(message), status="done")
@@ -842,7 +900,7 @@ class Admin:
     @web.require_admin
     def name_autocomplete_data(self, trans, q=None, limit=None, timestamp=None):
         """Return autocomplete data for user emails"""
-        emails = get_user_emails_by_prefix(trans.sa_session, model.User, q)
+        emails = get_user_emails_by_prefix(trans.sa_session, trans.app.model.User, q)
         return "\n".join(emails)
 
     @web.expose
@@ -862,23 +920,26 @@ class Admin:
             # Make sure the user is not dis-associating himself from his private role
             out_roles = kwd.get("out_roles", [])
             if out_roles:
-                out_roles = [trans.sa_session.get(model.Role, x) for x in util.listify(out_roles)]
+                out_roles = [trans.sa_session.get(trans.app.model.Role, x) for x in util.listify(out_roles)]
             if private_role in out_roles:
                 message += "You cannot eliminate a user's private role association.  "
                 status = "error"
             in_roles = kwd.get("in_roles", [])
             if in_roles:
-                in_roles = [trans.sa_session.get(model.Role, x) for x in util.listify(in_roles)]
+                in_roles = [trans.sa_session.get(trans.app.model.Role, x) for x in util.listify(in_roles)]
             out_groups = kwd.get("out_groups", [])
             if out_groups:
-                out_groups = [trans.sa_session.get(model.Group, x) for x in util.listify(out_groups)]
+                out_groups = [trans.sa_session.get(trans.app.model.Group, x) for x in util.listify(out_groups)]
             in_groups = kwd.get("in_groups", [])
             if in_groups:
-                in_groups = [trans.sa_session.get(model.Group, x) for x in util.listify(in_groups)]
+                in_groups = [trans.sa_session.get(trans.app.model.Group, x) for x in util.listify(in_groups)]
             if in_roles:
                 trans.app.security_agent.set_entity_user_associations(users=[user], roles=in_roles, groups=in_groups)
                 trans.sa_session.refresh(user)
-                message += f"User '{user.email}' has been updated with {len(in_roles)} associated roles and {len(in_groups)} associated groups (private roles are not displayed)"
+                message += (
+                    "User '%s' has been updated with %d associated roles and %d associated groups (private roles are not displayed)"
+                    % (user.email, len(in_roles), len(in_groups))
+                )
                 trans.response.send_redirect(
                     web.url_for(controller="admin", action="users", message=util.sanitize_text(message), status="done")
                 )
@@ -886,21 +947,25 @@ class Admin:
         out_roles = []
         in_groups = []
         out_groups = []
-        for role in get_current_roles(trans.sa_session, model.Role):
+        for role in get_current_roles(trans.sa_session, trans.app.model.Role):
             if role in [x.role for x in user.roles]:
                 in_roles.append((role.id, role.name))
-            elif role.type != model.Role.types.PRIVATE:
+            elif role.type != trans.app.model.Role.types.PRIVATE:
                 # There is a 1 to 1 mapping between a user and a PRIVATE role, so private roles should
                 # not be listed in the roles form fields, except for the currently selected user's private
                 # role, which should always be in in_roles.  The check above is added as an additional
                 # precaution, since for a period of time we were including private roles in the form fields.
                 out_roles.append((role.id, role.name))
-        for group in get_current_groups(trans.sa_session, model.Group):
+        for group in get_current_groups(trans.sa_session, trans.app.model.Group):
             if group in [x.group for x in user.groups]:
                 in_groups.append((group.id, group.name))
             else:
                 out_groups.append((group.id, group.name))
-        message += f"User '{user.email}' is currently associated with {len(in_roles)} roles and is a member of {len(in_groups)} groups"
+        message += "User '%s' is currently associated with %d roles and is a member of %d groups" % (
+            user.email,
+            len(in_roles),
+            len(in_groups),
+        )
         if not status:
             status = "done"
         return trans.fill_template(
@@ -918,9 +983,9 @@ class Admin:
 # ---- Utility methods -------------------------------------------------------
 
 
-def get_user(trans, user_id) -> model.User:
+def get_user(trans, user_id):
     """Get a User from the database by id."""
-    user = trans.sa_session.get(model.User, trans.security.decode_id(user_id))
+    user = trans.sa_session.get(trans.model.User, trans.security.decode_id(user_id))
     if not user:
         return trans.show_error_message(f"User not found for id ({str(user_id)})")
     return user
@@ -930,7 +995,7 @@ def get_role(trans, id):
     """Get a Role from the database by id."""
     # Load user from database
     id = trans.security.decode_id(id)
-    role = trans.sa_session.get(model.Role, id)
+    role = trans.sa_session.get(trans.model.Role, id)
     if not role:
         return trans.show_error_message(f"Role not found for id ({str(id)})")
     return role
@@ -940,7 +1005,7 @@ def get_group(trans, id):
     """Get a Group from the database by id."""
     # Load user from database
     id = trans.security.decode_id(id)
-    group = trans.sa_session.get(model.Group, id)
+    group = trans.sa_session.get(trans.model.Group, id)
     if not group:
         return trans.show_error_message(f"Group not found for id ({str(id)})")
     return group

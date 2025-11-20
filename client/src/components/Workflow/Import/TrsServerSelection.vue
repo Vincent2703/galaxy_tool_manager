@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCaretDown } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BLink } from "bootstrap-vue";
@@ -7,6 +8,8 @@ import { computed, type Ref, ref, watch } from "vue";
 import { Services } from "@/components/Workflow/services";
 
 import type { TrsSelection } from "./types";
+
+library.add(faCaretDown);
 
 interface Props {
     queryTrsServer?: string;

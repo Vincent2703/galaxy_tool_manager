@@ -7,7 +7,10 @@ import os.path
 import re
 from json import loads
 from typing import (
+    Dict,
+    List,
     Optional,
+    Tuple,
 )
 
 from sqlalchemy import select
@@ -23,11 +26,11 @@ from galaxy.util import (
 log = logging.getLogger(__name__)
 
 
-def read_dbnames(filename: Optional[str]) -> list[tuple[str, str]]:
+def read_dbnames(filename: Optional[str]) -> List[Tuple[str, str]]:
     """Read build names from file"""
-    db_names: list[tuple[str, str]] = []
+    db_names: List[Tuple[str, str]] = []
     try:
-        ucsc_builds: dict[str, list[tuple[int, str, str]]] = {}
+        ucsc_builds: Dict[str, List[Tuple[int, str, str]]] = {}
         man_builds = []  # assume these are integers
         name_to_db_base = {}
         if filename is None:

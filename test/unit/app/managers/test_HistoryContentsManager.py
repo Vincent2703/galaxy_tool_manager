@@ -1,4 +1,5 @@
-""" """
+"""
+"""
 
 import datetime
 import random
@@ -17,6 +18,7 @@ from galaxy.managers import (
     history_contents,
 )
 from galaxy.managers.histories import HistoryManager
+from galaxy.model.base import transaction
 from .base import (
     BaseTestCase,
     CreatesCollectionsMixin,
@@ -121,7 +123,8 @@ class TestHistoryAsContainer(HistoryAsContainerBaseTestCase):
         contents[6].deleted = True
         deleted = [contents[1], contents[4], contents[6]]
         session = self.app.model.context
-        session.commit()
+        with transaction(session):
+            session.commit()
 
         # TODO: cross db compat?
         filters = [parse_filter("deleted", "eq", "True")]
@@ -140,7 +143,9 @@ class TestHistoryAsContainer(HistoryAsContainerBaseTestCase):
         contents[5].visible = False
         contents[6].visible = False
         invisible = [contents[2], contents[5], contents[6]]
-        session.commit()
+        session = self.app.model.context
+        with transaction(session):
+            session.commit()
 
         filters = [parse_filter("visible", "eq", "False")]
         assert self.contents_manager.contents(history, filters=filters) == invisible
@@ -228,7 +233,8 @@ class TestHistoryAsContainer(HistoryAsContainerBaseTestCase):
         # change the oldest created to update the update_time
         contents[0].name = "zany and/or wacky"
         session = self.app.model.context
-        session.commit()
+        with transaction(session):
+            session.commit()
         results = self.contents_manager.contents(history, order_by=desc("update_time"))
         assert contents[0] == results[0]
 
@@ -246,7 +252,8 @@ class TestHistoryAsContainer(HistoryAsContainerBaseTestCase):
         # change the update_time by updating the name
         contents[3].name = "big ball of mud"
         session = self.app.model.context
-        session.commit()
+        with transaction(session):
+            session.commit()
         update_time = contents[3].update_time
 
         def get_update_time(item):
@@ -276,12 +283,15 @@ class TestHistoryAsContainer(HistoryAsContainerBaseTestCase):
         self.hda_manager.delete(contents[4])
         contents[6].deleted = True
         session = self.app.model.context
-        session.commit()
+        with transaction(session):
+            session.commit()
 
         contents[2].visible = False
         contents[5].visible = False
         contents[6].visible = False
-        session.commit()
+        session = self.app.model.context
+        with transaction(session):
+            session.commit()
 
         HDA = self.hda_manager.model_class
         assert self.contents_manager.contents_count(history, filters=[parsed_filter("orm", HDA.deleted == true())]) == 3

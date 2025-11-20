@@ -8,11 +8,10 @@
 </template>
 
 <script>
+import ToolForm from "components/Tool/ToolForm";
+import WorkflowRun from "components/Workflow/Run/WorkflowRun";
 import decodeUriComponent from "decode-uri-component";
-
-import ToolForm from "@/components/Tool/ToolForm.vue";
-import WorkflowRun from "@/components/Workflow/Run/WorkflowRun.vue";
-import CenterFrame from "@/entry/analysis/modules/CenterFrame.vue";
+import CenterFrame from "entry/analysis/modules/CenterFrame";
 
 export default {
     components: {
@@ -35,7 +34,7 @@ export default {
             return this.query.m_c && this.query.m_a;
         },
         isTool() {
-            return this.query.tool_id || this.query.tool_uuid || this.query.job_id;
+            return this.query.tool_id || this.query.job_id;
         },
         isUpload() {
             return this.query.tool_id === "upload1";
@@ -48,7 +47,6 @@ export default {
         },
         toolParams() {
             const result = { ...this.query };
-            result.uuid = this.query.tool_uuid;
             const tool_id = this.query.tool_id;
             if (tool_id) {
                 result.id = tool_id.indexOf("+") >= 0 ? tool_id : decodeUriComponent(tool_id);

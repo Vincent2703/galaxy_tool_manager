@@ -1,14 +1,13 @@
-import type {
-    CreateInstancePayload,
-    Instance,
-    PluginStatus,
-    SecretData,
-    TemplateSecret,
-    TemplateSummary,
-    TemplateVariable,
-    TemplateVariableValidator,
-    VariableData,
-    VariableValueType,
+import {
+    type CreateInstancePayload,
+    type Instance,
+    type PluginStatus,
+    type SecretData,
+    type TemplateSecret,
+    type TemplateSummary,
+    type TemplateVariable,
+    type VariableData,
+    type VariableValueType,
 } from "@/api/configTemplates";
 import { markup } from "@/components/ObjectStore/configurationMarkdown";
 
@@ -19,7 +18,6 @@ export interface FormEntry {
     help?: string | null;
     type: string;
     value?: any;
-    validators?: TemplateVariableValidator[];
 }
 
 export function metadataFormEntryName(what: string): FormEntry {
@@ -47,7 +45,6 @@ export function templateVariableFormEntry(variable: TemplateVariable, variableVa
         name: variable.name,
         label: variable.label ?? variable.name,
         help: markup(variable.help || "", true),
-        validators: variable.validators ?? [],
     };
     if (variable.type == "string") {
         const defaultValue = variable.default ?? "";
@@ -58,6 +55,7 @@ export function templateVariableFormEntry(variable: TemplateVariable, variableVa
         };
     } else if (variable.type == "path_component") {
         const defaultValue = variable.default ?? "";
+        // TODO: do extra validation with form somehow...
         return {
             type: "text",
             value: variableValue == undefined ? defaultValue : variableValue,
@@ -220,7 +218,9 @@ export function upgradeForm(template: TemplateSummary, instance: Instance): Form
     }
     for (const secret of secrets) {
         const secretName = secret.name;
-        if (secretsSet.indexOf(secretName) < 0) {
+        if (secretsSet.indexOf(secretName) >= 0) {
+            console.log("skipping...");
+        } else {
             form.push(templateSecretFormEntry(secret));
         }
     }

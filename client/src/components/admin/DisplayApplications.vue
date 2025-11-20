@@ -13,8 +13,7 @@
 </template>
 <script>
 import { getDisplayApplications, reloadDisplayApplications } from "./AdminServices";
-
-import BaseList from "./BaseList.vue";
+import BaseList from "./BaseList";
 
 export default {
     components: {

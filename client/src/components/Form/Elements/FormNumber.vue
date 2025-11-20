@@ -1,17 +1,7 @@
 <template>
     <div>
-        <b-alert
-            v-if="errorMessage"
-            class="mt-2"
-            :show="dismissCountDown"
-            variant="info"
-            dismissible
-            @dismissed="resetAlert"
-            @dismiss-count-down="($event) => (dismissCountDown = $event)">
+        <b-alert v-if="errorMessage" class="mt-2" :show="dismissCountDown" variant="info" @dismissed="resetAlert">
             {{ errorMessage }}
-            <b-progress :max="dismissSecs" :value="dismissCountDown" height="4px" class="mt-1">
-                <b-progress-bar :value="dismissCountDown" variant="info" />
-            </b-progress>
         </b-alert>
         <b-row align-v="center">
             <b-col :sm="isRangeValid ? defaultInputSizeWithSlider : false">
@@ -22,10 +12,7 @@
                     :no-wheel="true"
                     :step="step"
                     :type="fieldType"
-                    :placeholder="placeholder"
-                    :state="showState ? (!currentValue && currentValue !== 0 ? (optional ? null : false) : true) : null"
                     @change="onInputChange"
-                    @keypress="isNumberOrDecimal"
                     @keydown.190.capture="onFloatInput"
                     @keydown.110.capture="onFloatInput" />
             </b-col>
@@ -63,23 +50,11 @@ export default {
             type: Boolean,
             default: false,
         },
-        placeholder: {
-            type: String,
-            default: "",
-        },
-        optional: {
-            type: Boolean,
-            default: false,
-        },
-        showState: {
-            type: Boolean,
-            default: false,
-        },
     },
     data() {
         return {
             defaultInputSizeWithSlider: 4,
-            dismissSecs: 4,
+            dismissSecs: 5,
             dismissCountDown: 0,
             errorMessage: "",
             fractionWarning: "This output doesn't allow fractions!",
@@ -150,15 +125,6 @@ export default {
                 this.dismissCountDown = this.dismissSecs;
             }
         },
-        /** To only allow numbers and decimal points as input for this number field */
-        isNumberOrDecimal(event) {
-            const key = event.key;
-            if ((key >= "0" && key <= "9") || key === ".") {
-                return true;
-            }
-            event.preventDefault();
-            return false;
-        },
         isOutOfRange(value) {
             /* If value=null, then value is within range. */
             return (
@@ -190,7 +156,7 @@ export default {
                 // Number of digits right of decimal point.
                 (match[1] ? match[1].length : 0) -
                     // Adjust for scientific notation.
-                    (match[2] ? +match[2] : 0),
+                    (match[2] ? +match[2] : 0)
             );
         },
     },

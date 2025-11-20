@@ -26,7 +26,7 @@ def get_tool_source(*args, **kwargs):
     return tool_source
 
 
-def _cwl_tool_path(path: str):
+def _cwl_tool_path(path):
     return os.path.join(CWL_TOOLS_DIRECTORY, path)
 
 
@@ -281,7 +281,7 @@ def test_load_proxy_simple():
     outputs, output_collections = tool_source.parse_outputs(None)
     assert len(outputs) == 1
 
-    software_requirements, containers, resource_requirements, _, credentials = tool_source.parse_requirements()
+    software_requirements, containers, resource_requirements = tool_source.parse_requirements_and_containers()
     assert software_requirements.to_dict() == []
     assert len(containers) == 1
     assert containers[0].to_dict() == {
@@ -292,7 +292,6 @@ def test_load_proxy_simple():
     }
     assert len(resource_requirements) == 1
     assert resource_requirements[0].to_dict() == {"resource_type": "ram_min", "value_or_expression": 8}
-    assert len(credentials) == 0
 
 
 def test_representation_id():
@@ -359,8 +358,8 @@ def test_tool_reload():
     _inputs(tool_source)
 
 
-def _outputs(tool_source: CwlToolSource):
-    return tool_source.parse_outputs(None)
+def _outputs(tool_source):
+    return tool_source.parse_outputs(object())
 
 
 def _inputs(tool_source=None, path=None):

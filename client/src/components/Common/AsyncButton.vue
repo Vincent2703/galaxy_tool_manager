@@ -1,27 +1,33 @@
 <script setup lang="ts">
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { BButton } from "bootstrap-vue";
 import { ref } from "vue";
-
-import type { ComponentColor } from "../BaseComponents/componentVariants";
-
-import GButton from "../BaseComponents/GButton.vue";
 
 interface Props {
     icon: string | object;
     title?: string;
     disabled?: boolean;
     loadingTitle?: string;
-    size?: "small" | "medium" | "large";
+    size?: "sm" | "md" | "lg";
     action: () => Promise<void>;
-    transparent?: boolean;
-    outline?: boolean;
-    color?: ComponentColor;
+
+    variant?:
+        | "outline-primary"
+        | "primary"
+        | "secondary"
+        | "success"
+        | "danger"
+        | "warning"
+        | "info"
+        | "light"
+        | "dark"
+        | "link";
 }
 
 const props = withDefaults(defineProps<Props>(), {
     title: "",
-    size: "medium",
-    color: "blue",
+    size: "md",
+    variant: "link",
     loadingTitle: "Loading...",
 });
 
@@ -35,17 +41,15 @@ async function onClick() {
 </script>
 
 <template>
-    <GButton
-        :tooltip="Boolean(title)"
-        :title="loading ? loadingTitle : title"
+    <BButton
+        v-b-tooltip.hover.noninteractive="!title"
+        :title="title"
         :size="size"
-        :color="color"
-        :transparent="transparent"
+        :variant="variant"
         :disabled="loading || disabled"
-        :outline="outline"
         @click="onClick">
-        <span v-if="loading" class="loading-icon fa fa-spinner fa-spin" />
+        <span v-if="loading" class="loading-icon fa fa-spinner fa-spin" :title="loadingTitle" />
         <FontAwesomeIcon v-else :icon="props.icon" fixed-width />
         <slot></slot>
-    </GButton>
+    </BButton>
 </template>

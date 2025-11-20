@@ -8,7 +8,10 @@ import tempfile
 from io import StringIO
 from typing import (
     Any,
+    Dict,
+    List,
     Optional,
+    Tuple,
 )
 
 import bdbag.bdbag_api
@@ -52,7 +55,7 @@ def do_fetch(
     request_path: str,
     working_directory: str,
     registry: Registry,
-    file_sources_dict: Optional[dict] = None,
+    file_sources_dict: Optional[Dict] = None,
 ):
     assert os.path.exists(request_path)
     with open(request_path) as f:
@@ -84,7 +87,7 @@ def _request_to_galaxy_json(upload_config: "UploadConfig", request):
     return {"__unnamed_outputs": fetched_targets}
 
 
-def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
+def _fetch_target(upload_config: "UploadConfig", target: Dict[str, Any]):
     destination = target.get("destination", None)
     assert destination, "No destination defined."
 
@@ -130,8 +133,6 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
 
     if "collection_type" in target:
         fetched_target["collection_type"] = target["collection_type"]
-    if "column_definitions" in target:
-        fetched_target["column_definitions"] = target["column_definitions"]
     if "name" in target:
         fetched_target["name"] = target["name"]
 
@@ -150,8 +151,6 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
             target_metadata["created_from_basename"] = created_from_basename
         if "error_message" in src_item:
             target_metadata["error_message"] = src_item["error_message"]
-        if row := src_item.get("row", None):
-            target_metadata["row"] = row
         return target_metadata
 
     def _resolve_item(item):
@@ -195,7 +194,7 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
             )
             extra_files_path = f"{primary_file}_extra"
             os.mkdir(extra_files_path)
-            rval: dict[str, Any] = {
+            rval: Dict[str, Any] = {
                 "name": name,
                 "filename": primary_file,
                 "ext": requested_ext,
@@ -299,12 +298,6 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
         space_to_tab = upload_config.get_option(item, "space_to_tab")
         auto_decompress = upload_config.get_option(item, "auto_decompress")
 
-        requested_transform = [{"action": "datatype_groom"}]
-        if space_to_tab:
-            requested_transform.append({"action": "spaces_to_tabs"})
-        if to_posix_lines:
-            requested_transform.append({"action": "to_posix_lines"})
-        source_dict["requested_transform"] = requested_transform
         effective_state = "ok"
         if not deferred and not error_message:
             in_place = item.get("in_place", default_in_place)
@@ -382,7 +375,7 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
             # TODO:
             # in galaxy json add 'extra_files' and point at target derived from extra_files:
 
-            needs_grooming = not link_data_only and datatype and datatype.dataset_content_needs_grooming(path)
+            needs_grooming = not link_data_only and datatype and datatype.dataset_content_needs_grooming(path)  # type: ignore[arg-type]
             if needs_grooming:
                 # Groom the dataset content if necessary
                 transform.append(
@@ -391,10 +384,14 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
                 assert path
                 datatype.groom_dataset_content(path)
 
-            # if length is 0, we should probably persist the empty list? -John
             if len(transform) > 0:
                 source_dict["transform"] = transform
         elif not error_message:
+            transform = []
+            if to_posix_lines:
+                transform.append({"action": "to_posix_lines"})
+            if space_to_tab:
+                transform.append({"action": "spaces_to_tabs"})
             effective_state = "deferred"
             registry = upload_config.registry
             ext = sniff.guess_ext_from_file_name(name, registry=registry, requested_ext=requested_ext)
@@ -446,7 +443,7 @@ def _bagit_to_items(directory):
     return items
 
 
-def _decompress_target(upload_config: "UploadConfig", target: dict[str, Any]):
+def _decompress_target(upload_config: "UploadConfig", target: Dict[str, Any]):
     elements_from_name, elements_from_path, _ = _has_src_to_path(upload_config, target, is_dataset=False)
     # by default Galaxy will check for a directory with a single file and interpret that
     # as the new root for expansion, this is a good user experience for uploading single
@@ -454,8 +451,8 @@ def _decompress_target(upload_config: "UploadConfig", target: dict[str, Any]):
     # fuzzy_root to False to literally interpret the target.
     fuzzy_root = target.get("fuzzy_root", True)
     temp_directory = os.path.abspath(tempfile.mkdtemp(prefix=elements_from_name, dir=upload_config.working_directory))
-    with CompressedFile(elements_from_path) as cf:
-        result = cf.extract(temp_directory)
+    cf = CompressedFile(elements_from_path)
+    result = cf.extract(temp_directory)
     return result if fuzzy_root else temp_directory
 
 
@@ -472,8 +469,8 @@ def elements_tree_map(f, items):
 
 
 def _directory_to_items(directory):
-    items: list[dict[str, Any]] = []
-    dir_elements: dict[str, Any] = {}
+    items: List[Dict[str, Any]] = []
+    dir_elements: Dict[str, Any] = {}
     for root, dirs, files in os.walk(directory):
         if root in dir_elements:
             target = dir_elements[root]
@@ -507,11 +504,11 @@ def _has_src_to_name(item) -> Optional[str]:
 
 def _has_src_to_path(
     upload_config: "UploadConfig",
-    item: dict[str, Any],
+    item: Dict[str, Any],
     is_dataset: bool = False,
     link_data_only: bool = False,
     link_data_only_explicitly_set: bool = False,
-) -> tuple[str, str, bool]:
+) -> Tuple[str, str, bool]:
     assert "src" in item, item
     src = item.get("src")
     name = item.get("name")
@@ -592,11 +589,11 @@ def get_file_sources(working_directory, file_sources_as_dict=None):
 class UploadConfig:
     def __init__(
         self,
-        request: dict[str, Any],
+        request: Dict[str, Any],
         registry: Registry,
         working_directory: str,
         allow_failed_collections: bool,
-        file_sources_dict: Optional[dict] = None,
+        file_sources_dict: Optional[Dict] = None,
     ):
         self.registry = registry
         self.working_directory = working_directory
@@ -635,7 +632,7 @@ class UploadConfig:
         self.__upload_count += 1
         return path
 
-    def ensure_in_working_directory(self, path: str, purge_source, in_place) -> str:
+    def ensure_in_working_directory(self, path, purge_source, in_place):
         if in_directory(path, self.__workdir):
             return path
 
@@ -658,7 +655,7 @@ class UploadConfig:
         return new_path
 
 
-def _link_data_only(has_config_dict) -> tuple[bool, bool]:
+def _link_data_only(has_config_dict) -> Tuple[bool, bool]:
     if "link_data_only" in has_config_dict:
         link_data_only_raw = has_config_dict["link_data_only"]
         if not isinstance(link_data_only_raw, bool):

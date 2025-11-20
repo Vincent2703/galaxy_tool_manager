@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computedAsync } from "@vueuse/core";
 import { computed } from "vue";
 
 import type { DatasetExtraFiles } from "@/api/datasets";
@@ -14,8 +13,8 @@ const { datasetPathDestination } = useDatasetPathDestination();
 
 const props = defineProps<Props>();
 
-const pathDestination = computedAsync<PathDestination | null>(() =>
-    datasetPathDestination.value(props.historyDatasetId, props.path),
+const pathDestination = computed<PathDestination | null>(() =>
+    datasetPathDestination.value(props.historyDatasetId, props.path)
 );
 
 const directoryContent = computed(() => {

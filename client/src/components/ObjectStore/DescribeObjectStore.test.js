@@ -1,7 +1,7 @@
 import { shallowMount } from "@vue/test-utils";
 import { getLocalVue } from "tests/jest/helpers";
 
-import DescribeObjectStore from "./DescribeObjectStore.vue";
+import DescribeObjectStore from "./DescribeObjectStore";
 
 const localVue = getLocalVue();
 

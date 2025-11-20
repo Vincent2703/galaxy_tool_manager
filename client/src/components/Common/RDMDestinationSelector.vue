@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { BAlert, BCard, BFormGroup, BFormInput, BFormRadio, BFormRadioGroup } from "bootstrap-vue";
+import { BAlert, BButton, BCard, BFormGroup, BFormInput, BFormRadio, BFormRadioGroup } from "bootstrap-vue";
 import { computed, ref, watch } from "vue";
 
 import { GalaxyApi } from "@/api";
-import type { BrowsableFilesSourcePlugin, CreatedEntry, FilterFileSourcesOptions } from "@/api/remoteFiles";
+import { type BrowsableFilesSourcePlugin, type CreatedEntry, type FilterFileSourcesOptions } from "@/api/remoteFiles";
 import localize from "@/utils/localization";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 import { fileSourcePluginToItem } from "../FilesDialog/utilities";
 
-import GButton from "@/components/BaseComponents/GButton.vue";
 import ExternalLink from "@/components/ExternalLink.vue";
 import FilesInput from "@/components/FilesDialog/FilesInput.vue";
 
@@ -58,7 +57,7 @@ watch(
     () => recordUri.value,
     (value) => {
         emit("onRecordSelected", value);
-    },
+    }
 );
 
 async function onCreateRecord() {
@@ -173,14 +172,14 @@ defineExpose({
                     {{ errorCreatingRecord }}
                 </BAlert>
 
-                <GButton
+                <BButton
                     id="create-record-button"
                     v-localize
-                    color="blue"
+                    variant="primary"
                     :disabled="!canCreateRecord"
                     @click.prevent="onCreateRecord">
                     Create new record
-                </GButton>
+                </BButton>
             </div>
         </div>
         <div v-else>

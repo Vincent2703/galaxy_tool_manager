@@ -3,6 +3,7 @@ Shared model and mapping code between Galaxy and Tool Shed, trying to
 generalize to generic database connections.
 """
 
+import contextlib
 import logging
 import os
 import threading
@@ -11,8 +12,9 @@ from inspect import (
     getmembers,
     isclass,
 )
-from types import ModuleType
 from typing import (
+    Dict,
+    Type,
     TYPE_CHECKING,
     Union,
 )
@@ -21,26 +23,14 @@ from sqlalchemy import event
 from sqlalchemy.orm import (
     object_session,
     scoped_session,
+    Session,
     sessionmaker,
 )
 
 from galaxy.util.bunch import Bunch
 
 if TYPE_CHECKING:
-    from sqlalchemy.engine import Engine
-
-    from galaxy.model import (
-        APIKeys as GalaxyAPIKeys,
-        GalaxySession as GalaxyGalaxySession,
-        PasswordResetToken as GalaxyPasswordResetToken,
-        User as GalaxyUser,
-    )
-    from tool_shed.webapp.model import (
-        APIKeys as ToolShedAPIKeys,
-        GalaxySession as ToolShedGalaxySession,
-        PasswordResetToken as ToolShedPasswordResetToken,
-        User as ToolShedUser,
-    )
+    from galaxy.model.store import SessionlessContext
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +38,25 @@ log = logging.getLogger(__name__)
 # of a request (which run within a threadpool) to see changes to the ContextVar
 # state. See https://github.com/tiangolo/fastapi/issues/953#issuecomment-586006249
 # for details
-REQUEST_ID: ContextVar[Union[dict[str, str], None]] = ContextVar("request_id", default=None)
+REQUEST_ID: ContextVar[Union[Dict[str, str], None]] = ContextVar("request_id", default=None)
+
+
+@contextlib.contextmanager
+def transaction(session: Union[scoped_session, Session, "SessionlessContext"]):
+    """Start a new transaction only if one is not present."""
+    # temporary hack; need to fix access to scoped_session callable, not proxy
+    if isinstance(session, scoped_session):
+        session = session()
+    # hack: this could be model.store.SessionlessContext; then we don't need to do anything
+    elif not isinstance(session, Session):
+        yield
+        return  # exit: can't use as a Session
+
+    if not session.in_transaction():  # type:ignore[union-attr]
+        with session.begin():  # type:ignore[union-attr]
+            yield
+    else:
+        yield
 
 
 def check_database_connection(session):
@@ -70,19 +78,22 @@ def check_database_connection(session):
 
 # TODO: Refactor this to be a proper class, not a bunch.
 class ModelMapping(Bunch):
-    def __init__(self, model_modules: list[ModuleType], engine: "Engine") -> None:
+    def __init__(self, model_modules, engine):
         self.engine = engine
         self._SessionLocal = sessionmaker(autoflush=False)
         versioned_session(self._SessionLocal)
         context = scoped_session(self._SessionLocal, scopefunc=self.request_scopefunc)
+        # For backward compatibility with "context.current"
+        # deprecated?
+        context.current = context
         self.session = context
         self.scoped_registry = context.registry
 
-        model_classes: dict[str, type] = {}
+        model_classes = {}
         for module in model_modules:
-            name_class_pairs = getmembers(module, isclass)
-            filtered_module_classes_dict = dict(m for m in name_class_pairs if m[1].__module__ == module.__name__)
-            model_classes.update(filtered_module_classes_dict)
+            m_obs = getmembers(module, isclass)
+            m_obs = dict([m for m in m_obs if m[1].__module__ == module.__name__])
+            model_classes.update(m_obs)
 
         super().__init__(**model_classes)
 
@@ -142,10 +153,10 @@ class SharedModelMapping(ModelMapping):
     a way to do app.model.<CLASS> for common code shared by the tool shed and Galaxy.
     """
 
-    User: Union[type["GalaxyUser"], type["ToolShedUser"]]
-    GalaxySession: Union[type["GalaxyGalaxySession"], type["ToolShedGalaxySession"]]
-    APIKeys: Union[type["GalaxyAPIKeys"], type["ToolShedAPIKeys"]]
-    PasswordResetToken: Union[type["GalaxyPasswordResetToken"], type["ToolShedPasswordResetToken"]]
+    User: Type
+    GalaxySession: Type
+    APIKeys: Type
+    PasswordResetToken: Type
 
 
 def versioned_objects(iter):

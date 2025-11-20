@@ -9,7 +9,7 @@ const localVue = getLocalVue(true);
 
 describe("EditSecretsForm", () => {
     it("should render a secrets for for file source templates", async () => {
-        const wrapper = mount(EditSecretsForm as object, {
+        const wrapper = mount(EditSecretsForm, {
             propsData: {
                 template: STANDARD_FILE_SOURCE_TEMPLATE,
                 title: "Secrets FORM for file source",
@@ -22,7 +22,7 @@ describe("EditSecretsForm", () => {
     });
 
     it("should render a secrets for for object store templates", async () => {
-        const wrapper = mount(EditSecretsForm as object, {
+        const wrapper = mount(EditSecretsForm, {
             propsData: {
                 template: STANDARD_OBJECT_STORE_TEMPLATE,
                 title: "Secrets FORM for object store",

@@ -71,7 +71,7 @@ function onClick() {
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .freehand-workflow-comment {
     --color: #{$brand-primary};
@@ -97,9 +97,7 @@ function onClick() {
 
     &.multi-selected {
         border-radius: 0.25rem;
-        box-shadow:
-            0 0 0 2px $white,
-            0 0 0 4px lighten($brand-info, 20%);
+        box-shadow: 0 0 0 2px $white, 0 0 0 4px lighten($brand-info, 20%);
     }
 }
 </style>

@@ -3,7 +3,8 @@ import os
 from contextlib import contextmanager
 from typing import (
     cast,
-    TYPE_CHECKING,
+    Dict,
+    Type,
 )
 
 from galaxy.app_unittest_utils.tools_support import (
@@ -14,7 +15,6 @@ from galaxy.jobs import (
     JobWrapper,
     TaskWrapper,
 )
-from galaxy.jobs.handler import BaseJobHandlerQueue
 from galaxy.model import (
     Base,
     Job,
@@ -25,9 +25,6 @@ from galaxy.objectstore import BaseObjectStore
 from galaxy.tools import ToolBox
 from galaxy.util.bunch import Bunch
 from galaxy.util.unittest import TestCase
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import scoped_session
 
 TEST_TOOL_ID = "cufftest"
 TEST_VERSION_COMMAND = "bwa --version"
@@ -53,14 +50,14 @@ class AbstractTestCases:
             job.tool_id = TEST_TOOL_ID
             job.user = User()
             job.object_store_id = "foo"
-            self.model_objects: dict[type[Base], dict[int, Base]] = {Job: {345: job}}
-            self.app.model.session = cast("scoped_session", MockContext(self.model_objects))
+            self.model_objects: Dict[Type[Base], Dict[int, Base]] = {Job: {345: job}}
+            self.app.model.session = MockContext(self.model_objects)
 
             self.app._toolbox = cast(ToolBox, MockToolbox(MockTool(self)))
             self.working_directory = os.path.join(self.test_directory, "working")
             self.app.object_store = cast(BaseObjectStore, MockObjectStore(self.working_directory))
 
-            self.queue = cast(BaseJobHandlerQueue, MockJobQueue(self.app))
+            self.queue = MockJobQueue(self.app)
             self.job = job
 
         def tearDown(self):
@@ -94,7 +91,7 @@ class AbstractTestCases:
 
 class TestJobWrapper(AbstractTestCases.BaseWrapperTestCase):
     def _wrapper(self):
-        return JobWrapper(self.job, self.queue)
+        return JobWrapper(self.job, self.queue)  # type: ignore[arg-type]
 
 
 class TestTaskWrapper(AbstractTestCases.BaseWrapperTestCase):
@@ -115,7 +112,6 @@ class MockEvaluator:
         self.job = job
         self.local_working_directory = local_working_directory
         self.param_dict = {}
-        self.use_cached_job = False
 
     def set_compute_environment(self, *args, **kwds):
         pass
@@ -166,10 +162,6 @@ class MockToolbox:
 
     def get_tool(self, tool_id, tool_version, exact=False):
         tool = self.get(tool_id)
-        return tool
-
-    def tool_for_job(self, job, exact, check_access=True, user=None):
-        tool = self.get(job.tool_id)
         return tool
 
 

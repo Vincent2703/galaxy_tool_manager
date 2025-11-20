@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCheckSquare, faSquare } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed, type ComputedRef, onMounted, type PropType, ref, watch } from "vue";
@@ -8,9 +9,9 @@ import { useFilterObjectArray } from "@/composables/filter";
 import { useMultiselect } from "@/composables/useMultiselect";
 import { uid } from "@/utils/utils";
 
-import { type DataOption, isDataOption, itemUniqueKey } from "./FormData/types";
-
 import StatelessTags from "@/components/TagsMultiselect/StatelessTags.vue";
+
+library.add(faCheckSquare, faSquare);
 
 const { ariaExpanded, onOpen, onClose } = useMultiselect();
 
@@ -20,7 +21,6 @@ type ValueWithTags = SelectValue & { tags: string[] };
 interface SelectOption {
     label: string;
     value: SelectValue;
-    key?: string;
 }
 
 const props = defineProps({
@@ -64,24 +64,22 @@ const filteredOptions = useFilterObjectArray(() => props.options, filter, ["labe
 const optionReorderThreshold = 8;
 
 const reorderedOptions = computed(() => {
-    let result;
-    if (!props.multiple || filteredOptions.value.length <= optionReorderThreshold) {
-        result = filteredOptions.value;
+    if (filteredOptions.value.length <= optionReorderThreshold) {
+        return filteredOptions.value;
     } else {
         const selectedOptions: SelectOption[] = [];
         const unselectedOptions: SelectOption[] = [];
 
         filteredOptions.value.forEach((option) => {
-            if (isSelected(option.value)) {
+            if (selectedValues.value.includes(option.value)) {
                 selectedOptions.push(option);
             } else {
                 unselectedOptions.push(option);
             }
         });
 
-        result = [...unselectedOptions, ...selectedOptions];
+        return [...unselectedOptions, ...selectedOptions];
     }
-    return result.map(getSelectOption);
 });
 
 /**
@@ -117,42 +115,10 @@ const selectedLabel: ComputedRef<string> = computed(() => {
 const selectedValues = computed(() => (Array.isArray(props.value) ? props.value : [props.value]));
 
 /**
- * Tracks selected keys in case of form data options
- */
-const selectedKeys = computed(() => {
-    return selectedValues.value
-        .map((v) => (isDataOptionObject(v) ? itemUniqueKey(v) : undefined))
-        .filter((v) => v !== undefined);
-});
-
-/**
- * Whether current value(s) will be tracked by key or value
- */
-const trackBy = computed(() => {
-    return selectedKeys.value.length > 0 ? "key" : "value";
-});
-
-/**
  * Tracks current value and emits changes
  */
 const currentValue = computed({
-    get: () => {
-        // Preserve the order of props.value
-        const values = Array.isArray(props.value) ? props.value : [props.value];
-        return values
-            .map((val) => {
-                // Find the matching option in props.options
-                const option = props.options.find(
-                    (opt) =>
-                        isSelected(opt.value) &&
-                        (isDataOptionObject(val)
-                            ? isDataOptionObject(opt.value) && itemUniqueKey(opt.value) === itemUniqueKey(val)
-                            : opt.value === val),
-                );
-                return option ? getSelectOption(option) : undefined;
-            })
-            .filter((v) => v !== undefined);
-    },
+    get: () => props.options.filter((option: SelectOption) => selectedValues.value.includes(option.value)),
     set: (val: Array<SelectOption> | SelectOption): void => {
         if (Array.isArray(val)) {
             if (val.length > 0) {
@@ -176,16 +142,6 @@ function setInitialValue(): void {
     }
 }
 
-function getSelectOption(option: SelectOption): SelectOption {
-    if (isDataOptionObject(option.value)) {
-        return {
-            ...option,
-            key: itemUniqueKey(option.value),
-        };
-    }
-    return option;
-}
-
 /**
  * Watches changes in select options and adjusts initial value if necessary
  */
@@ -193,7 +149,7 @@ watch(
     () => props.options,
     () => {
         setInitialValue();
-    },
+    }
 );
 
 /**
@@ -207,19 +163,8 @@ function isValueWithTags(item: SelectValue): item is ValueWithTags {
     return item !== null && typeof item === "object" && (item as ValueWithTags).tags !== undefined;
 }
 
-function isDataOptionObject(item: SelectValue): item is DataOption {
-    return !!item && typeof item === "object" && isDataOption(item);
-}
-
 function onSearchChange(search: string): void {
     filter.value = search;
-}
-
-function isSelected(item: SelectValue): boolean {
-    if (isDataOptionObject(item)) {
-        return selectedKeys.value.includes(itemUniqueKey(item));
-    }
-    return selectedValues.value.includes(item);
 }
 </script>
 
@@ -240,7 +185,7 @@ function isSelected(item: SelectValue): boolean {
             :placeholder="placeholder"
             :selected-label="selectedLabel"
             :select-label="null"
-            :track-by="trackBy"
+            track-by="value"
             :internal-search="false"
             @search-change="onSearchChange"
             @open="onOpen"
@@ -255,7 +200,7 @@ function isSelected(item: SelectValue): boolean {
                             :value="option.value.tags"
                             disabled />
                     </div>
-                    <FontAwesomeIcon v-if="isSelected(option.value)" :icon="faCheckSquare" />
+                    <FontAwesomeIcon v-if="selectedValues.includes(option.value)" :icon="faCheckSquare" />
                     <FontAwesomeIcon v-else :icon="faSquare" />
                 </div>
             </template>

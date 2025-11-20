@@ -1,22 +1,26 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import {
     faChevronLeft,
     faChevronRight,
     faExclamationCircle,
     faExclamationTriangle,
+    faInfoCircle,
     faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BButton } from "bootstrap-vue";
 import { computed, ref, watch } from "vue";
 
-import type { components } from "@/api/schema";
+import { type components } from "@/api/schema";
 import { useMarkdown } from "@/composables/markdown";
 import { type BroadcastNotification, useBroadcastsStore } from "@/stores/broadcastsStore";
 import { ensureDefined } from "@/utils/assertions";
 import { match } from "@/utils/utils";
 
 import Heading from "@/components/Common/Heading.vue";
+
+library.add(faInfoCircle, faTimes, faChevronRight, faChevronLeft, faExclamationTriangle, faExclamationCircle);
 
 type BroadcastNotificationCreateRequest = components["schemas"]["BroadcastNotificationCreateRequest"];
 
@@ -66,7 +70,7 @@ function checkPageInBounds() {
 }
 
 const displayedBroadcast = computed(
-    () => ensureDefined(sortedBroadcasts.value[currentPage.value]) as BroadcastNotification,
+    () => ensureDefined(sortedBroadcasts.value[currentPage.value]) as BroadcastNotification
 );
 
 type Variant = BroadcastNotification["variant"];
@@ -103,7 +107,7 @@ watch(
     () => sortedBroadcasts.value,
     () => {
         checkPageInBounds();
-    },
+    }
 );
 
 function actionLinkBind(link: string) {
@@ -139,18 +143,18 @@ function dismiss() {
             class="arrow left inline-icon-button area-l"
             title="Previous"
             @click="currentPage -= 1">
-            <FontAwesomeIcon fixed-width :icon="faChevronLeft" />
+            <FontAwesomeIcon fixed-width icon="fa-chevron-left" />
         </BButton>
 
         <div class="info-icon area-i">
             <FontAwesomeIcon
                 v-if="displayedBroadcast.variant === 'warning'"
                 class="warning"
-                :icon="faExclamationTriangle" />
+                icon="fa-exclamation-triangle" />
             <FontAwesomeIcon
                 v-if="displayedBroadcast.variant === 'urgent'"
                 class="urgent"
-                :icon="faExclamationCircle" />
+                icon="fa-exclamation-circle" />
         </div>
 
         <section class="main-content area-m">
@@ -172,17 +176,17 @@ function dismiss() {
         </section>
 
         <BButton v-if="multiple" class="arrow right inline-icon-button area-r" title="Next" @click="currentPage += 1">
-            <FontAwesomeIcon fixed-width :icon="faChevronRight" />
+            <FontAwesomeIcon fixed-width icon="fa-chevron-right" />
         </BButton>
 
         <BButton class="dismiss-button inline-icon-button area-x" title="Dismiss" @click="dismiss">
-            <FontAwesomeIcon fixed-width :icon="faTimes" />
+            <FontAwesomeIcon fixed-width icon="fa-times" />
         </BButton>
     </div>
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 $margin: 1rem;
 

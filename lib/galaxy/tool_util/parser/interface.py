@@ -5,6 +5,7 @@ from abc import (
     ABCMeta,
     abstractmethod,
 )
+from enum import Enum
 from os.path import join
 from typing import (
     Any,
@@ -12,55 +13,30 @@ from typing import (
     Dict,
     List,
     Optional,
-    Sequence,
     Tuple,
     TYPE_CHECKING,
     Union,
 )
 
 import packaging.version
+from pydantic import BaseModel
 from typing_extensions import (
     Literal,
     NotRequired,
     TypedDict,
 )
 
-from galaxy.tool_util_models.parameter_validators import AnyValidatorModel
-from galaxy.tool_util_models.tool_source import (
-    BaseJsonTestCollectionDefCollectionElementDict,
-    Citation,
-    DrillDownOptionsDict,
-    FieldDict,
-    FileSourceConfigFile,
-    HelpContent,
-    InputConfigFile,
-    JavascriptRequirement,
-    JsonTestCollectionDefCollectionElementDict,
-    JsonTestCollectionDefDatasetElementDict,
-    JsonTestCollectionDefDict,
-    JsonTestCollectionDefElementDict,
-    JsonTestDatasetDefDict,
-    OutputCompareType,
-    TemplateConfigFile,
-    XrefDict,
-)
 from galaxy.util import Element
 from galaxy.util.path import safe_walk
+from .parameter_validators import AnyValidatorModel
 from .util import _parse_name
 
 if TYPE_CHECKING:
     from galaxy.tool_util.deps.requirements import (
         ContainerDescription,
-        CredentialsRequirement,
-        ResourceRequirement as ToolResourceRequirement,
+        ResourceRequirement,
         ToolRequirements,
     )
-    from galaxy.tool_util.parser.output_actions import ToolOutputActionApp
-    from galaxy.tool_util.parser.output_objects import (
-        ToolOutputBase,
-        ToolOutputCollection,
-    )
-
 
 NOT_IMPLEMENTED_MESSAGE = "Galaxy tool format does not yet support this tool feature."
 
@@ -73,6 +49,15 @@ class AssertionDict(TypedDict):
 
 AssertionList = Optional[List[AssertionDict]]
 XmlInt = Union[str, int]
+
+
+class OutputCompareType(str, Enum):
+    diff = "diff"
+    re_match = "re_match"
+    sim_size = "sim_size"
+    re_match_multiline = "re_match_multiline"
+    contains = "contains"
+    image_diff = "image_diff"
 
 
 class ToolSourceTestOutputAttributes(TypedDict):
@@ -138,6 +123,21 @@ class ToolSourceTests(TypedDict):
     tests: List[ToolSourceTest]
 
 
+class XrefDict(TypedDict):
+    value: str
+    reftype: str
+
+
+class Citation(BaseModel):
+    type: str
+    content: str
+
+
+class HelpContent(BaseModel):
+    format: Literal["restructuredtext", "plain_text", "markdown"]
+    content: str
+
+
 class ToolSource(metaclass=ABCMeta):
     """This interface represents an abstract source to parse tool
     information from.
@@ -155,10 +155,6 @@ class ToolSource(metaclass=ABCMeta):
     @abstractmethod
     def parse_version(self) -> Optional[str]:
         """Parse a version describing the abstract tool."""
-
-    def parse_class(self) -> Optional[str]:
-        """Parse the class of the tool."""
-        return None
 
     def parse_tool_module(self) -> Optional[Tuple[str, str]]:
         """Load Tool class from a custom module. (Optional).
@@ -188,10 +184,6 @@ class ToolSource(metaclass=ABCMeta):
 
         We parse this out as "" if it isn't explicitly declared.
         """
-
-    @abstractmethod
-    def parse_icon(self) -> Optional[str]:
-        """Return icon path for tool."""
 
     def parse_edam_operations(self) -> List[str]:
         """Parse list of edam operation codes."""
@@ -227,18 +219,6 @@ class ToolSource(metaclass=ABCMeta):
     @abstractmethod
     def parse_command(self):
         """Return string contianing command to run."""
-
-    def parse_shell_command(self) -> Optional[str]:
-        """Return string that after input binding can be executed."""
-        return None
-
-    def parse_base_command(self) -> Optional[List[str]]:
-        """Return string containing script entrypoint."""
-        return None
-
-    def parse_arguments(self) -> Optional[List[str]]:
-        """Return list of strings to append to base_command."""
-        return None
 
     def parse_expression(self):
         """Return string contianing command to run."""
@@ -325,16 +305,10 @@ class ToolSource(metaclass=ABCMeta):
         return None
 
     @abstractmethod
-    def parse_requirements(
+    def parse_requirements_and_containers(
         self,
-    ) -> Tuple[
-        "ToolRequirements",
-        List["ContainerDescription"],
-        List["ToolResourceRequirement"],
-        List["JavascriptRequirement"],
-        List["CredentialsRequirement"],
-    ]:
-        """Return triple of ToolRequirement, ContainerDescription, ResourceRequirement, JavascriptRequirement, and CredentialsRequirement objects."""
+    ) -> Tuple["ToolRequirements", List["ContainerDescription"], List["ResourceRequirement"]]:
+        """Return triple of ToolRequirement, ContainerDescription and ResourceRequirement lists."""
 
     @abstractmethod
     def parse_input_pages(self) -> "PagesSource":
@@ -357,9 +331,7 @@ class ToolSource(metaclass=ABCMeta):
         return "galaxy.json"
 
     @abstractmethod
-    def parse_outputs(
-        self, app: Optional["ToolOutputActionApp"]
-    ) -> Tuple[Dict[str, "ToolOutputBase"], Dict[str, "ToolOutputCollection"]]:
+    def parse_outputs(self, tool):
         """Return a pair of output and output collections ordered
         dictionaries for use by Tool.
         """
@@ -410,17 +382,8 @@ class ToolSource(metaclass=ABCMeta):
         """
         return []
 
-    def parse_template_configfiles(self) -> Sequence[TemplateConfigFile]:
-        return []
-
-    def parse_input_configfiles(self) -> Sequence[InputConfigFile]:
-        return []
-
-    def parse_file_sources(self) -> Sequence[FileSourceConfigFile]:
-        return []
-
     @property
-    def macro_paths(self) -> List[str]:
+    def macro_paths(self):
         return []
 
     @property
@@ -534,10 +497,6 @@ class InputSource(metaclass=ABCMeta):
     def parse_input_type(self) -> str:
         """Return the type of this input."""
 
-    @abstractmethod
-    def parse_extensions(self) -> List[str]:
-        """Return list of extensions"""
-
     def parse_help(self):
         return self.get("help")
 
@@ -636,10 +595,68 @@ class TestCollectionDefElementInternal(TypedDict):
 class XmlTestCollectionDefDict(TypedDict):
     model_class: Literal["TestCollectionDef"]
     attributes: TestCollectionAttributeDict
-    collection_type: Optional[CollectionType]
-    fields: Optional[List[FieldDict]]
+    collection_type: CollectionType
     elements: List[TestCollectionDefElementDict]
     name: str
+
+
+JsonTestDatasetDefDict = TypedDict(
+    "JsonTestDatasetDefDict",
+    {
+        "class": Literal["File"],
+        "path": NotRequired[Optional[str]],
+        "location": NotRequired[Optional[str]],
+        "name": NotRequired[Optional[str]],
+        "dbkey": NotRequired[Optional[str]],
+        "filetype": NotRequired[Optional[str]],
+        "composite_data": NotRequired[Optional[List[str]]],
+        "tags": NotRequired[Optional[List[str]]],
+    },
+)
+
+JsonTestCollectionDefElementDict = Union[
+    "JsonTestCollectionDefDatasetElementDict", "JsonTestCollectionDefCollectionElementDict"
+]
+JsonTestCollectionDefDatasetElementDict = TypedDict(
+    "JsonTestCollectionDefDatasetElementDict",
+    {
+        "identifier": str,
+        "class": Literal["File"],
+        "path": NotRequired[Optional[str]],
+        "location": NotRequired[Optional[str]],
+        "name": NotRequired[Optional[str]],
+        "dbkey": NotRequired[Optional[str]],
+        "filetype": NotRequired[Optional[str]],
+        "composite_data": NotRequired[Optional[List[str]]],
+        "tags": NotRequired[Optional[List[str]]],
+    },
+)
+BaseJsonTestCollectionDefCollectionElementDict = TypedDict(
+    "BaseJsonTestCollectionDefCollectionElementDict",
+    {
+        "class": Literal["Collection"],
+        "collection_type": str,
+        "elements": NotRequired[Optional[List[JsonTestCollectionDefElementDict]]],
+    },
+)
+JsonTestCollectionDefCollectionElementDict = TypedDict(
+    "JsonTestCollectionDefCollectionElementDict",
+    {
+        "identifier": str,
+        "class": Literal["Collection"],
+        "collection_type": str,
+        "elements": NotRequired[Optional[List[JsonTestCollectionDefElementDict]]],
+    },
+)
+JsonTestCollectionDefDict = TypedDict(
+    "JsonTestCollectionDefDict",
+    {
+        "class": Literal["Collection"],
+        "collection_type": str,
+        "elements": NotRequired[Optional[List[JsonTestCollectionDefElementDict]]],
+        "name": NotRequired[Optional[str]],
+    },
+)
 
 
 def xml_data_input_to_json(xml_input: ToolSourceTestInput) -> Optional["JsonTestDatasetDefDict"]:
@@ -675,17 +692,12 @@ def _copy_if_exists(attributes, as_dict, name: str, as_name: Optional[str] = Non
 class TestCollectionDef:
     __test__ = False  # Prevent pytest from discovering this class (issue #12071)
     elements: List[TestCollectionDefElementInternal]
-    collection_type: Optional[str]
-    fields: Optional[List[FieldDict]]
 
-    def __init__(
-        self, attrib, name, collection_type: Optional[str], elements, fields: Optional[List[FieldDict]] = None
-    ):
+    def __init__(self, attrib, name, collection_type, elements):
         self.attrib = attrib
         self.collection_type = collection_type
         self.elements = elements
         self.name = name
-        self.fields = fields
 
     def _test_format_to_dict(self) -> "BaseJsonTestCollectionDefCollectionElementDict":
 
@@ -699,7 +711,9 @@ class TestCollectionDef:
                     identifier=identifier, **element_object._test_format_to_dict()
                 )
             else:
-                input_as_dict: Optional[JsonTestDatasetDefDict] = xml_data_input_to_json(element_object)
+                input_as_dict: Optional[JsonTestDatasetDefDict] = xml_data_input_to_json(
+                    cast(ToolSourceTestInput, element_object)
+                )
                 if input_as_dict is not None:
                     as_dict = JsonTestCollectionDefDatasetElementDict(
                         identifier=identifier,
@@ -722,8 +736,6 @@ class TestCollectionDef:
         test_format_dict = JsonTestCollectionDefDict(**self._test_format_to_dict())
         if self.name:
             test_format_dict["name"] = self.name
-        if self.fields is not None:
-            test_format_dict["fields"] = self.fields
         return test_format_dict
 
     def to_dict(self) -> XmlTestCollectionDefDict:
@@ -742,12 +754,11 @@ class TestCollectionDef:
             "collection_type": self.collection_type,
             "elements": list(map(element_to_dict, self.elements or [])),
             "name": self.name,
-            "fields": self.fields,
         }
 
     @staticmethod
     def from_dict(
-        as_dict: Union[AnyTestCollectionDefDict, JsonTestCollectionDefCollectionElementDict],
+        as_dict: Union[AnyTestCollectionDefDict, JsonTestCollectionDefCollectionElementDict]
     ) -> "TestCollectionDef":
         if "model_class" in as_dict:
             xml_as_dict = cast(XmlTestCollectionDefDict, as_dict)
@@ -766,7 +777,6 @@ class TestCollectionDef:
                 name=xml_as_dict.get("name", "Unnamed Collection"),
                 elements=list(map(element_from_dict, xml_as_dict["elements"] or [])),
                 collection_type=xml_as_dict["collection_type"],
-                fields=xml_as_dict.get("fields", None),
             )
         else:
             json_as_dict = cast(JsonTestCollectionDefDict, as_dict)
@@ -793,7 +803,6 @@ class TestCollectionDef:
                 name=json_as_dict.get("name") or "Unnamed Collection",
                 elements=elements,
                 collection_type=json_as_dict["collection_type"],
-                fields=json_as_dict.get("fields", None),
             )
 
     def collect_inputs(self):
@@ -892,3 +901,10 @@ class TestCollectionOutputDef:
 
     def to_dict(self):
         return dict(name=self.name, attributes=self.attrib, element_tests=self.element_tests, element_count=self.count)
+
+
+class DrillDownOptionsDict(TypedDict):
+    name: Optional[str]
+    value: str
+    options: List["DrillDownOptionsDict"]
+    selected: bool

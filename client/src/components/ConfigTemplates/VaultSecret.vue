@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { faPen } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BButton, BFormInput, BInputGroup, BInputGroupAppend } from "bootstrap-vue";
 import { computed, ref } from "vue";
 
@@ -45,7 +43,7 @@ async function onOk() {
                         <BFormInput type="password" value="*****************************" disabled @click="onClick" />
                         <BInputGroupAppend>
                             <BButton @click="onClick">
-                                <FontAwesomeIcon :icon="faPen" />
+                                <icon icon="edit" />
                                 Update
                             </BButton>
                         </BInputGroupAppend>

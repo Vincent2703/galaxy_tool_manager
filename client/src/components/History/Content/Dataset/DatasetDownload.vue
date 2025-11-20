@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faSave } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BButton, BDropdown, BDropdownItem } from "bootstrap-vue";
 import { computed } from "vue";
 
-import type { HDADetailed } from "@/api";
+import { type HDADetailed } from "@/api";
 import { prependPath } from "@/utils/redirect";
+
+library.add(faSave);
 
 interface Props {
     item: HDADetailed;
@@ -36,7 +39,7 @@ function onDownload(resource: string, extension = "") {
 <template>
     <BDropdown
         v-if="hasMetaFiles"
-        v-b-tooltip.hover
+        v-b-tooltip.top.hover
         dropup
         no-caret
         no-flip
@@ -66,7 +69,6 @@ function onDownload(resource: string, extension = "") {
 
     <BButton
         v-else
-        v-b-tooltip.hover
         class="download-btn px-1"
         title="Download"
         size="sm"

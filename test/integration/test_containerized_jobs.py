@@ -5,6 +5,7 @@ import os
 import unittest
 from typing import (
     Any,
+    Dict,
 )
 
 from galaxy.util.commands import which
@@ -86,7 +87,7 @@ class ContainerizedIntegrationTestCase(IntegrationTestCase):
         disable_dependency_resolution(config)
 
 
-def disable_dependency_resolution(config: dict[str, Any]) -> None:
+def disable_dependency_resolution(config: Dict[str, Any]) -> None:
     # Disable tool dependency resolution.
     config["tool_dependency_dir"] = "none"
     config["conda_auto_init"] = False

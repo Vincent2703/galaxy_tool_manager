@@ -1,6 +1,6 @@
 <template>
     <span itemprop="creator" itemscope itemtype="https://schema.org/Organization">
-        <FontAwesomeIcon ref="button" :icon="faBuilding" />
+        <FontAwesomeIcon ref="button" icon="building" />
         <b-popover
             triggers="click blur"
             :placement="hoverPlacement"
@@ -20,7 +20,7 @@
         </span>
         <a v-if="url" v-b-tooltip.hover title="Organization URL" :href="url" target="_blank">
             <link itemprop="url" :href="url" />
-            <FontAwesomeIcon :icon="faExternalLinkAlt" />
+            <FontAwesomeIcon icon="external-link-alt" />
         </a>
         <meta
             v-for="attribute in explicitMetaAttributes"
@@ -32,10 +32,13 @@
 </template>
 
 <script>
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faBuilding, faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 import ThingViewerMixin from "./ThingViewerMixin";
+
+library.add(faExternalLinkAlt, faBuilding);
 
 export default {
     components: {
@@ -53,8 +56,6 @@ export default {
     },
     data() {
         return {
-            faBuilding,
-            faExternalLinkAlt,
             implicitMicrodataProperties: ["name", "email", "url", "identifier"],
             thing: this.organization,
         };

@@ -1,9 +1,8 @@
+import { getGalaxyInstance } from "app";
+import { Toast } from "composables/toast";
 import $ from "jquery";
 import _ from "underscore";
-
-import { Toast } from "@/composables/toast";
-import _l from "@/utils/localization";
-import Modal from "@/utils/modal";
+import _l from "utils/localization";
 
 import mod_library_model from "./library-model";
 
@@ -12,25 +11,25 @@ let items_total = 0;
 let progressStep = 0;
 const chain_call_control = {};
 
-const modal = new Modal();
-
 /**
  * Delete the selected items. Atomic. One by one.
  */
 export function deleteSelectedItems(checkedRows, onRemove, refreshTable, refreshTableContent) {
+    const Galaxy = getGalaxyInstance();
     var dataset_ids = [];
     var folder_ids = [];
     if (checkedRows.length === 0) {
         Toast.info("You must select at least one item for deletion.");
     } else {
         var template = templateDeletingItemsProgressBar();
+        const modal = Galaxy.modal;
         modal.show({
             closing_events: true,
             title: _l("Deleting selected items"),
             body: template({}),
             buttons: {
                 Close: () => {
-                    modal.hide();
+                    Galaxy.modal.hide();
                 },
             },
         });
@@ -83,7 +82,7 @@ function templateDeletingItemsProgressBar() {
                     aria-valuemax="100" style="width: 00%;">
                     <span class="completion_span">0% Complete</span>
                 </div>
-            </div>`,
+            </div>`
     );
 }
 
@@ -92,7 +91,7 @@ function templateDeletingItemsProgressBar() {
  * call them in chain. Update progress bar in between each.
  */
 function chainCallDeletingItems(items_to_delete, onRemove, refreshTable, refreshTableContent) {
-    const modal = new Modal();
+    const Galaxy = getGalaxyInstance();
     const deleted_items = new mod_library_model.Folder();
     var item_to_delete = items_to_delete.pop();
     if (typeof item_to_delete === "undefined") {
@@ -101,12 +100,12 @@ function chainCallDeletingItems(items_to_delete, onRemove, refreshTable, refresh
             Toast.success("Selected items were deleted.");
         } else if (chain_call_control.failed_number === chain_call_control.total_number) {
             Toast.error(
-                "There was an error and no items were deleted. Please make sure you have sufficient permissions.",
+                "There was an error and no items were deleted. Please make sure you have sufficient permissions."
             );
         } else if (chain_call_control.failed_number < chain_call_control.total_number) {
             Toast.warning("Some of the items could not be deleted. Please make sure you have sufficient permissions.");
         }
-        modal.hide();
+        Galaxy.modal.hide();
         return deleted_items;
     }
     item_to_delete

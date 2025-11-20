@@ -2,15 +2,19 @@
 Copy of https://github.com/tiangolo/fastapi/blob/master/fastapi/openapi/utils.py with changes from https://github.com/tiangolo/fastapi/pull/10903
 """
 
-from collections.abc import Sequence
 from typing import (
     Any,
+    Dict,
+    List,
     Optional,
+    Sequence,
+    Set,
     Union,
 )
 
 from fastapi import routing
 from fastapi._compat import (
+    GenerateJsonSchema,
     get_compat_model_name_map,
     get_definitions,
 )
@@ -21,7 +25,6 @@ from fastapi.openapi.utils import (
     get_fields_from_routes,
     get_openapi_path,
 )
-from pydantic.json_schema import GenerateJsonSchema
 from starlette.routing import BaseRoute
 
 
@@ -34,15 +37,15 @@ def get_openapi(
     description: Optional[str] = None,
     routes: Sequence[BaseRoute],
     webhooks: Optional[Sequence[BaseRoute]] = None,
-    tags: Optional[list[dict[str, Any]]] = None,
-    servers: Optional[list[dict[str, Union[str, Any]]]] = None,
+    tags: Optional[List[Dict[str, Any]]] = None,
+    servers: Optional[List[Dict[str, Union[str, Any]]]] = None,
     terms_of_service: Optional[str] = None,
-    contact: Optional[dict[str, Union[str, Any]]] = None,
-    license_info: Optional[dict[str, Union[str, Any]]] = None,
+    contact: Optional[Dict[str, Union[str, Any]]] = None,
+    license_info: Optional[Dict[str, Union[str, Any]]] = None,
     separate_input_output_schemas: bool = True,
     schema_generator: Optional[GenerateJsonSchema] = None,
-) -> dict[str, Any]:
-    info: dict[str, Any] = {"title": title, "version": version}
+) -> Dict[str, Any]:
+    info: Dict[str, Any] = {"title": title, "version": version}
     if summary:
         info["summary"] = summary
     if description:
@@ -53,13 +56,13 @@ def get_openapi(
         info["contact"] = contact
     if license_info:
         info["license"] = license_info
-    output: dict[str, Any] = {"openapi": openapi_version, "info": info}
+    output: Dict[str, Any] = {"openapi": openapi_version, "info": info}
     if servers:
         output["servers"] = servers
-    components: dict[str, dict[str, Any]] = {}
-    paths: dict[str, dict[str, Any]] = {}
-    webhook_paths: dict[str, dict[str, Any]] = {}
-    operation_ids: set[str] = set()
+    components: Dict[str, Dict[str, Any]] = {}
+    paths: Dict[str, Dict[str, Any]] = {}
+    webhook_paths: Dict[str, Dict[str, Any]] = {}
+    operation_ids: Set[str] = set()
     all_fields = get_fields_from_routes(list(routes or []) + list(webhooks or []))
     model_name_map = get_compat_model_name_map(all_fields)
     schema_generator = schema_generator or GenerateJsonSchema(ref_template=REF_TEMPLATE)

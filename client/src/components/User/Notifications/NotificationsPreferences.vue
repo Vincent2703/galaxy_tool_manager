@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCheckCircle, faExclamationCircle, faSave } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BAlert, BButton } from "bootstrap-vue";
 import { computed, ref, watch } from "vue";
 
 import { GalaxyApi } from "@/api";
-import type { NotificationCategory, NotificationChannel, UserNotificationPreferences } from "@/api/notifications";
+import {
+    type NotificationCategory,
+    type NotificationChannel,
+    type UserNotificationPreferences,
+} from "@/api/notifications";
 import { useConfig } from "@/composables/config";
 import { Toast } from "@/composables/toast";
 import {
@@ -17,8 +22,10 @@ import { errorMessageAsString } from "@/utils/simple-error";
 
 import NotificationsCategorySettings from "./NotificationsCategorySettings.vue";
 import AsyncButton from "@/components/Common/AsyncButton.vue";
-import BreadcrumbHeading from "@/components/Common/BreadcrumbHeading.vue";
+import Heading from "@/components/Common/Heading.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
+
+library.add(faCheckCircle, faExclamationCircle, faSave);
 
 interface NotificationsPreferencesProps {
     embedded?: boolean;
@@ -30,8 +37,6 @@ const props = withDefaults(defineProps<NotificationsPreferencesProps>(), {
     headerSize: "h-lg",
 });
 
-const breadcrumbItems = [{ title: "User Preferences", to: "/user" }, { title: "Notifications Preferences" }];
-
 const { config } = useConfig(true);
 
 const loading = ref(false);
@@ -41,7 +46,7 @@ const notificationsPreferences = ref<UserNotificationPreferences>({});
 const supportedChannels = ref<NotificationChannel[]>([]);
 
 const categories = computed<NotificationCategory[]>(
-    () => Object.keys(notificationsPreferences.value) as NotificationCategory[],
+    () => Object.keys(notificationsPreferences.value) as NotificationCategory[]
 );
 const showPreferences = computed(() => {
     return !loading.value && config.value.enable_notification_system && notificationsPreferences.value;
@@ -92,7 +97,7 @@ watch(
             getNotificationsPreferences();
         }
     },
-    { immediate: true },
+    { immediate: true }
 );
 
 function onCategoryEnabledChange(category: NotificationCategory, value: boolean) {
@@ -106,7 +111,15 @@ function onChannelChange(category: NotificationCategory, channel: NotificationCh
 
 <template>
     <section class="notifications-preferences">
-        <BreadcrumbHeading v-if="props.embedded" :items="breadcrumbItems" />
+        <Heading
+            h1
+            :separator="props.embedded"
+            inline
+            size="xl"
+            class="notifications-preferences-header"
+            :class="headerSize">
+            Manage notifications preferences
+        </Heading>
 
         <div v-if="config.enable_notification_system" v-localize class="notifications-preferences-description">
             You can manage notifications channels and preferences here.
@@ -164,7 +177,7 @@ function onChannelChange(category: NotificationCategory, channel: NotificationCh
         </BAlert>
 
         <div v-if="!loading && config.enable_notification_system" class="d-flex justify-content-center">
-            <AsyncButton :action="updateNotificationsPreferences" :icon="faSave" color="blue" size="medium">
+            <AsyncButton :action="updateNotificationsPreferences" :icon="faSave" variant="primary" size="md">
                 <span v-localize>Save</span>
             </AsyncButton>
         </div>
@@ -173,6 +186,10 @@ function onChannelChange(category: NotificationCategory, channel: NotificationCh
 
 <style scoped lang="scss">
 .notifications-preferences {
+    .notifications-preferences-header {
+        flex-grow: 1;
+    }
+
     .notifications-preferences-description {
         margin-bottom: 1rem;
     }

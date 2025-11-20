@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { ref, watch } from "vue";
 
 import LoadingSpan from "@/components/LoadingSpan.vue";
@@ -30,9 +28,9 @@ watch(props, () => {
     <div>
         <LoadingSpan v-if="accessible == null || makingAccessible" spinner-only> </LoadingSpan>
         <div v-else-if="typeof accessible == 'string'">
-            <FontAwesomeIcon
+            <Icon
                 :title="accessible"
-                :icon="faExclamationTriangle"
+                icon="exclamation-triangle"
                 class="make-page-object-accessible-sharing-error-icon" />
         </div>
         <BFormCheckbox
@@ -42,8 +40,8 @@ watch(props, () => {
             class="make-page-object-accessible"
             :disabled="accessible"
             @change="
-                () => {
-                    makeAccessible();
+                (event) => {
+                    makeAccessible(event);
                 }
             ">
         </BFormCheckbox>
@@ -52,7 +50,7 @@ watch(props, () => {
 
 <style lang="scss">
 /* scoped doesn't seem to work to prefixing with a class name */
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .make-page-object-accessible-sharing-error-icon {
     color: $brand-danger;

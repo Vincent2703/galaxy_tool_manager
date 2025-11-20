@@ -6,7 +6,6 @@ into Galaxy from the Tool Shed.
 import json
 import logging
 import os
-from typing import TYPE_CHECKING
 from urllib.error import HTTPError
 from urllib.parse import (
     urlencode,
@@ -17,6 +16,8 @@ from urllib.request import (
     urlopen,
 )
 
+from galaxy.model.base import transaction
+from galaxy.tool_shed.galaxy_install import installed_repository_manager
 from galaxy.tool_shed.galaxy_install.tools import tool_panel_manager
 from galaxy.tool_shed.util import repository_util
 from galaxy.tool_shed.util.container_util import get_components_from_key
@@ -34,14 +35,11 @@ from galaxy.util.tool_shed import (
     encoding_util,
 )
 
-if TYPE_CHECKING:
-    from galaxy.tool_shed.galaxy_install.client import InstallationTarget
-
 log = logging.getLogger(__name__)
 
 
 class RepositoryDependencyInstallManager:
-    def __init__(self, app: "InstallationTarget"):
+    def __init__(self, app):
         self.app = app
 
     def build_repository_dependency_relationships(self, repo_info_dicts, tool_shed_repositories):
@@ -140,7 +138,8 @@ class RepositoryDependencyInstallManager:
                                     )
                                     session = install_model.context
                                     session.add(repository_dependency)
-                                    session.commit()
+                                    with transaction(session):
+                                        session.commit()
 
                                 # Build the relationship between the d_repository and the required_repository.
                                 rrda = install_model.RepositoryRepositoryDependencyAssociation(
@@ -149,7 +148,8 @@ class RepositoryDependencyInstallManager:
                                 )
                                 session = install_model.context
                                 session.add(rrda)
-                                session.commit()
+                                with transaction(session):
+                                    session.commit()
 
     def create_repository_dependency_objects(
         self,
@@ -270,7 +270,7 @@ class RepositoryDependencyInstallManager:
                                 log.info(
                                     f"Reactivating deactivated tool_shed_repository '{str(repository_db_record.name)}'."
                                 )
-                                irm = self.app.installed_repository_manager
+                                irm = installed_repository_manager.InstalledRepositoryManager(self.app)
                                 irm.activate_repository(repository_db_record)
                                 # No additional updates to the database record are necessary.
                                 can_update_db_record = False
@@ -481,8 +481,9 @@ class RepositoryDependencyInstallManager:
                         )
                     encoded_required_repository_str = encoding_util.encoding_sep2.join(encoded_required_repository_tups)
                     encoded_required_repository_str = encoding_util.tool_shed_encode(encoded_required_repository_str)
-                    # Handle secure / insecure Tool Shed URL protocol changes and port changes.
-                    tool_shed_url = common_util.get_tool_shed_url_from_tool_shed_registry(self.app, tool_shed_url)
+                    if repository_util.is_tool_shed_client(self.app):
+                        # Handle secure / insecure Tool Shed URL protocol changes and port changes.
+                        tool_shed_url = common_util.get_tool_shed_url_from_tool_shed_registry(self.app, tool_shed_url)
                     pathspec = ["repository", "get_required_repo_info_dict"]
                     url = build_url(tool_shed_url, pathspec=pathspec)
                     # Fix for handling 307 redirect not being handled nicely by urlopen() when the Request() has data provided
@@ -582,7 +583,8 @@ class RepositoryDependencyInstallManager:
 
         session = self.app.install_model.context
         session.add(repository)
-        session.commit()
+        with transaction(session):
+            session.commit()
 
 
 def _urlopen(url, data=None):

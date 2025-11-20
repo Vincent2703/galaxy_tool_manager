@@ -9,7 +9,10 @@ To Test:
 
 import logging
 from typing import (
+    Dict,
+    List,
     Optional,
+    Tuple,
     Union,
 )
 from uuid import uuid4
@@ -88,8 +91,8 @@ class UserConcreteObjectStoreModel(ConcreteObjectStoreModel):
     type: ObjectStoreTemplateType
     template_id: str
     template_version: int
-    variables: Optional[dict[str, TemplateVariableValueType]]
-    secrets: list[str]
+    variables: Optional[Dict[str, TemplateVariableValueType]]
+    secrets: List[str]
     hidden: bool
     active: bool
     purged: bool
@@ -215,7 +218,7 @@ class ObjectStoreInstancesManager:
         self._save(persisted_object_store)
         return self._to_model(trans, persisted_object_store)
 
-    def index(self, trans: ProvidesUserContext) -> list[UserConcreteObjectStoreModel]:
+    def index(self, trans: ProvidesUserContext) -> List[UserConcreteObjectStoreModel]:
         stores = self._sa_session.query(UserObjectStore).filter(UserObjectStore.user_id == trans.user.id).all()
         return [self._to_model(trans, s) for s in stores]
 
@@ -301,7 +304,7 @@ class ObjectStoreInstancesManager:
         trans: ProvidesUserContext,
         payload: CanTestPluginStatus,
         template: ObjectStoreTemplate,
-    ) -> tuple[Optional[ObjectStoreConfiguration], PluginAspectStatus]:
+    ) -> Tuple[Optional[ObjectStoreConfiguration], PluginAspectStatus]:
         template_parameters = prepare_template_parameters_for_testing(
             trans, template, TemplateServerConfiguration(), payload, self._app_vault, self._app_config
         )
@@ -316,7 +319,7 @@ class ObjectStoreInstancesManager:
 
     def _connection_status(
         self, trans: ProvidesUserContext, payload: CanTestPluginStatus, configuration: ObjectStoreConfiguration
-    ) -> tuple[Optional[BaseObjectStore], PluginAspectStatus]:
+    ) -> Tuple[Optional[BaseObjectStore], PluginAspectStatus]:
         object_store = None
         exception = None
         try:

@@ -1,4 +1,8 @@
 import os
+from typing import (
+    List,
+    Tuple,
+)
 
 from paste import request
 from paste.fileapp import FileApp
@@ -51,7 +55,7 @@ class CacheableStaticURLParser(StaticURLParser):
         if if_none_match := environ.get("HTTP_IF_NONE_MATCH"):
             mytime = os.stat(full).st_mtime
             if str(mytime) == if_none_match:
-                headers: list[tuple[str, str]] = []
+                headers: List[Tuple[str, str]] = []
                 ETAG.update(headers, mytime)
                 start_response("304 Not Modified", headers)
                 return [""]  # empty body

@@ -26,7 +26,6 @@ from typing import (
     NamedTuple,
     Optional,
     TYPE_CHECKING,
-    Union,
 )
 
 from galaxy import util
@@ -39,7 +38,6 @@ from .safety import (
 
 if TYPE_CHECKING:
     from galaxy.job_metrics.instrumenters import InstrumentPlugin
-    from galaxy.util import Element
 
 log = logging.getLogger(__name__)
 
@@ -98,7 +96,6 @@ class JobMetrics:
             formatter = plugin_class.formatter
         else:
             formatter = DEFAULT_FORMATTER
-        assert formatter
         return formatter.format(key, value)
 
     def dictifiable_metrics(self, raw_metrics: List[RawMetric], allowed_safety: Safety) -> List[DictifiableMetric]:
@@ -125,23 +122,21 @@ class JobMetrics:
         metrics = map(raw_to_dictifiable, raw_metrics)
         return [m for m in metrics if m.safety.value >= allowed_safety.value]
 
-    def set_destination_conf_file(self, destination_id: str, conf_file: str) -> None:
+    def set_destination_conf_file(self, destination_id, conf_file):
         instrumenter = JobInstrumenter.from_file(self.plugin_classes, conf_file)
         self.set_destination_instrumenter(destination_id, instrumenter)
 
-    def set_destination_conf_element(self, destination_id: str, element: "Element") -> None:
+    def set_destination_conf_element(self, destination_id, element):
         plugin_source = plugin_config.PluginConfigSource("xml", element)
         instrumenter = JobInstrumenter(self.plugin_classes, plugin_source)
         self.set_destination_instrumenter(destination_id, instrumenter)
 
-    def set_destination_conf_dicts(self, destination_id: str, conf_dicts: List[Dict[str, Any]]) -> None:
+    def set_destination_conf_dicts(self, destination_id, conf_dicts):
         plugin_source = plugin_config.PluginConfigSource("dict", conf_dicts)
         instrumenter = JobInstrumenter(self.plugin_classes, plugin_source)
         self.set_destination_instrumenter(destination_id, instrumenter)
 
-    def set_destination_instrumenter(
-        self, destination_id: str, job_instrumenter: Union["JobInstrumenterI", None] = None
-    ) -> None:
+    def set_destination_instrumenter(self, destination_id, job_instrumenter=None):
         if job_instrumenter is None:
             job_instrumenter = NULL_JOB_INSTRUMENTER
         self.job_instrumenters[destination_id] = job_instrumenter

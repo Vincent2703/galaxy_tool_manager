@@ -10,11 +10,8 @@ import {
     type HistorySummary,
     type HistorySummaryExtended,
 } from "@/api";
-import type { UpdateHistoryPayload } from "@/api/histories";
-import type { ArchivedHistoryDetailed } from "@/api/histories.archived";
-import { getGalaxyInstance } from "@/app";
+import { type ArchivedHistoryDetailed } from "@/api/histories.archived";
 import { HistoryFilters } from "@/components/History/HistoryFilters";
-import { useResourceWatcher } from "@/composables/resourceWatcher";
 import { useUserLocalStorage } from "@/composables/userLocalStorage";
 import {
     createAndSelectNewHistory,
@@ -27,11 +24,6 @@ import {
 } from "@/stores/services/history.services";
 import { rethrowSimple } from "@/utils/simple-error";
 import { sortByObjectProp } from "@/utils/sorting";
-import {
-    ACTIVE_POLLING_INTERVAL,
-    INACTIVE_POLLING_INTERVAL,
-    watchHistory as watchHistorySuppliedApp,
-} from "@/watch/watchHistory";
 
 const PAGINATION_LIMIT = 10;
 const isLoadingHistory = new Set();
@@ -45,7 +37,6 @@ export const useHistoryStore = defineStore("historyStore", () => {
     const storedCurrentHistoryId = ref<string | null>(null);
     const storedFilterTexts = ref<{ [key: string]: string }>({});
     const storedHistories = ref<{ [key: string]: AnyHistory }>({});
-    const changingCurrentHistory = ref(false);
 
     const histories = computed(() => {
         return Object.values(storedHistories.value)
@@ -105,17 +96,12 @@ export const useHistoryStore = defineStore("historyStore", () => {
     });
 
     async function setCurrentHistory(historyId: string) {
-        if (!changingCurrentHistory.value) {
-            try {
-                changingCurrentHistory.value = true;
-                const currentHistory = (await setCurrentHistoryOnServer(historyId)) as HistoryDevDetailed;
-                selectHistory(currentHistory);
-                setFilterText(historyId, "");
-            } catch (error) {
-                rethrowSimple(error);
-            } finally {
-                changingCurrentHistory.value = false;
-            }
+        try {
+            const currentHistory = (await setCurrentHistoryOnServer(historyId)) as HistoryDevDetailed;
+            selectHistory(currentHistory);
+            setFilterText(historyId, "");
+        } catch (error) {
+            rethrowSimple(error);
         }
     }
 
@@ -173,10 +159,6 @@ export const useHistoryStore = defineStore("historyStore", () => {
 
     function unpinHistories(historyIds: string[]) {
         pinnedHistories.value = pinnedHistories.value.filter((h) => !historyIds.includes(h.id));
-    }
-
-    function clearPinnedHistories() {
-        pinnedHistories.value = [];
     }
 
     function selectHistory(history: HistorySummary) {
@@ -309,13 +291,6 @@ export const useHistoryStore = defineStore("historyStore", () => {
         }
     }
 
-    async function loadCurrentHistoryId(): Promise<string | null> {
-        if (!currentHistoryId.value) {
-            await loadCurrentHistory();
-        }
-        return currentHistoryId.value;
-    }
-
     /**
      * This function handles the cases where a history has been created
      * or removed (to set pagination offset and fetch updated history count)
@@ -324,8 +299,7 @@ export const useHistoryStore = defineStore("historyStore", () => {
      * @param reduction Whether it is a reduction or addition (default)
      */
     async function handleTotalCountChange(count = 0, reduction = false) {
-        const adjustment = !reduction ? count : -count;
-        historiesOffset.value = Math.max(0, historiesOffset.value + adjustment);
+        historiesOffset.value += !reduction ? count : -count;
         await loadTotalHistoryCount();
     }
 
@@ -374,19 +348,6 @@ export const useHistoryStore = defineStore("historyStore", () => {
         }
     }
 
-    function watchHistory() {
-        const app = getGalaxyInstance();
-        return watchHistorySuppliedApp(app);
-    }
-
-    const { startWatchingResource: startWatchingHistory, isWatchingResource: isWatchingHistory } = useResourceWatcher(
-        watchHistory,
-        {
-            shortPollingInterval: ACTIVE_POLLING_INTERVAL,
-            longPollingInterval: INACTIVE_POLLING_INTERVAL,
-        },
-    );
-
     async function loadHistoryById(historyId: string): Promise<HistorySummaryExtended | undefined> {
         if (!isLoadingHistory.has(historyId)) {
             isLoadingHistory.add(historyId);
@@ -402,12 +363,9 @@ export const useHistoryStore = defineStore("historyStore", () => {
         }
     }
 
-    async function secureHistory(history: HistorySummary): Promise<{ sharingStatusChanged: boolean }> {
-        const { securedHistory, sharingStatusChanged } = await secureHistoryOnServer(history);
+    async function secureHistory(history: HistorySummary) {
+        const securedHistory = (await secureHistoryOnServer(history)) as HistorySummaryExtended;
         setHistory(securedHistory);
-        return {
-            sharingStatusChanged,
-        };
     }
 
     async function archiveHistoryById(historyId: string, archiveExportId?: string, purgeHistory = false) {
@@ -458,7 +416,7 @@ export const useHistoryStore = defineStore("historyStore", () => {
         return history;
     }
 
-    async function updateHistory(id: string, update: UpdateHistoryPayload) {
+    async function updateHistory({ id, ...update }: HistorySummary) {
         const savedHistory = (await updateHistoryFields(id, update)) as HistorySummaryExtended;
         setHistory(savedHistory);
     }
@@ -482,7 +440,6 @@ export const useHistoryStore = defineStore("historyStore", () => {
 
     return {
         histories,
-        changingCurrentHistory,
         currentHistory,
         currentHistoryId,
         currentFilterText,
@@ -497,7 +454,6 @@ export const useHistoryStore = defineStore("historyStore", () => {
         setHistories,
         pinHistory,
         unpinHistories,
-        clearPinnedHistories,
         selectHistory,
         applyFilters,
         copyHistory,
@@ -507,10 +463,7 @@ export const useHistoryStore = defineStore("historyStore", () => {
         restoreHistory,
         restoreHistories,
         handleTotalCountChange,
-        startWatchingHistory,
-        isWatchingHistory,
         loadCurrentHistory,
-        loadCurrentHistoryId,
         loadHistories,
         loadHistoryById,
         secureHistory,

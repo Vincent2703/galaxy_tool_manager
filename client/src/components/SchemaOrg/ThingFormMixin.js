@@ -27,7 +27,6 @@ export default {
     methods: {
         onReset(evt) {
             evt.preventDefault();
-            this.removeErrorMessage();
             this.$emit("onReset");
         },
         onHide(attributeKey) {
@@ -35,43 +34,21 @@ export default {
         },
         onSave(evt) {
             evt.preventDefault();
-            if (this.validate()) {
-                const newThing = {};
-                newThing.class = this.schemaOrgClass;
-                for (const attributeInfo of this.attributeInfo) {
-                    const attribute = attributeInfo.key;
-                    if (this.show[attribute]) {
-                        let value = this.currentValues[attribute];
-                        if (attribute == "email") {
-                            if (value.indexOf("mailto:") !== 0) {
-                                value = "mailto:" + value;
-                            }
+            const newThing = {};
+            newThing.class = this.schemaOrgClass;
+            for (const attributeInfo of this.attributeInfo) {
+                const attribute = attributeInfo.key;
+                if (this.show[attribute]) {
+                    let value = this.currentValues[attribute];
+                    if (attribute == "email") {
+                        if (value.indexOf("mailto:") !== 0) {
+                            value = "mailto:" + value;
                         }
-                        newThing[attribute] = value;
                     }
-                }
-                this.$emit("onSave", newThing);
-            }
-        },
-        removeErrorMessage(key) {
-            if (key) {
-                this.$set(this.currentErrors, key, null);
-            } else {
-                for (const key in this.currentErrors) {
-                    this.$set(this.currentErrors, key, null);
+                    newThing[attribute] = value;
                 }
             }
-        },
-        validate() {
-            for (const attr of this.displayedAttributes) {
-                const item = this.currentValues[attr.key];
-                if (!item) {
-                    this.$set(this.currentErrors, attr.key, "Please provide a value");
-                    return false;
-                }
-            }
-
-            return true;
+            this.$emit("onSave", newThing);
         },
     },
 };

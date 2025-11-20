@@ -3,11 +3,9 @@ API operations on Group objects.
 """
 
 import logging
-from typing import Optional
 
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.managers.group_roles import GroupRolesManager
-from galaxy.model.db.role import get_private_role_user_emails_dict
 from galaxy.schema.fields import Security
 from galaxy.schema.schema import (
     GroupRoleListResponse,
@@ -28,12 +26,11 @@ log = logging.getLogger(__name__)
 router = Router(tags=["group_roles"])
 
 
-def group_role_to_model(trans, group_id: int, role, displayed_name: Optional[str] = None) -> GroupRoleResponse:
+def group_role_to_model(trans, group_id: int, role) -> GroupRoleResponse:
     encoded_group_id = Security.security.encode_id(group_id)
     encoded_role_id = Security.security.encode_id(role.id)
     url = trans.url_builder("group_role", group_id=encoded_group_id, role_id=encoded_role_id)
-    displayed_name = displayed_name or role.name
-    return GroupRoleResponse(id=role.id, name=displayed_name, url=url)
+    return GroupRoleResponse(id=role.id, name=role.name, url=url)
 
 
 @router.cbv
@@ -52,13 +49,7 @@ class FastAPIGroupRoles:
         trans: ProvidesAppContext = DependsOnTrans,
     ) -> GroupRoleListResponse:
         group_roles = self.manager.index(trans, group_id)
-        private_role_emails = get_private_role_user_emails_dict(trans.sa_session)
-        data = []
-        for group in group_roles:
-            role = group.role
-            displayed_name = private_role_emails.get(role.id, role.name)
-            data.append(group_role_to_model(trans, group_id, role, displayed_name))
-        return GroupRoleListResponse(root=data)
+        return GroupRoleListResponse(root=[group_role_to_model(trans, group_id, gr.role) for gr in group_roles])
 
     @router.get(
         "/api/groups/{group_id}/roles/{role_id}",

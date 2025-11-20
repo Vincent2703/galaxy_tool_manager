@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faMarkdown } from "@fortawesome/free-brands-svg-icons";
 import {
     faChevronDown,
@@ -14,7 +15,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { useMagicKeys, whenever } from "@vueuse/core";
-import { BFormInput } from "bootstrap-vue";
+import { BButton, BButtonGroup, BFormInput } from "bootstrap-vue";
 //@ts-ignore deprecated package without types (vue 2, remove this comment on vue 3 migration)
 import { BoxSelect, Workflow } from "lucide-vue";
 import { storeToRefs } from "pinia";
@@ -23,16 +24,28 @@ import { computed, toRefs, watch } from "vue";
 import { RemoveAllFreehandCommentsAction } from "@/components/Workflow/Editor/Actions/commentActions";
 import { useUid } from "@/composables/utils/uid";
 import { useWorkflowStores } from "@/composables/workflowStores";
-import type { CommentTool } from "@/stores/workflowEditorToolbarStore";
+import { type CommentTool } from "@/stores/workflowEditorToolbarStore";
 import { match } from "@/utils/utils";
 
 import { AutoLayoutAction } from "../Actions/stepActions";
 import { useSelectionOperations } from "./useSelectionOperations";
 import { useToolLogic } from "./useToolLogic";
 
-import GButton from "@/components/BaseComponents/GButton.vue";
-import GButtonGroup from "@/components/BaseComponents/GButtonGroup.vue";
 import ColorSelector from "@/components/Workflow/Editor/Comments/ColorSelector.vue";
+
+library.add(
+    faMarkdown,
+    faChevronDown,
+    faChevronUp,
+    faClone,
+    faEraser,
+    faMagnet,
+    faMousePointer,
+    faObjectGroup,
+    faPen,
+    faTimes,
+    faTrash
+);
 
 const { toolbarStore, undoRedoStore, commentStore, workflowId } = useWorkflowStores();
 const { snapActive, currentTool } = toRefs(toolbarStore);
@@ -69,7 +82,7 @@ watch(
         } else {
             toolbarStore.inputCatcherActive = true;
         }
-    },
+    }
 );
 
 const snappingDistanceId = useUid("snapping-distance-");
@@ -147,153 +160,132 @@ function autoLayout() {
     <div class="workflow-editor-toolbar">
         <div class="tools">
             <template v-if="toolbarVisible">
-                <GButtonGroup vertical>
-                    <GButton
-                        tooltip
-                        tooltip-placement="right"
-                        outline
-                        color="blue"
+                <BButtonGroup vertical>
+                    <BButton
+                        v-b-tooltip.hover.noninteractive.right
                         class="button"
                         data-tool="pointer"
                         title="Pointer Tool (Ctrl + 1)"
                         :pressed="currentTool === 'pointer'"
+                        variant="outline-primary"
                         @click="onClickPointer">
-                        <FontAwesomeIcon :icon="faMousePointer" size="lg" />
-                    </GButton>
-                    <GButton
-                        tooltip
-                        tooltip-placement="right"
-                        outline
-                        color="blue"
+                        <FontAwesomeIcon icon="fa-mouse-pointer" size="lg" />
+                    </BButton>
+                    <BButton
+                        v-b-tooltip.hover.noninteractive.right
                         class="button"
                         data-tool="toggle_snap"
                         :title="snapButtonTitle"
-                        :pressed.sync="snapActive">
-                        <FontAwesomeIcon :icon="faMagnet" size="lg" />
-                    </GButton>
-                </GButtonGroup>
+                        :pressed.sync="snapActive"
+                        variant="outline-primary">
+                        <FontAwesomeIcon icon="fa-magnet" size="lg" />
+                    </BButton>
+                </BButtonGroup>
 
-                <GButtonGroup vertical>
-                    <GButton
-                        tooltip
-                        tooltip-placement="right"
-                        outline
-                        color="blue"
+                <BButtonGroup vertical>
+                    <BButton
+                        v-b-tooltip.hover.noninteractive.right
                         class="button font-weight-bold"
                         data-tool="text_comment"
                         title="Text comment (Ctrl + 3)"
                         :pressed="currentTool === 'textComment'"
+                        variant="outline-primary"
                         @click="() => onCommentToolClick('textComment')">
                         <span class="icon-t">T</span>
-                    </GButton>
-                    <GButton
-                        tooltip
-                        tooltip-placement="right"
-                        outline
-                        color="blue"
+                    </BButton>
+                    <BButton
+                        v-b-tooltip.hover.noninteractive.right
                         class="button"
                         data-tool="markdown_comment"
                         title="Markdown comment (Ctrl + 4)"
                         :pressed="currentTool === 'markdownComment'"
+                        variant="outline-primary"
                         @click="() => onCommentToolClick('markdownComment')">
-                        <FontAwesomeIcon :icon="faMarkdown" size="lg" />
-                    </GButton>
-                    <GButton
-                        tooltip
-                        tooltip-placement="right"
-                        outline
-                        color="blue"
+                        <FontAwesomeIcon :icon="['fab', 'markdown']" size="lg" />
+                    </BButton>
+                    <BButton
+                        v-b-tooltip.hover.noninteractive.right
                         class="button"
                         data-tool="frame_comment"
                         title="Frame comment (Ctrl + 5)"
                         :pressed="currentTool === 'frameComment'"
+                        variant="outline-primary"
                         @click="() => onCommentToolClick('frameComment')">
-                        <FontAwesomeIcon :icon="faObjectGroup" size="lg" />
-                    </GButton>
-                </GButtonGroup>
+                        <FontAwesomeIcon icon="fa-object-group" size="lg" />
+                    </BButton>
+                </BButtonGroup>
 
-                <GButtonGroup vertical>
-                    <GButton
-                        tooltip
-                        tooltip-placement="right"
-                        outline
-                        color="blue"
+                <BButtonGroup vertical>
+                    <BButton
+                        v-b-tooltip.hover.noninteractive.right
                         title="Freehand Pen (Ctrl + 6)"
                         data-tool="freehand_pen"
                         :pressed="currentTool === 'freehandComment'"
                         class="button"
+                        variant="outline-primary"
                         @click="() => onCommentToolClick('freehandComment')">
-                        <FontAwesomeIcon :icon="faPen" size="lg" />
-                    </GButton>
-                    <GButton
-                        tooltip
-                        tooltip-placement="right"
-                        outline
-                        color="blue"
+                        <FontAwesomeIcon icon="fa-pen" size="lg" />
+                    </BButton>
+                    <BButton
+                        v-b-tooltip.hover.noninteractive.right
                         title="Freehand Eraser (Ctrl + 7)"
                         data-tool="freehand_eraser"
                         :pressed="currentTool === 'freehandEraser'"
                         class="button"
+                        variant="outline-primary"
                         @click="() => onCommentToolClick('freehandEraser')">
-                        <FontAwesomeIcon :icon="faEraser" size="lg" />
-                    </GButton>
-                </GButtonGroup>
+                        <FontAwesomeIcon icon="fa-eraser" size="lg" />
+                    </BButton>
+                </BButtonGroup>
 
-                <GButton
-                    tooltip
-                    tooltip-placement="right"
-                    outline
-                    color="blue"
+                <BButton
+                    v-b-tooltip.hover.noninteractive.right
                     title="Box Select (Ctrl + 8)"
                     data-tool="box_select"
                     :pressed="currentTool === 'boxSelect'"
                     class="button"
+                    variant="outline-primary"
                     @click="onClickBoxSelect">
                     <BoxSelect />
-                </GButton>
+                </BButton>
 
-                <GButton
+                <BButton
                     id="auto-layout-button"
-                    tooltip
-                    tooltip-placement="right"
-                    outline
-                    color="blue"
+                    v-b-tooltip.hover.noninteractive.right
                     title="Auto Layout (Ctrl + 9)"
                     data-tool="auto_layout"
                     class="button"
                     variant="outline-primary"
                     @click="autoLayout">
                     <Workflow />
-                </GButton>
+                </BButton>
             </template>
 
-            <GButton
-                tooltip
-                tooltip-placement="right"
-                outline
-                color="blue"
+            <BButton
+                v-b-tooltip.hover.noninteractive.right
                 class="toggle-visibility-button"
                 :title="toggleVisibilityButtonTitle"
+                variant="outline-primary"
                 @click="toolbarVisible = !toolbarVisible">
-                <FontAwesomeIcon v-if="toolbarVisible" :icon="faChevronUp" />
-                <FontAwesomeIcon v-else :icon="faChevronDown" />
-            </GButton>
+                <FontAwesomeIcon v-if="toolbarVisible" icon="fa-chevron-up" />
+                <FontAwesomeIcon v-else icon="fa-chevron-down" />
+            </BButton>
         </div>
         <div v-if="toolbarVisible" class="options">
             <div v-if="anySelected" class="selection-options">
                 <span>{{ selectedCountText }}</span>
 
-                <GButtonGroup>
-                    <GButton class="button" title="clear selection" @click="deselectAll">
-                        Clear <FontAwesomeIcon :icon="faTimes" />
-                    </GButton>
-                    <GButton class="button" title="duplicate selected" @click="duplicateSelection">
-                        Duplicate <FontAwesomeIcon :icon="faClone" />
-                    </GButton>
-                    <GButton class="button" title="delete selected" @click="deleteSelection">
-                        Delete <FontAwesomeIcon :icon="faTrash" />
-                    </GButton>
-                </GButtonGroup>
+                <BButtonGroup>
+                    <BButton class="button" title="clear selection" @click="deselectAll">
+                        Clear <FontAwesomeIcon icon="fa-times" />
+                    </BButton>
+                    <BButton class="button" title="duplicate selected" @click="duplicateSelection">
+                        Duplicate <FontAwesomeIcon icon="fa-clone" />
+                    </BButton>
+                    <BButton class="button" title="delete selected" @click="deleteSelection">
+                        Delete <FontAwesomeIcon icon="fa-trash" />
+                    </BButton>
+                </BButtonGroup>
             </div>
 
             <div
@@ -317,24 +309,22 @@ function autoLayout() {
             </div>
 
             <div v-if="toolbarStore.currentTool === 'textComment'" class="option buttons">
-                <GButtonGroup>
-                    <GButton
+                <BButtonGroup>
+                    <BButton
                         :pressed.sync="commentOptions.bold"
-                        outline
-                        color="blue"
+                        variant="outline-primary"
                         class="button font-weight-bold"
                         data-option="toggle-bold">
                         Bold
-                    </GButton>
-                    <GButton
+                    </BButton>
+                    <BButton
                         :pressed.sync="commentOptions.italic"
-                        outline
-                        color="blue"
+                        variant="outline-primary"
                         class="button font-italic"
                         data-option="toggle-italic">
                         Italic
-                    </GButton>
-                </GButtonGroup>
+                    </BButton>
+                </BButtonGroup>
             </div>
 
             <div
@@ -392,45 +382,43 @@ function autoLayout() {
             </div>
 
             <div v-if="['freehandComment', 'freehandEraser'].includes(toolbarStore.currentTool)" class="option buttons">
-                <GButton
+                <BButton
                     class="button"
                     data-option="remove-freehand"
                     title="Remove all freehand comments"
                     @click="onRemoveAllFreehand">
                     Remove all
-                </GButton>
+                </BButton>
             </div>
 
             <div v-if="currentTool === 'boxSelect'" class="option buttons">
-                <GButtonGroup>
-                    <GButton
+                <BButtonGroup>
+                    <BButton
                         :pressed="toolbarStore.boxSelectMode === 'add'"
                         class="button"
-                        outline
-                        color="blue"
                         data-option="select-mode-add"
+                        variant="outline-primary"
                         title="add items to selection"
                         @click="toolbarStore.boxSelectMode = 'add'">
                         Add to selection
-                    </GButton>
-                    <GButton
+                    </BButton>
+                    <BButton
                         :pressed="toolbarStore.boxSelectMode === 'remove'"
                         class="button"
-                        outline
-                        color="blue"
                         data-option="select-mode-remove"
+                        variant="outline-primary"
                         title="remove items from selection"
                         @click="toolbarStore.boxSelectMode = 'remove'">
                         Remove from selection
-                    </GButton>
-                </GButtonGroup>
+                    </BButton>
+                </BButtonGroup>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .workflow-editor-toolbar {
     position: absolute;
@@ -470,9 +458,7 @@ function autoLayout() {
     .toggle-visibility-button {
         height: 1.5rem;
         display: grid;
-        place-items: center;
-        padding: 0;
-        width: 2.25rem;
+        align-items: center;
     }
 
     .options {
@@ -538,7 +524,7 @@ function autoLayout() {
         display: flex;
         padding: 0.25rem;
         gap: 0.25rem;
-        align-items: flex-start;
+        align-items: start;
         flex-direction: column-reverse;
         align-self: flex-start;
 

@@ -9,7 +9,7 @@ class TestRegistration(SeleniumTestCase):
     def test_landing(self):
         # loading galaxy homepage
         self.home()
-        assert self.page_title == "Galaxy", self.page_title
+        assert self.driver.title == "Galaxy", self.driver.title
         self.components.masthead._.wait_for_visible()
 
     @selenium_test
@@ -20,7 +20,7 @@ class TestRegistration(SeleniumTestCase):
     @selenium_test
     def test_registration_accessibility(self):
         self.home()
-        self.components.masthead.login_masthead_button.wait_for_and_click()
+        self.components.masthead.register_or_login.wait_for_and_click()
         registration = self.components.registration
         registration.toggle.wait_for_and_click()
         registration.form.wait_for_visible()

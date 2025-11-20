@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import urllib.parse
+from typing import List
 
 import yaml
 
@@ -90,11 +91,11 @@ class TrsProxy:
         server, trs_tool_id, trs_version_id = self.get_trs_id_and_version_from_trs_url(trs_url=trs_url)
         return server.get_version_descriptor(trs_tool_id, trs_version_id)
 
-    def match_url(self, url, ip_allowlist: list[IpAllowedListEntryT]):
+    def match_url(self, url, ip_allowlist: List[IpAllowedListEntryT]):
         if url.lstrip().startswith("file://"):
             # requests doesn't know what to do with file:// anyway, but just in case we swap
             # out the implementation
-            raise RequestParameterInvalidException(f"Invalid TRS URL {url}")
+            raise RequestParameterInvalidException("Invalid TRS URL %s", url)
         validate_non_local(url, ip_allowlist=ip_allowlist or [])
         return self._match_url(url)
 

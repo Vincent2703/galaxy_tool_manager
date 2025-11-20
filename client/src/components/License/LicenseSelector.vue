@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 import Multiselect from "vue-multiselect";
 
 import { GalaxyApi } from "@/api";
-import type { components } from "@/api/schema";
+import { type components } from "@/api/schema";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 import License from "@/components/License/License.vue";
@@ -22,9 +22,11 @@ type LicenseType = {
     name: string;
 };
 
-const props = defineProps<{
-    inputLicense?: string | null;
-}>();
+interface Props {
+    inputLicense: string;
+}
+
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
     (e: "onLicense", license: string | null): void;
@@ -36,7 +38,10 @@ const currentLicense = ref<LicenseType>();
 const licenses = ref<LicenseMetadataModel[] | undefined>([]);
 
 const licenseOptions = computed(() => {
-    const options: LicenseType[] = [defaultLicense];
+    const options: LicenseType[] = [];
+
+    options.push(defaultLicense);
+
     for (const license of licenses.value || []) {
         if (license.licenseId == currentLicense.value?.licenseId || license.recommended) {
             options.push({
@@ -45,6 +50,7 @@ const licenseOptions = computed(() => {
             });
         }
     }
+
     return options;
 });
 
@@ -54,19 +60,25 @@ function onLicense(license: LicenseType) {
 
 async function fetchLicenses() {
     const { error, data } = await GalaxyApi().GET("/api/licenses");
+
     if (error) {
         errorMessage.value = errorMessageAsString(error) || "Unable to fetch licenses.";
     }
+
     licenses.value = data;
+
     licensesLoading.value = false;
 }
 
 async function setCurrentLicense() {
     if (!licenses.value?.length && !licensesLoading.value) {
         licensesLoading.value = true;
+
         await fetchLicenses();
     }
+
     const inputLicense = props.inputLicense;
+
     currentLicense.value = (licenses.value || []).find((l) => l.licenseId == inputLicense) || defaultLicense;
 }
 
@@ -74,7 +86,7 @@ watchImmediate(
     () => props.inputLicense,
     () => {
         setCurrentLicense();
-    },
+    }
 );
 </script>
 
@@ -93,8 +105,6 @@ watchImmediate(
             track-by="licenseId"
             :options="licenseOptions"
             label="name"
-            select-label=""
-            deselect-label=""
             placeholder="Select a license"
             @select="onLicense" />
         <License v-if="currentLicense?.licenseId" :license-id="currentLicense.licenseId" />

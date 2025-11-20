@@ -5,6 +5,7 @@ from galaxy import (
     util,
     web,
 )
+from galaxy.model.base import transaction
 from galaxy.util import inflector
 from galaxy.web.legacy_framework import grids
 from galaxy.webapps.base.controller import BaseUIController
@@ -16,7 +17,6 @@ from tool_shed.util import (
 )
 from tool_shed.util.admin_util import Admin
 from tool_shed.util.web_util import escape
-from tool_shed.webapp.model import Category
 
 log = logging.getLogger(__name__)
 
@@ -73,8 +73,7 @@ class AdminController(BaseUIController, Admin):
                 for k in list(kwd.keys()):
                     if k.startswith("f-"):
                         del kwd[k]
-                category_id = kwd.get("id")
-                assert category_id
+                category_id = kwd.get("id", None)
                 category = suc.get_category(trans.app, category_id)
                 kwd["f-Category.name"] = category.name
             elif operation == "receive email alerts":
@@ -150,9 +149,10 @@ class AdminController(BaseUIController, Admin):
                 status = "error"
             else:
                 # Create the category
-                category = Category(name=name, description=description)
+                category = trans.app.model.Category(name=name, description=description)
                 trans.sa_session.add(category)
-                trans.sa_session.commit()
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
                 # Update the Tool Shed's repository registry.
                 trans.app.repository_registry.add_category_entry(category)
                 message = f"Category '{escape(category.name)}' has been created"
@@ -176,7 +176,8 @@ class AdminController(BaseUIController, Admin):
         if id := kwd.get("id", None):
             # Deleting multiple items is currently not allowed (allow_multiple=False), so there will only be 1 id.
             ids = util.listify(id)
-            deleted_repositories = []
+            count = 0
+            deleted_repositories = ""
             for repository_id in ids:
                 repository = repository_util.get_repository_in_tool_shed(trans.app, repository_id)
                 if repository:
@@ -192,16 +193,17 @@ class AdminController(BaseUIController, Admin):
                             trans.sa_session.add(repository_admin_role)
                         repository.deleted = True
                         trans.sa_session.add(repository)
-                        trans.sa_session.commit()
+                        with transaction(trans.sa_session):
+                            trans.sa_session.commit()
                         # Update the repository registry.
                         trans.app.repository_registry.remove_entry(repository)
-                        deleted_repositories.append(repository.name)
-            count = len(deleted_repositories)
+                        count += 1
+                        deleted_repositories += f" {repository.name} "
             if count:
-                message = "Deleted {} {}: {}".format(
+                message = "Deleted %d %s: %s" % (
                     count,
-                    inflector.cond_plural(count, "repository"),
-                    escape(" ".join(deleted_repositories)),
+                    inflector.cond_plural(len(ids), "repository"),
+                    escape(deleted_repositories),
                 )
             else:
                 message = "All selected repositories were already marked deleted."
@@ -221,12 +223,15 @@ class AdminController(BaseUIController, Admin):
         status = kwd.get("status", "done")
         if id := kwd.get("id", None):
             ids = util.listify(id)
+            count = 0
             for repository_metadata_id in ids:
                 repository_metadata = metadata_util.get_repository_metadata_by_id(trans.app, repository_metadata_id)
                 trans.sa_session.delete(repository_metadata)
-                trans.sa_session.commit()
-            count = len(ids)
-            message = "Deleted {} repository metadata {}".format(count, inflector.cond_plural(count, "record"))
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
+                count += 1
+            if count:
+                message = "Deleted %d repository metadata %s" % (count, inflector.cond_plural(len(ids), "record"))
         else:
             message = "No repository metadata ids received for deleting."
             status = "error"
@@ -245,13 +250,12 @@ class AdminController(BaseUIController, Admin):
         """Handle requests to edit TS category name or description"""
         message = escape(kwd.get("message", ""))
         status = kwd.get("status", "done")
-        id = kwd.get("id")
+        id = kwd.get("id", None)
         if not id:
             message = "No category ids received for editing"
             trans.response.send_redirect(
                 web.url_for(controller="admin", action="manage_categories", message=message, status="error")
             )
-        assert id is not None  # redundant, can be dropped when we annotate trans
         category = suc.get_category(trans.app, id)
         original_category_name = str(category.name)
         original_category_description = str(category.description)
@@ -275,7 +279,8 @@ class AdminController(BaseUIController, Admin):
                     flush_needed = True
             if flush_needed:
                 trans.sa_session.add(category)
-                trans.sa_session.commit()
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
                 if original_category_name != new_name:
                     # Update the Tool Shed's repository registry.
                     trans.app.repository_registry.edit_category_entry(original_category_name, new_name)
@@ -378,7 +383,8 @@ class AdminController(BaseUIController, Admin):
         if id := kwd.get("id", None):
             # Undeleting multiple items is currently not allowed (allow_multiple=False), so there will only be 1 id.
             ids = util.listify(id)
-            undeleted_repositories = []
+            count = 0
+            undeleted_repositories = ""
             for repository_id in ids:
                 repository = repository_util.get_repository_in_tool_shed(trans.app, repository_id)
                 if repository:
@@ -398,17 +404,18 @@ class AdminController(BaseUIController, Admin):
                             trans.sa_session.add(repository_admin_role)
                         repository.deleted = False
                         trans.sa_session.add(repository)
-                        trans.sa_session.commit()
+                        with transaction(trans.sa_session):
+                            trans.sa_session.commit()
                         if not repository.deprecated:
                             # Update the repository registry.
                             trans.app.repository_registry.add_entry(repository)
-                        undeleted_repositories.append(repository.name)
-            count = len(undeleted_repositories)
+                        count += 1
+                        undeleted_repositories += f" {repository.name}"
             if count:
-                message = "Undeleted {} {}: {}".format(
+                message = "Undeleted %d %s: %s" % (
                     count,
                     inflector.cond_plural(count, "repository"),
-                    " ".join(undeleted_repositories),
+                    undeleted_repositories,
                 )
             else:
                 message = "No selected repositories were marked deleted, so they could not be undeleted."
@@ -426,18 +433,19 @@ class AdminController(BaseUIController, Admin):
         # TODO: We should probably eliminate the Category.deleted column since it really makes no
         # sense to mark a category as deleted (category names and descriptions can be changed instead).
         # If we do this, and the following 2 methods can be eliminated.
+        message = escape(kwd.get("message", ""))
         if id := kwd.get("id", None):
             ids = util.listify(id)
-            deleted_categories = []
+            message = "Deleted %d categories: " % len(ids)
             for category_id in ids:
                 category = suc.get_category(trans.app, category_id)
                 category.deleted = True
                 trans.sa_session.add(category)
-                trans.sa_session.commit()
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
                 # Update the Tool Shed's repository registry.
                 trans.app.repository_registry.remove_category_entry(category)
-                deleted_categories.append(category.name)
-            message = "Deleted {} categories: {}".format(len(deleted_categories), escape(" ".join(deleted_categories)))
+                message += f" {escape(category.name)} "
         else:
             message = "No category ids received for deleting."
         trans.response.send_redirect(
@@ -455,16 +463,19 @@ class AdminController(BaseUIController, Admin):
         message = escape(kwd.get("message", ""))
         if id := kwd.get("id", None):
             ids = util.listify(id)
-            purged_categories = []
+            count = 0
+            purged_categories = ""
+            message = "Purged %d categories: " % len(ids)
             for category_id in ids:
                 category = suc.get_category(trans.app, category_id)
                 if category.deleted:
                     # Delete RepositoryCategoryAssociations
                     for rca in category.repositories:
                         trans.sa_session.delete(rca)
-                    trans.sa_session.commit()
-                    purged_categories.append(category.name)
-            message = "Purged {} categories: {}".format(len(purged_categories), escape(" ".join(purged_categories)))
+                    with transaction(trans.sa_session):
+                        trans.sa_session.commit()
+                    purged_categories += f" {category.name} "
+            message = "Purged %d categories: %s" % (count, escape(purged_categories))
         else:
             message = "No category ids received for purging."
         trans.response.send_redirect(
@@ -479,19 +490,20 @@ class AdminController(BaseUIController, Admin):
         message = escape(kwd.get("message", ""))
         if id := kwd.get("id", None):
             ids = util.listify(id)
-            undeleted_categories = []
+            count = 0
+            undeleted_categories = ""
             for category_id in ids:
                 category = suc.get_category(trans.app, category_id)
                 if category.deleted:
                     category.deleted = False
                     trans.sa_session.add(category)
-                    trans.sa_session.commit()
+                    with transaction(trans.sa_session):
+                        trans.sa_session.commit()
                     # Update the Tool Shed's repository registry.
                     trans.app.repository_registry.add_category_entry(category)
-                    undeleted_categories.append(category.name)
-            message = "Undeleted {} categories: {}".format(
-                len(undeleted_categories), escape(" ".join(undeleted_categories))
-            )
+                    count += 1
+                    undeleted_categories += f" {category.name}"
+            message = "Undeleted %d categories: %s" % (count, escape(undeleted_categories))
         else:
             message = "No category ids received for undeleting."
         trans.response.send_redirect(

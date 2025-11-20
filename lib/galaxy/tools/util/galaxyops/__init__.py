@@ -35,10 +35,16 @@ def parse_cols_arg(cols):
 
 
 def default_printer(stream, exc, obj):
-    print(f"{obj.linenum}: {obj.current_line}", file=stream)
+    print("%d: %s" % (obj.linenum, obj.current_line), file=stream)
     print(f"\tError: {unicodify(exc)}", file=stream)
 
 
 def skipped(reader, filedesc=""):
     first_line, line_contents, problem = reader.skipped_lines[0]
-    return f'Skipped {reader.skipped} invalid lines{filedesc}, 1st line #{first_line}: "{line_contents}", problem: {problem}'
+    return 'Skipped %d invalid lines%s, 1st line #%d: "%s", problem: %s' % (
+        reader.skipped,
+        filedesc,
+        first_line,
+        line_contents,
+        problem,
+    )

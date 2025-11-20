@@ -4,10 +4,7 @@ import os
 import threading
 import time
 from multiprocessing.util import register_after_fork
-from typing import (
-    Any,
-    Union,
-)
+from typing import Dict
 
 from sqlalchemy import (
     create_engine,
@@ -46,18 +43,21 @@ def stripwd(s):
 
 
 def pretty_stack():
-    return [f"{stripwd(fname)}:{funcname}@{line}" for _, fname, line, funcname, _, _ in inspect.stack()[2:]]
+    rval = []
+    for _, fname, line, funcname, _, _ in inspect.stack()[2:]:
+        rval.append("%s:%s@%d" % (stripwd(fname), funcname, line))
+    return rval
 
 
 def build_engine(
     url: str,
-    engine_options: Union[dict[str, Any], None] = None,
+    engine_options=None,
     database_query_profiling_proxy=False,
     trace_logger=None,
     slow_query_log_threshold=0,
     thread_local_log=None,
     log_query_counts=False,
-) -> Engine:
+):
     if database_query_profiling_proxy or slow_query_log_threshold or thread_local_log or log_query_counts:
 
         @event.listens_for(Engine, "before_cursor_execute")
@@ -129,7 +129,7 @@ def build_engine(
     return engine
 
 
-def set_sqlite_connect_args(engine_options: dict, url: str) -> None:
+def set_sqlite_connect_args(engine_options: Dict, url: str) -> None:
     """
     Add or update `connect_args` in `engine_options` if db is sqlite.
     Set check_same_thread to False for sqlite, handled by request-specific session.

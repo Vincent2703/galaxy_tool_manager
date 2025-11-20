@@ -1,4 +1,5 @@
-"""Web application stack operations"""
+"""Web application stack operations
+"""
 
 import logging
 import threading

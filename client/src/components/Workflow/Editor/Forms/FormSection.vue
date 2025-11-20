@@ -28,8 +28,8 @@
 </template>
 
 <script>
-import FormElement from "@/components/Form/FormElement.vue";
-import FormOutput from "@/components/Workflow/Editor/Forms/FormOutput.vue";
+import FormElement from "@/components/Form/FormElement";
+import FormOutput from "@/components/Workflow/Editor/Forms/FormOutput";
 
 export default {
     components: {

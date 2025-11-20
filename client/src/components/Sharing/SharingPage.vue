@@ -1,28 +1,30 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faCaretDown, faCaretUp, faCopy, faEdit, faUserPlus, faUserSlash } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
 import { BFormCheckbox } from "bootstrap-vue";
 import { computed, nextTick, reactive, ref, watch } from "vue";
 
-import type { AnyShareableItemWithStatus, ShareOption } from "@/api";
-import { isShareableHistoryWithStatus } from "@/api";
 import { getGalaxyInstance } from "@/app";
-import { getFullAppUrl } from "@/app/utils";
 import { useToast } from "@/composables/toast";
 import { getAppRoot } from "@/onload/loadConfig";
 import { errorMessageAsString } from "@/utils/simple-error";
+import { getFullAppUrl } from "@/utils/utils";
+
+import type { Item, ShareOption } from "./item";
 
 import EditableUrl from "./EditableUrl.vue";
-import PageEmbed from "./Embeds/PageEmbed.vue";
 import WorkflowEmbed from "./Embeds/WorkflowEmbed.vue";
 import ErrorMessages from "./ErrorMessages.vue";
 import UserSharing from "./UserSharing.vue";
 import Heading from "@/components/Common/Heading.vue";
 
+library.add(faCopy, faEdit, faUserPlus, faUserSlash, faCaretDown, faCaretUp);
+
 const props = defineProps<{
     id: string;
     pluralName: string;
     modelClass: string;
-    noHeading?: boolean;
 }>();
 
 const errors = ref<string[]>([]);
@@ -36,15 +38,19 @@ function onErrorDismissed(index: number) {
     errors.value.splice(index, 1);
 }
 
-const item = ref<AnyShareableItemWithStatus>({
-    id: "_placeholder_",
+const defaultExtra = () =>
+    ({
+        can_change: [],
+        cannot_change: [],
+    } as Item["extra"]);
+
+const item = ref<Item>({
     title: "title",
     username_and_slug: "__username__/__slug__",
     importable: false,
     published: false,
     users_shared_with: [],
-    extra: null,
-    errors: [],
+    extra: defaultExtra(),
 });
 
 const itemUrl = reactive({
@@ -62,7 +68,7 @@ watch(
             itemUrl.slug = value.substring(index + 1);
         }
     },
-    { immediate: true },
+    { immediate: true }
 );
 
 const slugUrl = computed(() => `${getAppRoot()}api/${props.pluralName.toLowerCase()}/${props.id}/slug`);
@@ -94,7 +100,7 @@ async function getSharing() {
     ready.value = false;
     try {
         const response = await axios.get(
-            `${getAppRoot()}api/${props.pluralName.toLocaleLowerCase()}/${props.id}/sharing`,
+            `${getAppRoot()}api/${props.pluralName.toLocaleLowerCase()}/${props.id}/sharing`
         );
         assignItem(response.data, true);
     } catch (e) {
@@ -104,8 +110,8 @@ async function getSharing() {
 
 getSharing();
 
-function permissionsChangeRequired(data: AnyShareableItemWithStatus) {
-    if (isShareableHistoryWithStatus(data)) {
+function permissionsChangeRequired(data: Item) {
+    if (data.extra) {
         return data.extra.can_change.length > 0 || data.extra.cannot_change.length > 0;
     } else {
         return false;
@@ -125,7 +131,7 @@ const { success } = useToast();
 async function setSharing(
     action: (typeof actions)[keyof typeof actions],
     userId?: string | string[],
-    shareOption?: ShareOption,
+    shareOption?: ShareOption
 ) {
     let userIds: string[] | undefined;
     if (Array.isArray(userId)) {
@@ -142,7 +148,7 @@ async function setSharing(
     try {
         const response = await axios.put(
             `${getAppRoot()}api/${props.pluralName.toLocaleLowerCase()}/${props.id}/${action}`,
-            data,
+            data
         );
 
         errors.value = [];
@@ -159,11 +165,15 @@ async function setSharing(
 
 const userSharing = ref<InstanceType<typeof UserSharing>>();
 
-async function assignItem(newItem: AnyShareableItemWithStatus, overwriteCandidates: boolean) {
+async function assignItem(newItem: Item, overwriteCandidates: boolean) {
     if (newItem.errors) {
         errors.value = newItem.errors;
     }
     item.value = newItem;
+
+    if ((!item.value.extra || newItem.errors?.length) ?? 0 > 0) {
+        item.value.extra = defaultExtra();
+    }
 
     if (overwriteCandidates) {
         await nextTick();
@@ -208,16 +218,12 @@ async function setUsername() {
         .catch(onError);
 }
 
-const embedable = computed(
-    () =>
-        item.value.importable &&
-        (props.modelClass.toLocaleLowerCase() === "workflow" || props.modelClass.toLocaleLowerCase() === "page"),
-);
+const embedable = computed(() => item.value.importable && props.modelClass.toLocaleLowerCase() === "workflow");
 </script>
 
 <template>
     <div class="sharing-page">
-        <Heading v-if="!props.noHeading" h1 size="lg" separator>
+        <Heading h1 size="lg" separator>
             <span>
                 Share or Publish {{ modelClass }} <span v-if="ready">"{{ item.title }}"</span>
             </span>
@@ -275,7 +281,6 @@ const embedable = computed(
                 <Heading h2 size="md"> Embed {{ modelClass }} </Heading>
 
                 <WorkflowEmbed v-if="props.modelClass.toLowerCase() === 'workflow'" :id="id" />
-                <PageEmbed v-else-if="props.modelClass.toLowerCase() === 'page'" :id="id" />
             </div>
 
             <Heading h2 size="md"> Share {{ modelClass }} with Individual Users </Heading>

@@ -8,7 +8,7 @@
 </template>
 
 <script>
-import CreatorViewer from "./CreatorViewer.vue";
+import CreatorViewer from "./CreatorViewer";
 
 export default {
     components: {

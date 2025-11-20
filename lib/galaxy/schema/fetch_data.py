@@ -1,36 +1,27 @@
 import json
 from enum import Enum
 from typing import (
-    Annotated,
     Any,
+    Dict,
+    List,
     Optional,
     Union,
 )
 
 from pydantic import (
-    AliasChoices,
     ConfigDict,
     Field,
     field_validator,
-    HttpUrl,
     Json,
-    TypeAdapter,
-    UUID4,
 )
-from typing_extensions import Literal
+from typing_extensions import (
+    Annotated,
+    Literal,
+)
 
 from galaxy.schema.fields import DecodedDatabaseIdField
-from galaxy.schema.schema import (
-    Model,
-    SampleSheetColumnDefinitions,
-    SampleSheetRow,
-)
-from galaxy.schema.terms import HelpTerms
+from galaxy.schema.schema import Model
 from galaxy.schema.types import CoercedStringType
-from galaxy.tool_util_models.parameters import FileOrCollectionRequest
-from galaxy.util.hash_util import HashFunctionNames
-
-HELP_TERMS = HelpTerms()
 
 
 class FetchBaseModel(Model):
@@ -44,7 +35,7 @@ class ElementsFromType(str, Enum):
     directory = "directory"
 
 
-AutoDecompressField = Field(False, description=HELP_TERMS.get_term("galaxy.dataFetch.auto_decompress"))
+AutoDecompressField = Field(False, description="Decompress compressed data before sniffing?")
 
 
 class BaseFetchDataTarget(FetchBaseModel):
@@ -92,9 +83,8 @@ class LibraryFolderDestination(FetchBaseModel):
 class BaseCollectionTarget(BaseFetchDataTarget):
     destination: HdcaDestination
     collection_type: Optional[str] = None
-    tags: Optional[list[str]] = None
+    tags: Optional[List[str]] = None
     name: Optional[str] = None
-    column_definitions: Optional[SampleSheetColumnDefinitions] = None
 
 
 class LibraryDestination(FetchBaseModel):
@@ -114,7 +104,7 @@ class ExtraFiles(FetchBaseModel):
 
 
 class FetchDatasetHash(Model):
-    hash_function: HashFunctionNames
+    hash_function: Literal["MD5", "SHA-1", "SHA-256", "SHA-512"]
     hash_value: str
 
     model_config = ConfigDict(extra="forbid")
@@ -122,27 +112,25 @@ class FetchDatasetHash(Model):
 
 class BaseDataElement(FetchBaseModel):
     name: Optional[CoercedStringType] = None
-    dbkey: str = Field("?", description=HELP_TERMS.get_term("galaxy.dataFetch.dbkey"))
-    info: Optional[str] = Field(None, description=HELP_TERMS.get_term("galaxy.dataFetch.info"))
-    ext: str = Field("auto", description=HELP_TERMS.get_term("galaxy.dataFetch.ext"))
-    space_to_tab: bool = Field(False, description=HELP_TERMS.get_term("galaxy.dataFetch.space_to_tab"))
-    to_posix_lines: bool = Field(False, description=HELP_TERMS.get_term("galaxy.dataFetch.to_posix_lines"))
-    deferred: bool = Field(False, description=HELP_TERMS.get_term("galaxy.dataFetch.deferred"))
-    tags: Optional[list[str]] = Field(None, description=HELP_TERMS.get_term("galaxy.dataFetch.tags"))
+    dbkey: str = Field("?")
+    info: Optional[str] = None
+    ext: str = Field("auto")
+    space_to_tab: bool = False
+    to_posix_lines: bool = False
+    deferred: bool = False
+    tags: Optional[List[str]] = None
     created_from_basename: Optional[str] = None
     extra_files: Optional[ExtraFiles] = None
     auto_decompress: bool = AutoDecompressField
-    items_from: Optional[ElementsFromType] = Field(None, validation_alias=AliasChoices("items_from", "elements_from"))
+    items_from: Optional[ElementsFromType] = Field(None, alias="elements_from")
     collection_type: Optional[str] = None
-    MD5: Optional[str] = Field(None, description=HELP_TERMS.get_term("galaxy.dataFetch.MD5"))
-    SHA1: Optional[str] = Field(None, alias="SHA-1", description=HELP_TERMS.get_term("galaxy.dataFetch.SHA1"))
-    SHA256: Optional[str] = Field(None, alias="SHA-256", description=HELP_TERMS.get_term("galaxy.dataFetch.SHA256"))
-    SHA512: Optional[str] = Field(None, alias="SHA-512", description=HELP_TERMS.get_term("galaxy.dataFetch.SHA512"))
-    hashes: Optional[list[FetchDatasetHash]] = None
+    MD5: Optional[str] = None
+    SHA1: Optional[str] = Field(None, alias="SHA-1")
+    SHA256: Optional[str] = Field(None, alias="SHA-256")
+    SHA512: Optional[str] = Field(None, alias="SHA-512")
+    hashes: Optional[List[FetchDatasetHash]] = None
     description: Optional[str] = None
     model_config = ConfigDict(extra="forbid")
-    # It'd be nice to restrict this to just the top level and only if creating a collection
-    row: Optional[SampleSheetRow] = None
 
 
 class FileDataElement(BaseDataElement):
@@ -151,7 +139,7 @@ class FileDataElement(BaseDataElement):
 
 class PastedDataElement(BaseDataElement):
     src: Literal["pasted"]
-    paste_content: CoercedStringType = Field(..., description=HELP_TERMS.get_term("galaxy.dataFetch.paste_content"))
+    paste_content: CoercedStringType = Field(..., description="Content to upload")
 
 
 class UrlDataElement(BaseDataElement):
@@ -182,35 +170,33 @@ class ItemsFromModel(Model):
 class FtpImportTarget(BaseCollectionTarget):
     src: Literal["ftp_import"]
     ftp_path: str
-    items_from: Optional[ElementsFromType] = Field(None, validation_alias=AliasChoices("items_from", "elements_from"))
+    items_from: Optional[ElementsFromType] = Field(None, alias="elements_from")
 
 
 class PathDataElement(BaseDataElement):
     src: Literal["path"]
     path: str
-    items_from: Optional[ElementsFromType] = Field(None, validation_alias=AliasChoices("items_from", "elements_from"))
+    items_from: Optional[ElementsFromType] = Field(None, alias="elements_from")
     link_data_only: Optional[bool] = None
 
 
 class CompositeDataElement(BaseDataElement):
     src: Literal["composite"]
     composite: "CompositeItems"
-    metadata: Optional[dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class CompositeItems(FetchBaseModel):
-    elements: list[
+    items: List[
         Union[FileDataElement, PastedDataElement, UrlDataElement, PathDataElement, ServerDirElement, FtpImportElement]
-    ] = Field(..., validation_alias=AliasChoices("elements", "items"))
+    ] = Field(..., alias="elements")
 
 
 CompositeDataElement.model_rebuild()
 
 
 class NestedElement(BaseDataElement):
-    elements: list[Union["AnyElement", "NestedElement"]] = Field(
-        ..., validation_alias=AliasChoices("elements", "items")
-    )
+    items: List[Union["AnyElement", "NestedElement"]] = Field(..., alias="elements")
 
 
 AnyElement = Annotated[
@@ -249,7 +235,7 @@ class BaseDataTarget(BaseFetchDataTarget):
 
 
 class DataElementsTarget(BaseDataTarget):
-    elements: list[Union[AnyElement, NestedElement]] = Field(..., validation_alias=AliasChoices("elements", "items"))
+    items: List[Union[AnyElement, NestedElement]] = Field(..., alias="elements")
 
 
 class DataElementsFromTarget(BaseDataTarget, ItemsFromModel):
@@ -257,11 +243,11 @@ class DataElementsFromTarget(BaseDataTarget, ItemsFromModel):
 
 
 class HdcaDataItemsTarget(BaseCollectionTarget):
-    elements: list[Union[AnyElement2, NestedElement]] = Field(..., validation_alias=AliasChoices("elements", "items"))
+    items: List[Union[AnyElement2, NestedElement]] = Field(..., alias="elements")
 
 
 class HdcaDataItemsFromTarget(BaseCollectionTarget, ItemsFromModel):
-    items_from: ElementsFromType = Field(..., validation_alias=AliasChoices("items_from", "elements_from"))
+    items_from: ElementsFromType = Field(..., alias="elements_from")
 
 
 class FilesPayload(Model):
@@ -272,7 +258,6 @@ class FilesPayload(Model):
 class BaseDataPayload(FetchBaseModel):
     history_id: DecodedDatabaseIdField
     model_config = ConfigDict(extra="allow")
-    landing_uuid: Optional[UUID4] = None
 
     @field_validator("targets", mode="before", check_fields=False)
     @classmethod
@@ -282,7 +267,7 @@ class BaseDataPayload(FetchBaseModel):
         return v
 
 
-Targets = list[
+Targets = List[
     Union[
         DataElementsTarget,
         HdcaDataItemsTarget,
@@ -293,41 +278,9 @@ Targets = list[
 ]
 
 
-TargetsAdapter = TypeAdapter(Targets)
-
-
 class FetchDataPayload(BaseDataPayload):
     targets: Targets
 
 
 class FetchDataFormPayload(BaseDataPayload):
     targets: Union[Json[Targets], Targets]
-
-
-class DataLandingRequestState(Model):
-    targets: Targets
-
-
-FileOrCollectionRequests = list[FileOrCollectionRequest]
-
-FileOrCollectionRequestsAdapter = TypeAdapter(FileOrCollectionRequests)
-
-
-# Vaguely matches the schema.schema.ToolLandingState but we don't allow data_fetch to be called directly
-# via the tool API so we have a more specific model here.
-class CreateDataLandingPayload(Model):
-    request_state: DataLandingRequestState
-    client_secret: Optional[str] = None
-    public: bool = False
-    origin: Optional[HttpUrl] = None
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class CreateFileLandingPayload(Model):
-    request_state: FileOrCollectionRequests
-    client_secret: Optional[str] = None
-    public: bool = False
-    origin: Optional[HttpUrl] = None
-
-    model_config = ConfigDict(extra="forbid")

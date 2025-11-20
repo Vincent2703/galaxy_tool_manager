@@ -4,6 +4,7 @@ from galaxy.exceptions import (
 )
 from galaxy.managers import base
 from galaxy.managers.context import ProvidesAppContext
+from galaxy.model.base import transaction
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.item_tags import ItemTagsCreatePayload
 from galaxy.structured_app import MinimalManagerApp
@@ -67,14 +68,16 @@ class ItemTagsManager:
         user = trans.user
         tagged_item = self._get_tagged_item(trans, item_class_name, id)
         deleted = tagged_item and self._tag_handler.remove_item_tag(user, tagged_item, tag_name)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         return deleted
 
     def _apply_item_tag(self, trans, item_class_name, id, tag_name, tag_value=None):
         user = trans.user
         tagged_item = self._get_tagged_item(trans, item_class_name, id)
         tag_assoc = self._tag_handler.apply_item_tag(user, tagged_item, tag_name, tag_value)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         return tag_assoc
 
     def _get_item_tag_assoc(self, trans, item_class_name, id, tag_name):

@@ -28,12 +28,10 @@ TEST_TOOL_IDS = [
 
 
 class TestRucioObjectStoreIntegration(BaseRucioObjectStoreIntegrationTestCase):
-
-    @classmethod
-    def handle_galaxy_config_kwds(cls, config):
-        super().handle_galaxy_config_kwds(config)
-        config["enable_celery_tasks"] = False
+    pass
 
 
 instance = integration_util.integration_module_instance(TestRucioObjectStoreIntegration)
 test_tools = integration_util.integration_tool_runner(TEST_TOOL_IDS)
+
+integration_util.skip_for_older_python((3, 9))(test_tools)

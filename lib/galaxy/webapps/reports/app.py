@@ -2,7 +2,7 @@ import logging
 import sys
 import time
 
-import galaxy.model.mapping
+import galaxy.model
 from galaxy.config import configure_logging
 from galaxy.model.base import SharedModelMapping
 from galaxy.security import idencoding

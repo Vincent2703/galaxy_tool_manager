@@ -5,13 +5,11 @@ on:
       - 'client/**'
       - 'doc/**'
       - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
   pull_request:
     paths-ignore:
       - 'client/**'
       - 'doc/**'
       - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
   schedule:
     # Run at midnight UTC every Tuesday
     - cron: '0 0 * * 2'
@@ -26,10 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.9']
+        python-version: ['3.8']
     services:
       postgres:
-        image: postgres:17
+        image: postgres:13
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -41,15 +39,19 @@ jobs:
         run: |
           echo "GALAXY_CONFIG_OVERRIDE_METADATA_STRATEGY=extended" >> $GITHUB_ENV
           echo "GALAXY_CONFIG_OVERRIDE_OUTPUTS_TO_WORKING_DIRECTORY=true" >> $GITHUB_ENV
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           path: 'galaxy root'
-          persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.12.1'
+          cache: 'yarn'
+          cache-dependency-path: 'galaxy root/client/yarn.lock'
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+          cache: 'pip'
+          cache-dependency-path: 'galaxy root/requirements.txt'
       - name: Get full Python version
         id: full-python-version
         shell: bash
@@ -62,12 +64,12 @@ jobs:
       - name: Run tests
         run: ./run_tests.sh --ci_test_metrics --structured_data_html --structured_data_report_file "test.json" --skip_flakey_fails -api lib/galaxy_test/performance
         working-directory: 'galaxy root'
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: API test results (${{ matrix.python-version }})
           path: 'galaxy root/run_api_tests.html'
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v4
         with:
           name: Performance Metrics (${{ matrix.python-version }})
           path: 'galaxy root/test.html'

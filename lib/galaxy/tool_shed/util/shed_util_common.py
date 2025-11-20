@@ -2,6 +2,7 @@ import logging
 import re
 
 from galaxy import util
+from galaxy.model.base import transaction
 from galaxy.tool_shed.util import repository_util
 from galaxy.util.tool_shed import common_util
 
@@ -45,7 +46,8 @@ def clean_dependency_relationships(trans, metadata_dict, tool_shed_repository, t
             log.debug(message % (r.name, r.owner, tool_shed_repository.name, tool_shed_repository.owner))
             session = trans.install_model.context
             session.delete(rrda)
-            session.commit()
+            with transaction(session):
+                session.commit()
 
 
 def generate_tool_guid(repository_clone_url, tool):
@@ -72,9 +74,7 @@ def get_ctx_rev(app, tool_shed_url, name, owner, changeset_revision):
     return ctx_rev
 
 
-def get_next_prior_import_or_install_required_dict_entry(
-    prior_required_dict: dict[str, list[str]], processed_tsr_ids: list[str]
-):
+def get_next_prior_import_or_install_required_dict_entry(prior_required_dict, processed_tsr_ids):
     """
     This method is used in the Tool Shed when exporting a repository and its dependencies, and in Galaxy
     when a repository and its dependencies are being installed.  The order in which the prior_required_dict

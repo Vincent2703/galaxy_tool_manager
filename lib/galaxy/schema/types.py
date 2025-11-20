@@ -1,12 +1,10 @@
 from datetime import datetime
-from typing import (
-    Annotated,
-    Union,
-)
+from typing import Union
 
 from pydantic import ValidationInfo
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import (
+    Annotated,
     Literal,
 )
 

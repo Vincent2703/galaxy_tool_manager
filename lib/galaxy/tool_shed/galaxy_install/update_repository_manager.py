@@ -9,6 +9,7 @@ from typing import NamedTuple
 from sqlalchemy import false
 
 from galaxy import util
+from galaxy.model.base import transaction
 from galaxy.model.tool_shed_install import ToolShedRepository
 from galaxy.tool_shed.util.repository_util import get_tool_shed_status_for_installed_repository
 from galaxy.tool_shed.util.shed_util_common import clean_dependency_relationships
@@ -80,13 +81,15 @@ class UpdateRepositoryManager:
                 if tool_shed_status_dict:
                     if tool_shed_status_dict != repository.tool_shed_status:
                         repository.tool_shed_status = tool_shed_status_dict
-                        self.context.commit()
+                        with transaction(self.context):
+                            self.context.commit()
                 else:
                     # The received tool_shed_status_dict is an empty dictionary, so coerce to None.
                     tool_shed_status_dict = None
                     if tool_shed_status_dict != repository.tool_shed_status:
                         repository.tool_shed_status = tool_shed_status_dict
-                        self.context.commit()
+                        with transaction(self.context):
+                            self.context.commit()
             self.sleeper.sleep(self.seconds_to_sleep)
         log.info("Update repository manager restarter shutting down...")
 
@@ -116,6 +119,7 @@ class UpdateRepositoryManager:
             repository.tool_shed_status = None  # type:ignore[assignment]
         session = self.app.install_model.context
         session.add(repository)
-        session.commit()
+        with transaction(session):
+            session.commit()
         session.refresh(repository)
         return repository

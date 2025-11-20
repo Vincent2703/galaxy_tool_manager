@@ -69,16 +69,6 @@ function addRuleHeadingIncreaseLevel(engine: MarkdownIt, increaseBy: number) {
     };
 }
 
-function addRuleNoMargin(engine: MarkdownIt) {
-    engine.renderer.rules.paragraph_open = function (tokens, idx, options, env, self) {
-        const token = tokens[idx];
-        if (token) {
-            token.attrPush(["style", "margin:0"]);
-        }
-        return self.renderToken(tokens, idx, options);
-    };
-}
-
 /**
  * Add a rule that removes newlines after list items.
  */
@@ -148,7 +138,6 @@ interface UseMarkdownOptions {
     openLinksInNewPage?: boolean;
     increaseHeadingLevelBy?: number;
     removeNewlinesAfterList?: boolean;
-    noMargin?: boolean;
 }
 
 type RawMarkdown = string;
@@ -164,10 +153,6 @@ export function useMarkdown(options: UseMarkdownOptions = {}) {
 
     if (options.increaseHeadingLevelBy) {
         addRuleHeadingIncreaseLevel(mdEngine, options.increaseHeadingLevelBy);
-    }
-
-    if (options.noMargin) {
-        addRuleNoMargin(mdEngine);
     }
 
     if (options.removeNewlinesAfterList) {

@@ -1,4 +1,5 @@
 from typing import (
+    List,
     Optional,
 )
 
@@ -35,7 +36,7 @@ class ItemTagsResponse(Model):
 class ItemTagsListResponse(RootModel):
     """Response schema for listing item tags."""
 
-    root: list[ItemTagsResponse]
+    root: List[ItemTagsResponse]
 
 
 class ItemTagsCreatePayload(Model):

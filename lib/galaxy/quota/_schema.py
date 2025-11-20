@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import (
+    List,
     Optional,
 )
 
@@ -132,7 +133,7 @@ class QuotaSummary(QuotaBase):
 
 
 class QuotaSummaryList(RootModel):
-    root: list[QuotaSummary] = Field(
+    root: List[QuotaSummary] = Field(
         default=[],
         title="List with summary information of Quotas.",
     )
@@ -151,17 +152,17 @@ class QuotaDetails(QuotaBase):
         title="Display Amount",
         description="Human-readable representation of the `amount` field.",
     )
-    default: list[DefaultQuota] = Field(
+    default: List[DefaultQuota] = Field(
         [],
         title="Default",
         description="A list indicating which types of default user quotas, if any, are associated with this quota.",
     )
-    users: list[UserQuota] = Field(
+    users: List[UserQuota] = Field(
         [],
         title="Users",
         description="A list of specific users associated with this quota.",
     )
-    groups: list[GroupQuota] = Field(
+    groups: List[GroupQuota] = Field(
         [],
         title="Groups",
         description="A list of specific groups of users associated with this quota.",
@@ -199,12 +200,12 @@ class CreateQuotaParams(Model):
         title="Quota Source Label",
         description="If set, quota source label to apply this quota operation to. Otherwise, the default quota is used.",
     )
-    in_users: Optional[list[str]] = Field(
+    in_users: Optional[List[str]] = Field(
         default=[],
         title="Users",
         description="A list of user IDs or user emails to associate with this quota.",
     )
-    in_groups: Optional[list[str]] = Field(
+    in_groups: Optional[List[str]] = Field(
         default=[],
         title="Groups",
         description="A list of group IDs or names to associate with this quota.",
@@ -246,12 +247,12 @@ class UpdateQuotaParams(Model):
             " passing this parameter is equivalent to passing ``no``."
         ),
     )
-    in_users: Optional[list[str]] = Field(
+    in_users: Optional[List[str]] = Field(
         default=None,
         title="Users",
         description="A list of user IDs or user emails to associate with this quota.",
     )
-    in_groups: Optional[list[str]] = Field(
+    in_groups: Optional[List[str]] = Field(
         default=None,
         title="Groups",
         description="A list of group IDs or names to associate with this quota.",

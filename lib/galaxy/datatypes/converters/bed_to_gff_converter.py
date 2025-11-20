@@ -3,6 +3,8 @@
 
 import sys
 
+assert sys.version_info[:2] >= (2, 6)
+
 
 def __main__():
     input_name = sys.argv[1]
@@ -28,7 +30,7 @@ def __main__():
                         try:
                             feature = elems[3]
                         except Exception:
-                            feature = f"feature{i + 1}"
+                            feature = "feature%d" % (i + 1)
                     start = int(elems[1]) + 1
                     end = int(elems[2])
                     try:
@@ -42,13 +44,17 @@ def __main__():
                     try:
                         group = elems[3]
                     except Exception:
-                        group = f"group{i + 1}"
+                        group = "group%d" % (i + 1)
                     if complete_bed:
                         out.write(
-                            f"{chrom}\tbed2gff\t{feature}\t{start}\t{end}\t{score}\t{strand}\t.\t{feature} {group};\n"
+                            "%s\tbed2gff\t%s\t%d\t%d\t%s\t%s\t.\t%s %s;\n"
+                            % (chrom, feature, start, end, score, strand, feature, group)
                         )
                     else:
-                        out.write(f"{chrom}\tbed2gff\t{feature}\t{start}\t{end}\t{score}\t{strand}\t.\t{group};\n")
+                        out.write(
+                            "%s\tbed2gff\t%s\t%d\t%d\t%s\t%s\t.\t%s;\n"
+                            % (chrom, feature, start, end, score, strand, group)
+                        )
                     if complete_bed:
                         # We have all the info necessary to annotate exons for genes and mRNAs
                         block_count = int(elems[9])
@@ -58,7 +64,8 @@ def __main__():
                             exon_start = int(start) + int(block_starts[j])
                             exon_end = exon_start + int(block_sizes[j]) - 1
                             out.write(
-                                f"{chrom}\tbed2gff\texon\t{exon_start}\t{exon_end}\t{score}\t{strand}\t.\texon {group};\n"
+                                "%s\tbed2gff\texon\t%d\t%d\t%s\t%s\t.\texon %s;\n"
+                                % (chrom, exon_start, exon_end, score, strand, group)
                             )
                 except Exception:
                     skipped_lines += 1
@@ -68,9 +75,12 @@ def __main__():
                 skipped_lines += 1
                 if not first_skipped_line:
                     first_skipped_line = i + 1
-    info_msg = f"{i + 1 - skipped_lines} lines converted to GFF version 2.  "
+    info_msg = "%i lines converted to GFF version 2.  " % (i + 1 - skipped_lines)
     if skipped_lines > 0:
-        info_msg += f"Skipped {skipped_lines} blank/comment/invalid lines starting with line #{first_skipped_line}."
+        info_msg += "Skipped %d blank/comment/invalid lines starting with line #%d." % (
+            skipped_lines,
+            first_skipped_line,
+        )
     print(info_msg)
 
 

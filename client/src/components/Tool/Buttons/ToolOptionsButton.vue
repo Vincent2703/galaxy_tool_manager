@@ -1,42 +1,57 @@
-<script setup lang="ts">
+<script setup>
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCopy } from "@fortawesome/free-regular-svg-icons";
 import { faCaretDown, faDownload, faExternalLinkAlt, faLink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BDropdown, BDropdownItem } from "bootstrap-vue";
+import ToolSourceMenuItem from "components/Tool/ToolSourceMenuItem";
 import { storeToRefs } from "pinia";
+import Webhooks from "utils/webhooks";
 import { computed, ref } from "vue";
 
-import { isAdminUser } from "@/api";
 import { useUserStore } from "@/stores/userStore";
-import localize from "@/utils/localization";
-import { loadWebhooks } from "@/utils/webhooks";
 
 import { copyId, copyLink, downloadTool, openLink } from "../utilities";
 
-import ToolTourGeneratorItem from "./ToolTourGeneratorItem.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
-import ToolSourceMenuItem from "@/components/Tool/ToolSourceMenuItem.vue";
+library.add(faCaretDown, faLink, faDownload, faExternalLinkAlt, faCopy);
 
 const { currentUser } = storeToRefs(useUserStore());
 
-interface Props {
-    id: string;
-    toolUuid?: string | null;
-    sharableUrl?: string | null;
-    options: Record<string, any>;
-    allowGeneratedTours?: boolean;
-    version?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-    toolUuid: null,
-    sharableUrl: null,
-    version: "1.0",
+const props = defineProps({
+    id: {
+        type: String,
+        required: true,
+    },
+    sharableUrl: {
+        type: String,
+        default: null,
+    },
+    options: {
+        type: Object,
+        required: true,
+    },
 });
 
-const webhookDetails = ref<any[]>([]);
+const webhookDetails = ref([]);
 
-const showDownload = computed(() => isAdminUser(currentUser.value));
+Webhooks.load({
+    type: "tool-menu",
+    callback: (webhooks) => {
+        webhooks.forEach((webhook) => {
+            if (webhook.activate && webhook.config.function) {
+                webhookDetails.value.push({
+                    icon: `fa ${webhook.config.icon}`,
+                    title: webhook.config.title,
+                    onclick: () => {
+                        const func = new Function("options", webhook.config.function);
+                        func(props.options);
+                    },
+                });
+            }
+        });
+    },
+});
+
+const showDownload = computed(() => currentUser.value?.is_admin);
 const showLink = computed(() => Boolean(props.sharableUrl));
 
 function onCopyLink() {
@@ -54,28 +69,11 @@ function onDownload() {
 function onLink() {
     openLink(props.sharableUrl);
 }
-
-async function loadToolMenuWebhooks() {
-    const webhooks = await loadWebhooks("tool-menu");
-    webhooks.forEach((webhook: any) => {
-        if (webhook.activate && webhook.config.function) {
-            webhookDetails.value.push({
-                icon: `fa ${webhook.config.icon}`,
-                title: webhook.config.title,
-                onclick: () => {
-                    const func = new Function("options", webhook.config.function);
-                    func(props.options);
-                },
-            });
-        }
-    });
-}
-
-loadToolMenuWebhooks();
 </script>
 
 <template>
-    <BDropdown
+    <b-dropdown
+        v-b-tooltip.hover
         no-caret
         right
         role="button"
@@ -83,36 +81,31 @@ loadToolMenuWebhooks();
         variant="link"
         aria-label="View all Options"
         class="tool-dropdown"
-        toggle-class="p-0"
         size="sm">
         <template v-slot:button-content>
-            <GButton class="d-block" color="blue" transparent size="small" tooltip title="Options">
-                <FontAwesomeIcon :icon="faCaretDown" />
-            </GButton>
+            <FontAwesomeIcon icon="fa-caret-down" />
         </template>
 
-        <BDropdownItem @click="onCopyLink">
-            <FontAwesomeIcon :icon="faLink" /><span v-localize>Copy Link</span>
-        </BDropdownItem>
+        <b-dropdown-item @click="onCopyLink">
+            <FontAwesomeIcon icon="fa-link" /><span v-localize>Copy Link</span>
+        </b-dropdown-item>
 
-        <BDropdownItem @click="onCopyId">
-            <FontAwesomeIcon :icon="faCopy" /><span v-localize>Copy Tool ID</span>
-        </BDropdownItem>
+        <b-dropdown-item @click="onCopyId">
+            <FontAwesomeIcon icon="far fa-copy" /><span v-localize>Copy Tool ID</span>
+        </b-dropdown-item>
 
-        <BDropdownItem v-if="showDownload" @click="onDownload">
-            <FontAwesomeIcon :icon="faDownload" /><span v-localize>Download</span>
-        </BDropdownItem>
+        <b-dropdown-item v-if="showDownload" @click="onDownload">
+            <FontAwesomeIcon icon="fa-download" /><span v-localize>Download</span>
+        </b-dropdown-item>
 
-        <ToolSourceMenuItem :tool-id="id" :tool-uuid="toolUuid || undefined" />
+        <ToolSourceMenuItem :tool-id="id" />
 
-        <BDropdownItem v-if="showLink" @click="onLink">
-            <FontAwesomeIcon :icon="faExternalLinkAlt" /><span v-localize>See in Tool Shed</span>
-        </BDropdownItem>
+        <b-dropdown-item v-if="showLink" @click="onLink">
+            <FontAwesomeIcon icon="fa-external-link-alt" /><span v-localize>See in Tool Shed</span>
+        </b-dropdown-item>
 
-        <ToolTourGeneratorItem v-if="props.allowGeneratedTours" :tool-id="props.id" :tool-version="props.version" />
-
-        <BDropdownItem v-for="w of webhookDetails" :key="w.title" @click="w.onclick">
-            <span :class="w.icon" />{{ localize(w.title) }}
-        </BDropdownItem>
-    </BDropdown>
+        <b-dropdown-item v-for="w of webhookDetails" :key="w.title" @click="w.onclick">
+            <span :class="w.icon" />{{ l(w.title) }}
+        </b-dropdown-item>
+    </b-dropdown>
 </template>

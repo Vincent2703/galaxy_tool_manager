@@ -1,7 +1,9 @@
 import os
 from typing import (
     cast,
+    List,
     Optional,
+    Type,
 )
 from unittest import SkipTest
 from uuid import uuid4
@@ -51,10 +53,10 @@ SIMPLE_FILE_SOURCE_DESCRIPTION = "a description of my file source"
 
 
 class Config:
-    file_source_templates: Optional[list[RawTemplateConfig]] = None
+    file_source_templates: Optional[List[RawTemplateConfig]] = None
     file_source_templates_config_file: Optional[str] = None
 
-    def __init__(self, templates: list[RawTemplateConfig]):
+    def __init__(self, templates: List[RawTemplateConfig]):
         self.file_source_templates = templates
 
 
@@ -363,10 +365,9 @@ class TestFileSourcesTestCase(BaseTestCase):
 
         temp_file = tmp_path / "tmp_file"
         temp_file.write_text("Moo Cow", "utf-8")
-        actual_path = file_source.write_from("/moo", str(temp_file))
+        file_source.write_from("/moo", str(temp_file))
         target = tmp_path / "round_trip"
         file_source.realize_to("/moo", target)
-        assert "/moo" == actual_path
         assert target.read_text("utf-8") == "Moo Cow"
 
     def test_to_dict_filters_hidden(self, tmp_path):
@@ -396,7 +397,7 @@ class TestFileSourcesTestCase(BaseTestCase):
         match = self.file_sources.find_best_match(user_file_source.uri_root)
         assert not match
 
-    def _uri_roots(self) -> list[str]:
+    def _uri_roots(self) -> List[str]:
         sources_as_dicts = self.file_sources.user_file_sources_to_dicts(
             False,
             cast(FileSourcesUserContext, self.trans),
@@ -420,8 +421,7 @@ class TestFileSourcesTestCase(BaseTestCase):
 
         temp_file = tmp_path / "tmp_file"
         temp_file.write_text("Moo Cow", "utf-8")
-        actual_path = file_source.write_from("/moo", str(temp_file))
-        assert "/moo" == actual_path
+        file_source.write_from("/moo", str(temp_file))
         assert expected_target.exists()
         assert (expected_target / "moo").exists()
 
@@ -439,8 +439,7 @@ class TestFileSourcesTestCase(BaseTestCase):
 
         temp_file = tmp_path / "tmp_file"
         temp_file.write_text("Moo Cow", "utf-8")
-        actual_path = file_source.write_from("/moo", str(temp_file))
-        assert "/moo" == actual_path
+        file_source.write_from("/moo", str(temp_file))
         assert expected_target.exists()
         assert (expected_target / "moo").exists()
 
@@ -822,7 +821,7 @@ class TestFileSourcesTestCase(BaseTestCase):
         assert sec_val in ["", None]
 
     def _assert_modify_throws_exception(
-        self, user_file_source: UserFileSourceModel, modify: ModifyInstancePayload, exception_type: type[Exception]
+        self, user_file_source: UserFileSourceModel, modify: ModifyInstancePayload, exception_type: Type
     ):
         exception_thrown = False
         try:
@@ -884,4 +883,4 @@ class MockExceptionResponse:
         self._exception_msg = exception_msg
 
     def raise_for_status(self):
-        raise HTTPError(self._exception_msg, self._exception_msg, response=None)  # type: ignore[arg-type,unused-ignore]  # Fixed in types-requests 2.31.0.9 , which requires Python >=3.9 via urllib3 >=2
+        raise HTTPError(self._exception_msg, self._exception_msg, response=None)  # type: ignore[arg-type]

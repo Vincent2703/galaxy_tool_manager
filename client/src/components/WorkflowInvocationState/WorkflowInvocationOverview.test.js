@@ -4,8 +4,7 @@ import flushPromises from "flush-promises";
 import { getLocalVue } from "tests/jest/helpers";
 
 import invocationData from "../Workflow/test/json/invocation.json";
-
-import WorkflowInvocationOverview from "./WorkflowInvocationOverview.vue";
+import WorkflowInvocationOverview from "./WorkflowInvocationOverview";
 
 const localVue = getLocalVue();
 
@@ -51,7 +50,6 @@ describe("WorkflowInvocationOverview.vue for a valid/invalid workflow", () => {
             invocation: invocationData,
             invocationAndJobTerminal: true,
             invocationSchedulingTerminal: true,
-            stepsJobsSummary: [],
             jobStatesSummary: {},
         };
         const wrapper = shallowMount(WorkflowInvocationOverview, {

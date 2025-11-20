@@ -86,25 +86,24 @@
 
         <div v-if="enable_oidc" class="external-subheading">
             <h2 class="h-md">Connect Other External Identities</h2>
-            <hr class="my-4" />
             <ExternalLogin />
         </div>
     </section>
 </template>
 
 <script>
+import { getGalaxyInstance } from "app";
 import BootstrapVue from "bootstrap-vue";
-import purify from "dompurify";
+import { Toast } from "composables/toast";
+import { sanitize } from "dompurify";
+import { userLogout } from "utils/logout";
 import Vue from "vue";
 
-import { getGalaxyInstance } from "@/app";
-import { Toast } from "@/composables/toast";
-import { userLogout } from "@/utils/logout";
 import { capitalizeFirstLetter } from "@/utils/strings";
 
 import svc from "./service";
 
-import ExternalLogin from "@/components/User/ExternalIdentities/ExternalLogin.vue";
+import ExternalLogin from "components/User/ExternalIdentities/ExternalLogin.vue";
 
 Vue.use(BootstrapVue);
 
@@ -156,7 +155,7 @@ export default {
     },
     mounted() {
         const params = new URLSearchParams(window.location.search);
-        const notificationMessage = purify.sanitize(params.get("notification"));
+        const notificationMessage = sanitize(params.get("notification"));
         Toast.success(notificationMessage);
     },
     methods: {
@@ -183,13 +182,13 @@ export default {
                     this.$refs.deleteAndResetModal.show();
                     this.setError(
                         "Before disconnecting this identity, you need to set your account password, " +
-                            "in order to avoid being locked out of your account.",
+                            "in order to avoid being locked out of your account."
                     );
                 }
             } else {
                 this.setError(
                     "Before disconnecting this identity, you need to set your account password, " +
-                        "in order to avoid being locked out of your account.",
+                        "in order to avoid being locked out of your account."
                 );
             }
         },
@@ -230,12 +229,12 @@ export default {
 </script>
 
 <style lang="scss">
-@import "bootstrap/scss/functions";
-@import "bootstrap/scss/variables";
-@import "bootstrap/scss/mixins";
-@import "bootstrap/scss/utilities/spacing";
-@import "@/style/scss/theme/blue.scss";
-@import "@/style/scss/mixins";
+@import "~bootstrap/scss/functions";
+@import "~bootstrap/scss/variables";
+@import "~bootstrap/scss/mixins";
+@import "~bootstrap/scss/utilities/spacing";
+@import "scss/theme/blue.scss";
+@import "scss/mixins";
 
 .operations {
     margin-bottom: 0;

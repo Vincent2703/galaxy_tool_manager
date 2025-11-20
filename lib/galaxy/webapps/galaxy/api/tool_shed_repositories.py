@@ -2,7 +2,7 @@ import json
 import logging
 from time import strftime
 from typing import (
-    Annotated,
+    List,
     Optional,
 )
 
@@ -14,6 +14,7 @@ from paste.httpexceptions import (
     HTTPBadRequest,
     HTTPForbidden,
 )
+from typing_extensions import Annotated
 
 from galaxy import (
     exceptions,
@@ -27,6 +28,7 @@ from galaxy.schema.schema import (
     InstalledToolShedRepository,
 )
 from galaxy.tool_shed.galaxy_install.install_manager import InstallRepositoryManager
+from galaxy.tool_shed.galaxy_install.installed_repository_manager import InstalledRepositoryManager
 from galaxy.tool_shed.galaxy_install.metadata.installed_repository_metadata_manager import (
     InstalledRepositoryMetadataManager,
 )
@@ -282,7 +284,7 @@ class ToolShedRepositoriesController(BaseGalaxyAPIController):
             )
             if not repository:
                 raise HTTPBadRequest(detail="Repository not found")
-        irm = self.app.installed_repository_manager
+        irm = InstalledRepositoryManager(app=self.app)
         errors = irm.uninstall_repository(repository=repository, remove_from_disk=remove_from_disk)
         if not errors:
             action = "removed" if remove_from_disk else "deactivated"
@@ -422,7 +424,7 @@ class FastAPIToolShedRepositories:
         changeset: Optional[str] = ChangesetQueryParam,
         deleted: Optional[bool] = DeletedQueryParam,
         uninstalled: Optional[bool] = UninstalledQueryParam,
-    ) -> list[InstalledToolShedRepository]:
+    ) -> List[InstalledToolShedRepository]:
         request = InstalledToolShedRepositoryIndexRequest(
             name=name,
             owner=owner,

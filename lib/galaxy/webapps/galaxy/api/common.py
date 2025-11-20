@@ -1,10 +1,10 @@
 """This module contains utility functions shared across the api package."""
 
-from io import BytesIO
 from typing import (
-    Annotated,
     Any,
+    List,
     Optional,
+    Set,
 )
 
 from fastapi import (
@@ -13,27 +13,19 @@ from fastapi import (
     Query,
     Request,
 )
-from starlette.responses import StreamingResponse
+from typing_extensions import Annotated
 
 from galaxy.schema import (
     FilterQueryParams,
     SerializationParams,
     ValueFilterQueryParams,
 )
-from galaxy.schema.fields import (
-    DecodedDatabaseIdField,
-    LibraryFolderDatabaseIdField,
-)
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     UpdateDatasetPermissionsPayload,
     UpdateDatasetPermissionsPayloadAliases,
 )
 from galaxy.util import listify
-
-FolderIdPathParam = Annotated[
-    LibraryFolderDatabaseIdField,
-    Path(..., title="Folder ID", description="The encoded identifier of the library folder."),
-]
 
 HistoryIDPathParam = Annotated[
     DecodedDatabaseIdField,
@@ -97,10 +89,6 @@ LibraryIdPathParam = Annotated[
     Path(..., title="Library ID", description="The ID of the Library."),
 ]
 
-LibraryDatasetIdPathParam = Annotated[
-    DecodedDatabaseIdField, Path(..., title="Library dataset ID", description="The encoded ID of the library dataset.")
-]
-
 NotificationIdPathParam = Annotated[
     DecodedDatabaseIdField,
     Path(..., title="Notification ID", description="The ID of the Notification."),
@@ -131,14 +119,14 @@ SerializationKeysQueryParam: Optional[str] = Query(
     description="Comma-separated list of keys to be passed to the serializer",
 )
 
-FilterQueryQueryParam: Optional[list[str]] = Query(
+FilterQueryQueryParam: Optional[List[str]] = Query(
     default=None,
     title="Filter Query",
     description="Generally a property name to filter by followed by an (often optional) hyphen and operator string.",
     examples=["create_time-gt"],
 )
 
-FilterValueQueryParam: Optional[list[str]] = Query(
+FilterValueQueryParam: Optional[List[str]] = Query(
     default=None,
     title="Filter Value",
     description="The value to filter by.",
@@ -190,8 +178,8 @@ def query_serialization_params(
 
 
 def get_value_filter_query_params(
-    q: Optional[list[str]] = FilterQueryQueryParam,
-    qv: Optional[list[str]] = FilterValueQueryParam,
+    q: Optional[List[str]] = FilterQueryQueryParam,
+    qv: Optional[List[str]] = FilterValueQueryParam,
 ) -> ValueFilterQueryParams:
     """
     This function is meant to be used as a Dependency.
@@ -204,8 +192,8 @@ def get_value_filter_query_params(
 
 
 def get_filter_query_params(
-    q: Optional[list[str]] = FilterQueryQueryParam,
-    qv: Optional[list[str]] = FilterValueQueryParam,
+    q: Optional[List[str]] = FilterQueryQueryParam,
+    qv: Optional[List[str]] = FilterValueQueryParam,
     offset: Optional[int] = OffsetQueryParam,
     limit: Optional[int] = LimitQueryParam,
     order: Optional[str] = OrderQueryParam,
@@ -243,7 +231,7 @@ def normalize_permission_payload(
     return update_payload
 
 
-def get_query_parameters_from_request_excluding(request: Request, exclude: set[str]) -> dict:
+def get_query_parameters_from_request_excluding(request: Request, exclude: Set[str]) -> dict:
     """Gets all the request query parameters excluding the given parameters names in `exclude` set.
 
     This is useful when an endpoint uses arbitrary or dynamic query parameters that
@@ -285,8 +273,8 @@ def query_parameter_as_list(query):
     """
 
     def parse_elements(
-        elements: Optional[list[str]] = query,
-    ) -> Optional[list[Any]]:
+        elements: Optional[List[str]] = query,
+    ) -> Optional[List[Any]]:
         if query.default != Ellipsis and not elements:
             return query.default
         if elements and len(elements) == 1:
@@ -294,12 +282,3 @@ def query_parameter_as_list(query):
         return elements
 
     return parse_elements
-
-
-def serve_workbook(content: BytesIO, filename: Optional[str]) -> StreamingResponse:
-    filename = filename or "galaxy_sample_sheet_workbook.xlsx"
-    return StreamingResponse(
-        content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )

@@ -1,48 +1,29 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed, ref, watch } from "vue";
 
 import DraggableSeparator from "@/components/Common/DraggableSeparator.vue";
 
-const DEFAULT_WIDTH = 300;
+library.add(faChevronLeft, faChevronRight);
 
 interface Props {
     collapsible?: boolean;
     side?: "left" | "right";
     minWidth?: number;
     maxWidth?: number;
-    reactiveWidth?: number;
+    defaultWidth?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
     collapsible: true,
     side: "right",
     minWidth: 200,
     maxWidth: 800,
-    reactiveWidth: undefined,
+    defaultWidth: 300,
 });
 
-const emit = defineEmits<{
-    (e: "update:reactive-width", width: number): void;
-}>();
-
-const localPanelWidth = ref(DEFAULT_WIDTH);
-
-const panelWidth = computed({
-    get: () => {
-        if (props.reactiveWidth !== undefined) {
-            return props.reactiveWidth;
-        }
-        return localPanelWidth.value;
-    },
-    set: (width) => {
-        if (props.reactiveWidth !== undefined) {
-            emit("update:reactive-width", width);
-        } else {
-            localPanelWidth.value = width;
-        }
-    },
-});
+const panelWidth = ref(props.defaultWidth);
 
 const root = ref<HTMLElement | null>(null);
 const show = ref(true);
@@ -73,17 +54,13 @@ watch(
                 showToggle.value = false;
             }, toggleLinger);
         }
-    },
+    }
 );
 
 const sideClasses = computed(() => ({
     left: props.side === "left",
     right: props.side === "right",
 }));
-
-defineExpose({
-    show,
-});
 </script>
 
 <template>
@@ -112,8 +89,8 @@ defineExpose({
             @focusin="hoverToggle = true"
             @mouseout="hoverToggle = false"
             @focusout="hoverToggle = false">
-            <FontAwesomeIcon v-if="side === 'left'" fixed-width :icon="faChevronLeft" />
-            <FontAwesomeIcon v-else :icon="faChevronRight" fixed-width />
+            <FontAwesomeIcon v-if="side === 'left'" fixed-width icon="fa-chevron-left" />
+            <FontAwesomeIcon v-else icon="fa-chevron-right" fixed-width />
         </button>
 
         <slot />
@@ -129,14 +106,14 @@ defineExpose({
                 show = true;
                 hoverToggle = false;
             ">
-            <FontAwesomeIcon v-if="side === 'right'" fixed-width :icon="faChevronLeft" />
-            <FontAwesomeIcon v-else :icon="faChevronRight" fixed-width />
+            <FontAwesomeIcon v-if="side === 'right'" fixed-width icon="fa-chevron-left" />
+            <FontAwesomeIcon v-else icon="fa-chevron-right" fixed-width />
         </button>
     </div>
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 $border-width: 6px;
 
@@ -149,9 +126,7 @@ $border-width: 6px;
     border-color: transparent;
     border-width: $border-width;
     box-shadow: 1px 0 transparent;
-    transition:
-        border-color 0.1s,
-        box-shadow 0.1s;
+    transition: border-color 0.1s, box-shadow 0.1s;
     align-items: stretch;
     flex-direction: column;
 
@@ -189,10 +164,7 @@ $border-width: 6px;
     width: var(--width);
     overflow: hidden;
 
-    transition:
-        width 0.1s,
-        left 0.1s,
-        right 0.1s;
+    transition: width 0.1s, left 0.1s, right 0.1s;
     border-style: none;
 
     &:hover,

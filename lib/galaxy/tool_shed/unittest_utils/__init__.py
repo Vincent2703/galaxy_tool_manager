@@ -2,10 +2,10 @@ import threading
 from pathlib import Path
 from typing import (
     Any,
-    cast,
+    Dict,
+    List,
     NamedTuple,
     Optional,
-    TYPE_CHECKING,
     Union,
 )
 
@@ -22,7 +22,6 @@ from galaxy.tool_shed.galaxy_install.client import (
     DataManagersInterface,
     InstallationTarget,
 )
-from galaxy.tool_shed.galaxy_install.installed_repository_manager import InstalledRepositoryManager
 from galaxy.tool_shed.util.repository_util import get_installed_repository
 from galaxy.tool_util.data import (
     OutputDataset,
@@ -38,11 +37,6 @@ from galaxy.tool_util.toolbox.watcher import (
     get_tool_watcher,
 )
 from galaxy.util.tool_shed.tool_shed_registry import Registry
-
-if TYPE_CHECKING:
-    from galaxy.model.tool_shed_install import ToolShedRepository
-    from galaxy.tools import Tool
-    from galaxy.util.path import StrPath
 
 
 class ToolShedTarget(NamedTuple):
@@ -67,7 +61,7 @@ EMPTY_TOOL_DATA_TABLE_CONFIG = """<?xml version="1.0"?>
 class Config:
     tool_data_path: str
     install_database_connection: str
-    install_database_engine_options: dict[str, Any] = {}
+    install_database_engine_options: Dict[str, Any] = {}
     update_integrated_tool_panel: bool = True
     integrated_tool_panel_config: str
     shed_tool_config_file: str
@@ -84,11 +78,11 @@ class Config:
 
 
 class TestTool:
-    _macro_paths: list[str] = []
+    _macro_paths: List[str] = []
     params_with_missing_data_table_entry: list = []
     params_with_missing_index_file: list = []
 
-    def __init__(self, config_file: "StrPath", tool_shed_repository, guid: str) -> None:
+    def __init__(self, config_file, tool_shed_repository, guid):
         self.config_file = config_file
         self.tool_shed_repository = tool_shed_repository
         self.guid = guid
@@ -105,14 +99,12 @@ class TestTool:
 
 
 class TestToolBox(AbstractToolBox):
-    def create_tool(self, config_file: "StrPath", **kwds) -> "Tool":
-        tool = cast("Tool", TestTool(config_file, kwds["tool_shed_repository"], kwds["guid"]))
+    def create_tool(self, config_file, tool_cache_data_dir=None, **kwds):
+        tool = TestTool(config_file, kwds["tool_shed_repository"], kwds["guid"])
         tool._lineage = self._lineage_map.register(tool)  # cleanup?
         return tool
 
-    def _get_tool_shed_repository(
-        self, tool_shed: str, name: str, owner: str, installed_changeset_revision: Optional[str]
-    ) -> "ToolShedRepository":
+    def _get_tool_shed_repository(self, tool_shed, name, owner, installed_changeset_revision):
         return get_installed_repository(
             self.app,
             tool_shed=tool_shed,
@@ -146,7 +138,7 @@ class DummyDataManager(DataManagerInterface):
     def process_result(self, out_data):
         return None
 
-    def write_bundle(self, out) -> dict[str, OutputDataset]:
+    def write_bundle(self, out) -> Dict[str, OutputDataset]:
         return {}
 
 
@@ -161,7 +153,7 @@ class StandaloneDataManagers(DataManagersInterface):
     def get_manager(self, data_manager_id: str) -> Optional[DataManagerInterface]:
         return None
 
-    def remove_manager(self, manager_ids: Union[str, list[str]]) -> None:
+    def remove_manager(self, manager_ids: Union[str, List[str]]) -> None:
         return None
 
     @property
@@ -222,18 +214,13 @@ class StandaloneInstallationTarget(InstallationTarget):
         config.shed_tools_dir = str(tool_root_dir)
         self.watchers = Watchers(self)
         self.reload_toolbox()
-        self._tool_data_tables = ToolDataTableManager(
+        self.tool_data_tables = ToolDataTableManager(
             tool_data_path=self.config.tool_data_path,
             config_filename=self.config.shed_tool_data_table_config,
             other_config_dict=self.config,
         )
         dependency_dir = target_directory / "_dependencies"
         dependency_dir.mkdir()
-        self.installed_repository_manager = InstalledRepositoryManager(self)
-
-    @property
-    def tool_data_tables(self) -> ToolDataTableManager:
-        return self._tool_data_tables
 
     @property
     def tool_dependency_dir(self) -> Optional[str]:
@@ -249,6 +236,3 @@ class StandaloneInstallationTarget(InstallationTarget):
     @property
     def toolbox(self) -> TestToolBox:
         return self._toolbox
-
-    def wait_for_toolbox_reload(self, toolbox):
-        return

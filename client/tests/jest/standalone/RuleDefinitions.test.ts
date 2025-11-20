@@ -27,24 +27,18 @@ function itShouldConform(specTestCase: SpecTestCase, i: number) {
     }
     it(`should pass conformance test case ${i} (from rules_dsl_spec.yml) ${doc}`, () => {
         expect(specTestCase).toHaveProperty("rules");
-        const expectError = specTestCase.error;
         if (specTestCase.initial) {
-            if (!expectError) {
-                expect(specTestCase).toHaveProperty("final");
-            }
-            try {
-                const result = applyRules(specTestCase.rules, specTestCase.initial.data, specTestCase.initial.sources);
-                const finalData = specTestCase.final?.data;
-                const finalSources = specTestCase.final?.sources;
-                expect(result.data).toEqual(finalData);
-                if (finalSources !== undefined) {
-                    expect(result.sources).toEqual(finalSources);
-                }
-            } catch (e) {
-                expect(expectError).toBe(true);
+            expect(specTestCase).toHaveProperty("final");
+
+            const result = applyRules(specTestCase.rules, specTestCase.initial.data, specTestCase.initial.sources);
+            const finalData = specTestCase.final?.data;
+            const finalSources = specTestCase.final?.sources;
+            expect(result.data).toEqual(finalData);
+            if (finalSources !== undefined) {
+                expect(result.sources).toEqual(finalSources);
             }
         } else {
-            expect(expectError).toBe(true);
+            expect(specTestCase.error).toBe(true);
             // TODO: test these...
         }
     });

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faQuestionCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import type { GetComponentPropTypes } from "types/utilityTypes";
@@ -11,6 +12,8 @@ import * as carbonEmissionsConstants from "./carbonEmissionConstants.js";
 import BarChart from "./BarChart.vue";
 import CarbonEmissionsCard from "./CarbonEmissionCard.vue";
 import Heading from "@/components/Common/Heading.vue";
+
+library.add(faQuestionCircle);
 
 interface CarbonEmissionsProps {
     estimatedServerInstance: {
@@ -374,7 +377,7 @@ function getEnergyNeededText(energyNeededInKiloWattHours: number) {
                     class="align-self-start mt-2">
                     <span>
                         Learn more about how we calculate your carbon emissions data.
-                        <FontAwesomeIcon :icon="faQuestionCircle" />
+                        <FontAwesomeIcon icon="fa-question-circle" />
                     </span>
                 </router-link>
             </div>

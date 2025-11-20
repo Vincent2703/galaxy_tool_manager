@@ -41,13 +41,12 @@ claimWorkflow(props.uuid, props.public, props.secret).then(() => {
         <div v-else-if="!claimState.workflowId">
             <LoadingSpan message="Loading workflow parameters" />
         </div>
-        <div v-else class="h-100">
+        <div v-else>
             <WorkflowRun
                 :workflow-id="claimState.workflowId"
                 :prefer-simple-form="true"
-                :request-state="claimState.requestState ?? undefined"
-                :instance="claimState.instance"
-                :landing-uuid="props.uuid" />
+                :request-state="claimState.requestState"
+                :instance="claimState.instance" />
         </div>
     </div>
 </template>

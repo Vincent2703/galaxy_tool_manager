@@ -1,5 +1,7 @@
 from typing import (
     Any,
+    Dict,
+    List,
     Optional,
 )
 
@@ -34,7 +36,7 @@ KNOWN_VIOLATIONS = FORMS_VIOLATIONS + [
 
 
 class AxeResult:
-    def __init__(self, json: dict[str, Any]):
+    def __init__(self, json: Dict[str, Any]):
         self._json = json
 
     @property
@@ -81,21 +83,21 @@ class AxeResults(Protocol):
     def assert_does_not_violate(self, id: str) -> None:
         """"""
 
-    def violations(self) -> list[Violation]:
+    def violations(self) -> List[Violation]:
         """"""
 
     # these next two could be refactored into a mixin...
-    def violations_with_impact_of_at_least(self, impact: Impact) -> list[Violation]:
+    def violations_with_impact_of_at_least(self, impact: Impact) -> List[Violation]:
         """"""
 
     def assert_no_violations_with_impact_of_at_least(
-        self, impact: Impact, excludes: Optional[list[str]] = None
+        self, impact: Impact, excludes: Optional[List[str]] = None
     ) -> None:
         """"""
 
 
 class RealAxeResults(AxeResults):
-    def __init__(self, json: dict[str, Any]):
+    def __init__(self, json: Dict[str, Any]):
         self._json = json
 
     def assert_passes(self, id: str) -> None:
@@ -109,15 +111,15 @@ class RealAxeResults(AxeResults):
             violation = Violation(result)
             raise AssertionError(violation.message)
 
-    def violations(self) -> list[Violation]:
+    def violations(self) -> List[Violation]:
         violations = self._json["violations"]
         return [Violation(v) for v in violations]
 
-    def violations_with_impact_of_at_least(self, impact: Impact) -> list[Violation]:
+    def violations_with_impact_of_at_least(self, impact: Impact) -> List[Violation]:
         return [v for v in self.violations() if v.is_impact_at_least(impact)]
 
     def assert_no_violations_with_impact_of_at_least(
-        self, impact: Impact, excludes: Optional[list[str]] = None
+        self, impact: Impact, excludes: Optional[List[str]] = None
     ) -> None:
         excludes = excludes or []
         violations = self.violations_with_impact_of_at_least(impact)
@@ -135,15 +137,15 @@ class NullAxeResults(AxeResults):
     def assert_does_not_violate(self, id: str) -> None:
         pass
 
-    def violations(self) -> list[Violation]:
+    def violations(self) -> List[Violation]:
         return []
 
     # these next two could be refactored into a mixin...
-    def violations_with_impact_of_at_least(self, impact: Impact) -> list[Violation]:
+    def violations_with_impact_of_at_least(self, impact: Impact) -> List[Violation]:
         return []
 
     def assert_no_violations_with_impact_of_at_least(
-        self, impact: Impact, excludes: Optional[list[str]] = None
+        self, impact: Impact, excludes: Optional[List[str]] = None
     ) -> None:
         pass
 
@@ -157,7 +159,7 @@ def assert_baseline_accessible(axe_results: AxeResults) -> None:
             raise AssertionError(violation.message)
 
 
-def _check_list_for_id(result_list: list[dict[str, Any]], id) -> Optional[dict[str, Any]]:
+def _check_list_for_id(result_list: List[Dict[str, Any]], id) -> Optional[Dict[str, Any]]:
     for result in result_list:
         if result.get("id") == id:
             return result

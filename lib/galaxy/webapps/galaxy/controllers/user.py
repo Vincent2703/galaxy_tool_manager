@@ -20,7 +20,6 @@ from galaxy.exceptions import Conflict
 from galaxy.managers import users
 from galaxy.model.db.user import get_user_by_email
 from galaxy.security.validate_user_input import (
-    is_valid_email_str,
     validate_email,
     validate_publicname,
 )
@@ -87,7 +86,7 @@ class User(BaseUIController, UsesFormDefinitionsMixin):
                         .first()
                     )
                 except NoResultFound:
-                    group = trans.app.model.Group(name=role_name)
+                    group = self.model.Group(name=role_name)
                     self.sa_session.add(group)
                 trans.app.security_agent.associate_user_group(user, group)
 
@@ -284,37 +283,25 @@ class User(BaseUIController, UsesFormDefinitionsMixin):
         Check whether token fits the user and then activate the user's account.
         """
         params = util.Params(kwd, sanitize=False)
-        activation_token = params.get("activation_token", None)
-        index_url = web.url_for(controller="root", action="index")
-        invalid_link_message = f"You are using an invalid activation link. Try to log in and we will send you a new activation email. <br><a href='{index_url}'>Go to login page.</a>"
-
         email = params.get("email", None)
         if email is not None:
-            try:
-                email = unquote(email)
-            except AttributeError:
-                # A recurring error has been observed where the email parameter is a list of 2 items, where the second item is the email, and
-                # the first item has the shape "[email]?activation_token=[activation token]". This may happen if the user incorrectly copies and pastes
-                # the activation link into their browser. We try to handle this case here.
-                if (
-                    isinstance(email, list)
-                    and len(email) == 2
-                    and is_valid_email_str(email[1])
-                    and email[0].startswith(email[1])
-                ):
-                    email = unquote(email[1])
-                else:
-                    return trans.show_error_message(invalid_link_message)
+            email = unquote(email)
+        activation_token = params.get("activation_token", None)
+        index_url = web.url_for(controller="root", action="index")
 
         if email is None or activation_token is None:
             #  We don't have the email or activation_token, show error.
-            return trans.show_error_message(invalid_link_message)
+            return trans.show_error_message(
+                f"You are using an invalid activation link. Try to log in and we will send you a new activation email. <br><a href='{index_url}'>Go to login page.</a>"
+            )
         else:
             # Find the user
             user = get_user_by_email(trans.sa_session, email)
             if not user:
                 # Probably wrong email address
-                return trans.show_error_message(invalid_link_message)
+                return trans.show_error_message(
+                    f"You are using an invalid activation link. Try to log in and we will send you a new activation email. <br><a href='{index_url}'>Go to login page.</a>"
+                )
             # If the user is active already don't try to activate
             if user.active is True:
                 return trans.show_ok_message(
@@ -328,7 +315,9 @@ class User(BaseUIController, UsesFormDefinitionsMixin):
                 )
             else:
                 #  Tokens don't match. Activation is denied.
-                return trans.show_error_message(invalid_link_message)
+                return trans.show_error_message(
+                    f"You are using an invalid activation link. Try to log in and we will send you a new activation email. <br><a href='{index_url}'>Go to login page.</a>"
+                )
 
     @expose_api_anonymous_and_sessionless
     def change_password(self, trans, payload=None, **kwd):

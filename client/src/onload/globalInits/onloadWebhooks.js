@@ -1,13 +1,17 @@
-import { appendScriptStyle } from "@/utils/utils";
-import { loadWebhooks } from "@/utils/webhooks";
+import Utils from "utils/utils";
+import Webhooks from "utils/webhooks";
 
-export async function onloadWebhooks(Galaxy) {
+export function onloadWebhooks(Galaxy) {
     if (Galaxy.config.enable_webhooks) {
-        const webhooks = await loadWebhooks("onload");
-        webhooks.forEach((webhook) => {
-            if (webhook.activate && webhook.script) {
-                appendScriptStyle(webhook);
-            }
+        Webhooks.load({
+            type: "onload",
+            callback: function (webhooks) {
+                webhooks.forEach((webhook) => {
+                    if (webhook.activate && webhook.script) {
+                        Utils.appendScriptStyle(webhook);
+                    }
+                });
+            },
         });
     }
 }

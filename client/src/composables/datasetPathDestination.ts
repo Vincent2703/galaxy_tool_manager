@@ -20,11 +20,11 @@ export function useDatasetPathDestination() {
     const cache = ref<{ [key: string]: PathDestinationMap }>({});
 
     const datasetPathDestination = computed(() => {
-        return async (dataset_id: string, path?: string) => {
+        return (dataset_id: string, path?: string) => {
             const targetPath = path ?? "undefined";
-            let pathDestination = cache.value[dataset_id]?.[targetPath];
+            const pathDestination = cache.value[dataset_id]?.[targetPath];
             if (!pathDestination) {
-                pathDestination = (await getPathDestination(dataset_id, path)) ?? undefined;
+                getPathDestination(dataset_id, path);
             }
             return pathDestination ?? null;
         };
@@ -36,6 +36,7 @@ export function useDatasetPathDestination() {
             await datasetExtraFilesStore.fetchDatasetExtFilesByDatasetId({ id: dataset_id });
             datasetExtraFiles = datasetExtraFilesStore.getDatasetExtraFiles(dataset_id);
         }
+
         if (datasetExtraFiles === null) {
             return null;
         }
@@ -65,7 +66,9 @@ export function useDatasetPathDestination() {
             }
             pathDestination.fileLink = getCompositeDatasetLink(dataset_id, datasetEntry.path);
         }
+
         set(cache.value, dataset_id, { [path]: pathDestination });
+
         return pathDestination;
     }
 

@@ -1,6 +1,10 @@
 import datetime
 import tempfile
 from functools import lru_cache
+from typing import (
+    Dict,
+    List,
+)
 
 from celery.result import AsyncResult
 from sqlalchemy import text
@@ -82,9 +86,9 @@ class TestCeleryUserRateLimitIntegration(IntegrationTestCase):
         start_time = datetime.datetime.now(datetime.timezone.utc)
         timer = ExecutionTimer()
         #  Invoke test task num_calls times for each user
-        results: dict[int, list[AsyncResult]] = {}
+        results: Dict[int, List[AsyncResult]] = {}
         for user in users:
-            user_results: list[AsyncResult] = []
+            user_results: List[AsyncResult] = []
             for _ in range(num_calls):
                 user_results.append(mock_user_id_task.delay(task_user_id=user))
             results[user] = user_results

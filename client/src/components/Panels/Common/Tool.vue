@@ -8,10 +8,11 @@
             v-else
             :class="targetClass"
             :data-tool-id="tool.id"
-            :href="toolLink"
-            :target="toolTarget"
+            :href="tool.link"
+            :target="tool.target"
             :title="tool.help"
             @click="onClick">
+            <img v-if="tool.logo" class="logo" :src="tool.logo" :alt="tool.name" />
             <span class="labels">
                 <span
                     v-for="(label, index) in tool.labels"
@@ -33,10 +34,8 @@
 
 <script>
 import BootstrapVue from "bootstrap-vue";
+import ariaAlert from "utils/ariaAlert";
 import Vue from "vue";
-
-import { useToolStore } from "@/stores/toolStore";
-import ariaAlert from "@/utils/ariaAlert";
 
 Vue.use(BootstrapVue);
 
@@ -63,25 +62,8 @@ export default {
             type: String,
             default: "",
         },
-        renderIcon: {
-            type: Boolean,
-            default: false,
-        },
-    },
-    setup() {
-        const toolStore = useToolStore();
-        return {
-            getLinkById: toolStore.getLinkById,
-            getTargetById: toolStore.getTargetById,
-        };
     },
     computed: {
-        toolLink() {
-            return this.getLinkById(this.tool.id);
-        },
-        toolTarget() {
-            return this.getTargetById(this.tool.id);
-        },
         targetClass() {
             if (this.toolKey) {
                 return `tool-menu-item-${this.tool[this.toolKey]} title-link cursor-pointer`;
@@ -106,5 +88,8 @@ export default {
 <style scoped>
 .toolTitle {
     overflow-wrap: anywhere;
+}
+.logo {
+    width: 2.5rem;
 }
 </style>

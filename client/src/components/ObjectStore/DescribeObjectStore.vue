@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import { QuotaSourceUsageProvider } from "@/components/User/DiskUsage/Quota/QuotaUsageProvider.js";
 
-import type { AnyStorageDescription } from "./types";
+import type { ConcreteObjectStoreModel } from "./types";
 
 import ConfigurationMarkdown from "./ConfigurationMarkdown.vue";
 import ObjectStoreBadges from "./ObjectStoreBadges.vue";
@@ -11,7 +11,7 @@ import ObjectStoreRestrictionSpan from "./ObjectStoreRestrictionSpan.vue";
 import QuotaUsageBar from "@/components/User/DiskUsage/Quota/QuotaUsageBar.vue";
 
 interface Props {
-    storageInfo: AnyStorageDescription;
+    storageInfo: ConcreteObjectStoreModel;
     what: string;
 }
 
@@ -47,15 +47,15 @@ export default {
         <div>
             <span v-localize>{{ what }}</span>
             <span v-if="storageInfo.name" class="display-os-by-name">
-                a Galaxy <ObjectStoreRestrictionSpan :is-private="isPrivate" /> storage named
+                a Galaxy <ObjectStoreRestrictionSpan :is-private="isPrivate" /> storage location named
                 <b>{{ storageInfo.name }}</b>
             </span>
             <span v-else-if="storageInfo.object_store_id" class="display-os-by-id">
-                a Galaxy <ObjectStoreRestrictionSpan :is-private="isPrivate" /> storage with id
+                a Galaxy <ObjectStoreRestrictionSpan :is-private="isPrivate" /> storage location with id
                 <b>{{ storageInfo.object_store_id }}</b>
             </span>
             <span v-else class="display-os-default">
-                the default configured Galaxy <ObjectStoreRestrictionSpan :is-private="isPrivate" /> storage </span
+                the default configured Galaxy <ObjectStoreRestrictionSpan :is-private="isPrivate" /> storage location </span
             >.
         </div>
         <ObjectStoreBadges :badges="badges"> </ObjectStoreBadges>
@@ -67,7 +67,7 @@ export default {
             <b-spinner v-if="isLoadingUsage" />
             <QuotaUsageBar v-else-if="quotaUsage" :quota-usage="quotaUsage" :embedded="true" />
         </QuotaSourceUsageProvider>
-        <div v-else>Galaxy has no quota configured for this storage.</div>
+        <div v-else>Galaxy has no quota configured for this storage location.</div>
         <ConfigurationMarkdown
             v-if="storageInfo.description"
             :markdown="storageInfo.description"

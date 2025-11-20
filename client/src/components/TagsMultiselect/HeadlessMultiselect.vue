@@ -6,6 +6,7 @@
  * not a fully featured Multiselect alternative
  */
 
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCheck, faChevronUp, faPlus, faTags, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { useElementBounding, whenever } from "@vueuse/core";
@@ -15,6 +16,8 @@ import Vue2Teleport from "vue2-teleport";
 
 import { useUid } from "@/composables/utils/uid";
 import { normalizeTag } from "@/stores/userTagsStore";
+
+library.add(faCheck, faChevronUp, faPlus, faTags, faTimes);
 
 const props = withDefaults(
     defineProps<{
@@ -31,7 +34,7 @@ const props = withDefaults(
         placeholder: "type to search",
         id: () => useUid("headless-multiselect-").value,
         validator: () => () => true,
-    },
+    }
 );
 
 const emit = defineEmits<{
@@ -109,7 +112,7 @@ watch(
     () => trimmedSearchValue.value,
     () => {
         highlightedOption.value = 0;
-    },
+    }
 );
 
 function onOptionHover(index: number) {
@@ -189,28 +192,20 @@ function onOptionKey(event: KeyboardEvent, index: number) {
     }
 }
 
-const mouseDownInside = ref(false);
-
-function onMouseDownInside() {
-    mouseDownInside.value = true;
-}
 /**
- * Closes the popup when focus leaves this component.
- * Since this component uses a Teleport, it relies on a custom `data-parent-id` attribute
- * to determine if the element is a child of this component.
+ * Closes popup when focus leaves this element
+ * Because this component uses a Teleport, uses a custom `data-parent-id` attribute
+ * to determine if the element is a child of this component
  */
-function onFocusOut(e: FocusEvent) {
-    const newTarget = e.relatedTarget as HTMLElement | null;
+function onBlur(e: FocusEvent) {
+    const newTarget = e.relatedTarget;
 
-    // Delay until after click completes
-    requestAnimationFrame(() => {
-        if (!mouseDownInside.value) {
-            if (!newTarget || newTarget.getAttribute("data-parent-id") !== props.id) {
-                close(false);
-            }
-        }
-        mouseDownInside.value = false;
-    });
+    // close without refocusing open button
+    if (!(newTarget instanceof HTMLElement)) {
+        close(false);
+    } else if (newTarget.getAttribute("data-parent-id") !== props.id) {
+        close(false);
+    }
 }
 
 /** emulates tab behavior, because options list is teleported to the app layer */
@@ -260,17 +255,8 @@ watch(
     async () => {
         await nextTick();
         bounds.update();
-    },
-);
-
-function getPopupLayerId() {
-    if (root.value) {
-        const closestDialog = root.value.closest("dialog");
-        return closestDialog?.id ?? "app";
-    } else {
-        return "app";
     }
-}
+);
 
 whenever(isOpen, async () => {
     await nextTick();
@@ -279,9 +265,8 @@ whenever(isOpen, async () => {
 </script>
 
 <template>
-    <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions  -->
-    <div ref="root" class="headless-multiselect" @mousedown="onMouseDownInside" @focusout="onFocusOut">
-        <fieldset v-if="isOpen" @focusout="onFocusOut">
+    <div ref="root" class="headless-multiselect">
+        <fieldset v-if="isOpen" @blur.capture="onBlur">
             <input
                 :id="`${props.id}-input`"
                 ref="inputField"
@@ -306,15 +291,15 @@ whenever(isOpen, async () => {
                 title="close"
                 @click="close(true)"
                 @keydown.tab="onCloseButtonTab">
-                <FontAwesomeIcon :icon="faChevronUp" />
+                <FontAwesomeIcon icon="fa-chevron-up" />
             </button>
         </fieldset>
         <button v-else ref="openButton" class="toggle-button" @click="open">
             {{ props.placeholder }}
-            <FontAwesomeIcon :icon="faTags" />
+            <FontAwesomeIcon icon="fa-tags" />
         </button>
 
-        <Vue2Teleport v-if="isOpen" :to="`#${getPopupLayerId()}`">
+        <Vue2Teleport v-if="isOpen" to="#app">
             <div
                 :id="`${props.id}-options`"
                 aria-expanded="true"
@@ -328,7 +313,7 @@ whenever(isOpen, async () => {
                 }"
                 :data-parent-id="id"
                 @keydown.up.down.prevent
-                @focusout="onFocusOut">
+                @blur.capture="onBlur">
                 <button
                     v-for="(option, i) in trimmedOptions"
                     :id="`${props.id}-option-${i}`"
@@ -354,14 +339,14 @@ whenever(isOpen, async () => {
                         <template v-if="highlightedOption === i">
                             <FontAwesomeIcon
                                 class="headless-multiselect__needs-highlight"
-                                :icon="faTimes"
+                                icon="fa-times"
                                 fixed-width />
                             <span class="sr-only">remove tag</span>
                         </template>
-                        <FontAwesomeIcon v-else :icon="faCheck" fixed-width />
+                        <FontAwesomeIcon v-else icon="fa-check" fixed-width />
                     </span>
                     <span v-else class="headless-multiselect__info">
-                        <FontAwesomeIcon class="headless-multiselect__needs-highlight" :icon="faPlus" fixed-width />
+                        <FontAwesomeIcon class="headless-multiselect__needs-highlight" icon="fa-plus" fixed-width />
                         <span class="sr-only">add tag</span>
                     </span>
                 </button>
@@ -371,7 +356,7 @@ whenever(isOpen, async () => {
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "scss/theme/blue.scss";
 
 .headless-multiselect {
     fieldset {
@@ -433,9 +418,7 @@ whenever(isOpen, async () => {
 
     display: flex;
     flex-direction: column;
-    box-shadow:
-        0 0 6px 0 rgba(3, 0, 34, 0.048),
-        0 0 4px 0 rgba(3, 0, 34, 0.185);
+    box-shadow: 0 0 6px 0 rgba(3, 0, 34, 0.048), 0 0 4px 0 rgba(3, 0, 34, 0.185);
     border-bottom-left-radius: 4px;
     border-bottom-right-radius: 4px;
 

@@ -12,22 +12,14 @@
         :collapsed-disable-icon="collapsedDisableIcon"
         :on-change="onChange"
         :on-change-form="onChangeForm"
-        :workflow-building-mode="workflowBuildingMode"
-        :workflow-run="workflowRun"
-        :active-node-id="activeNodeId"
-        :sync-with-graph="syncWithGraph"
-        :steps-not-matching-request="stepsNotMatchingRequest"
-        @stop-flagging="$emit('stop-flagging')"
-        @update:active-node-id="updateActiveNode" />
+        :workflow-building-mode="workflowBuildingMode" />
 </template>
 
 <script>
-import { faCaretSquareDown, faCaretSquareUp } from "@fortawesome/free-regular-svg-icons";
 import Vue from "vue";
 
+import FormInputs from "./FormInputs";
 import { matchInputs, validateInputs, visitInputs } from "./utilities";
-
-import FormInputs from "./FormInputs.vue";
 
 export default {
     components: {
@@ -71,12 +63,12 @@ export default {
             default: "Disable",
         },
         collapsedEnableIcon: {
-            type: Object,
-            default: () => faCaretSquareDown,
+            type: String,
+            default: "far fa-caret-square-down",
         },
         collapsedDisableIcon: {
-            type: Object,
-            default: () => faCaretSquareUp,
+            type: String,
+            default: "far fa-caret-square-up",
         },
         validationScrollTo: {
             type: Array,
@@ -94,25 +86,9 @@ export default {
             type: Boolean,
             default: false,
         },
-        workflowRun: {
-            type: Boolean,
-            default: false,
-        },
         allowEmptyValueOnRequiredInput: {
             type: Boolean,
             default: false,
-        },
-        activeNodeId: {
-            type: Number,
-            default: null,
-        },
-        syncWithGraph: {
-            type: Boolean,
-            default: false,
-        },
-        stepsNotMatchingRequest: {
-            type: Array,
-            default: null,
         },
     },
     data() {
@@ -128,9 +104,6 @@ export default {
         },
     },
     watch: {
-        activeNodeId() {
-            this.scrollToElement(this.activeNodeId);
-        },
         id() {
             this.onCloneInputs();
         },
@@ -250,18 +223,12 @@ export default {
                 const message = validation[1];
                 this.setError(inputId, message);
                 if (!silent && inputId) {
-                    this.scrollToElement(inputId);
-                }
-            }
-        },
-        scrollToElement(elementId) {
-            const element = this.$el.querySelector(`[id='form-element-${elementId}']`);
-            if (element) {
-                const centerPanel = document.querySelector("#center");
-                if (centerPanel) {
-                    element.scrollIntoView({ behavior: "smooth", block: "center" });
-                    if (this.syncWithGraph && this.activeNodeId !== elementId) {
-                        this.updateActiveNode(elementId);
+                    const element = this.$el.querySelector(`[id='form-element-${inputId}']`);
+                    if (element) {
+                        const centerPanel = document.querySelector("#center");
+                        if (centerPanel) {
+                            centerPanel.scrollTo(0, this.getOffsetTop(element));
+                        }
                     }
                 }
             }
@@ -282,9 +249,6 @@ export default {
             Object.values(this.formIndex).forEach((input) => {
                 input.error = null;
             });
-        },
-        updateActiveNode(activeNodeId) {
-            this.$emit("update:active-node-id", activeNodeId);
         },
     },
 };

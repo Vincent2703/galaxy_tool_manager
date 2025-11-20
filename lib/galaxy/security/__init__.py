@@ -4,6 +4,7 @@ Galaxy Security
 """
 
 from typing import (
+    List,
     Optional,
 )
 
@@ -62,7 +63,7 @@ class RBACAgent:
                 return v
         return default
 
-    def get_actions(self) -> list[Action]:
+    def get_actions(self) -> List[Action]:
         """Get all permitted actions as a list of Action objects"""
         return list(self.permitted_actions.__dict__.values())
 

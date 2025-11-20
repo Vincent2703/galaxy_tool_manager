@@ -34,6 +34,18 @@
                 <span v-localize>Delete (permanently)</span>
             </b-dropdown-item>
             <b-dropdown-divider v-if="showBuildOptions" />
+            <b-dropdown-item v-if="showBuildOptions" data-description="build list" @click="buildDatasetList">
+                <span v-localize>Build Dataset List</span>
+            </b-dropdown-item>
+            <b-dropdown-item v-if="showBuildOptions" data-description="build list of pairs" @click="buildListOfPairs">
+                <span v-localize>Build List of Dataset Pairs</span>
+            </b-dropdown-item>
+            <b-dropdown-item
+                v-if="showBuildOptions"
+                data-description="build collection from rules"
+                @click="buildCollectionFromRules">
+                <span v-localize>Build Collection from Rules</span>
+            </b-dropdown-item>
             <b-dropdown-divider v-if="showBuildOptionForAll" />
             <b-dropdown-item
                 v-if="showBuildOptionForAll"
@@ -56,13 +68,6 @@
             </b-dropdown-item>
             <b-dropdown-item v-b-modal:remove-tags-from-selected-content data-description="remove tags">
                 <span v-localize>Remove tags</span>
-            </b-dropdown-item>
-            <b-dropdown-divider v-if="showBuildOptions" />
-            <b-dropdown-item v-if="showBuildOptions" data-description="auto build list" @click="listWizard(false)">
-                <span v-localize>Auto Build List</span>
-            </b-dropdown-item>
-            <b-dropdown-item v-if="showBuildOptions" data-description="advanced build list" @click="listWizard(true)">
-                <span v-localize>Advanced Build List</span>
             </b-dropdown-item>
         </b-dropdown>
 
@@ -133,22 +138,21 @@
             <p v-localize>Remove the following tags from {{ numSelected }} items:</p>
             <StatelessTags v-model="selectedTags" class="tags" />
         </b-modal>
-        <CollectionCreatorIndex
+        <CollectionCreatorModal
             v-if="collectionModalType"
             :history-id="history.id"
             :collection-type="collectionModalType"
-            :file-sources-configured="config.file_sources_configured"
             :filter-text="filterText"
             :selected-items="collectionSelection"
-            :show.sync="collectionModalShow"
-            hide-on-create
+            :show-modal.sync="collectionModalShow"
+            hide-modal-on-create
             default-hide-source-items
             @created-collection="createdCollection" />
     </section>
 </template>
 
 <script>
-import { HistoryFilters } from "@/components/History/HistoryFilters";
+import { HistoryFilters } from "components/History/HistoryFilters";
 import {
     addTagsToSelectedContent,
     changeDatatypeOfSelectedContent,
@@ -159,18 +163,21 @@ import {
     removeTagsFromSelectedContent,
     undeleteSelectedContent,
     unhideSelectedContent,
-} from "@/components/History/model/crud";
-import { DatatypesProvider, DbKeyProvider } from "@/components/providers";
-import { StatelessTags } from "@/components/Tags";
-import { useConfig } from "@/composables/config";
-import { useCollectionBuilderItemSelection } from "@/stores/collectionBuilderItemsStore";
+} from "components/History/model/crud";
+import { DatatypesProvider, DbKeyProvider } from "components/providers";
+import SingleItemSelector from "components/SingleItemSelector";
+import { StatelessTags } from "components/Tags";
 
-import CollectionCreatorIndex from "@/components/Collections/CollectionCreatorIndex.vue";
-import SingleItemSelector from "@/components/SingleItemSelector.vue";
+import { createDatasetCollection } from "@/components/History/model/queries";
+import { useConfig } from "@/composables/config";
+
+import { buildRuleCollectionModal } from "../../adapters/buildCollectionModal";
+
+import CollectionCreatorModal from "@/components/Collections/CollectionCreatorModal.vue";
 
 export default {
     components: {
-        CollectionCreatorIndex,
+        CollectionCreatorModal,
         DbKeyProvider,
         DatatypesProvider,
         SingleItemSelector,
@@ -298,19 +305,6 @@ export default {
         },
     },
     methods: {
-        listWizard(advanced) {
-            const { setSelectedItems } = useCollectionBuilderItemSelection();
-            const selection = Array.from(this.contentSelection.values());
-            setSelectedItems(selection);
-
-            if (this.$route.path === "/collection/new_list") {
-                // vue-router 4 supports a native force push with clean URLs, but we're using a __vkey__
-                // bit as a workaround to allow the builder to be invoked consecutively
-                this.$router.push({ path: `/collection/new_list?advanced=${advanced}` }, { force: true });
-            } else {
-                this.$router.push(`/collection/new_list?advanced=${advanced}`);
-            }
-        },
         // Selected content manipulation, hide/show/delete/purge
         hideSelected() {
             this.runOnSelection(hideSelectedContent);
@@ -380,10 +374,35 @@ export default {
         onSelectedDatatype(datatype) {
             this.selectedDatatype = datatype;
         },
+
+        // collection creation, fires up a modal
+        buildDatasetList() {
+            this.collectionModalType = "list";
+            this.collectionSelection = Array.from(this.contentSelection.values());
+            this.collectionModalShow = true;
+        },
         buildDatasetListAll() {
             this.collectionModalType = "list";
             this.collectionSelection = undefined;
             this.collectionModalShow = true;
+        },
+        buildListOfPairs() {
+            this.collectionModalType = "list:paired";
+            this.collectionSelection = Array.from(this.contentSelection.values());
+            this.collectionModalShow = true;
+        },
+        createdCollection(collection) {
+            this.$emit("reset-selection");
+        },
+        async buildCollectionFromRules() {
+            const modalResult = await buildRuleCollectionModal(this.contentSelection, this.history.id);
+            await createDatasetCollection(this.history, modalResult);
+
+            // have to hide the source items if that was requested
+            if (modalResult.hide_source_items) {
+                this.$emit("hide-selection", this.contentSelection);
+            }
+            this.$emit("reset-selection");
         },
     },
 };
@@ -393,11 +412,5 @@ export default {
 .modal-with-selector {
     overflow: initial;
     min-height: 300px; /* To make room for the selector */
-}
-
-.subtle-header {
-    font-size: 0.74375rem;
-    color: #404862;
-    font-weight: normal;
 }
 </style>

@@ -1,5 +1,7 @@
 from datetime import datetime
 from typing import (
+    Dict,
+    List,
     Optional,
     Union,
 )
@@ -102,7 +104,7 @@ class VisualizationSummary(Model):
 
 
 class VisualizationSummaryList(RootModel):
-    root: list[VisualizationSummary] = Field(
+    root: List[VisualizationSummary] = Field(
         default=[],
         title="List with detailed information of Visualizations.",
     )
@@ -130,7 +132,7 @@ class VisualizationRevisionResponse(Model, WithModelClass):
         title="DbKey",
         description="The database key of the visualization.",
     )
-    config: dict = Field(
+    config: Dict = Field(
         ...,
         title="Config",
         description="The config of the visualization revision.",
@@ -163,27 +165,32 @@ class VisualizationPluginResponse(Model):
         title="Title",
         description="The title of the plugin.",
     )
+    target: str = Field(
+        ...,
+        title="Target",
+        description="The target of the plugin.",
+    )
     embeddable: bool = Field(
         ...,
         title="Embeddable",
         description="Whether the plugin is embeddable.",
     )
-    entry_point: dict = Field(
+    entry_point: Dict = Field(
         ...,
         title="Entry Point",
         description="The entry point of the plugin.",
     )
-    settings: Optional[list[dict]] = Field(
-        None,
+    settings: List[Dict] = Field(
+        ...,
         title="Settings",
         description="The settings of the plugin.",
     )
-    tracks: Optional[list[dict]] = Field(
+    groups: Optional[List[Dict]] = Field(
         None,
-        title="Tracks",
-        description="The tracks of the plugin.",
+        title="Groups",
+        description="The groups of the plugin.",
     )
-    specs: Optional[dict] = Field(
+    specs: Optional[Dict] = Field(
         None,
         title="Specs",
         description="The specs of the plugin.",
@@ -232,7 +239,7 @@ class VisualizationShowResponse(Model, WithModelClass):
         title="Latest Revision",
         description="The latest revision of this Visualization.",
     )
-    revisions: list[EncodedDatabaseIdField] = Field(
+    revisions: List[EncodedDatabaseIdField] = Field(
         ...,
         title="Revisions",
         description="A list of encoded IDs of the revisions of this Visualization.",

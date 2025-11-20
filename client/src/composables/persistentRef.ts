@@ -25,11 +25,7 @@ function parse<T>(value: string, type: "string" | "number" | "boolean" | "object
 }
 
 export function syncRefToLocalStorage<T>(key: string, refToSync: Ref<T>) {
-    let stored = window.localStorage.getItem(key);
-
-    if (stored === "null" || stored === "undefined") {
-        stored = null;
-    }
+    const stored = window.localStorage.getItem(key);
 
     const sync = () => {
         const stringified = stringify(refToSync.value);
@@ -52,7 +48,7 @@ export function syncRefToLocalStorage<T>(key: string, refToSync: Ref<T>) {
         () => {
             sync();
         },
-        { deep: true },
+        { deep: true }
     );
 }
 
@@ -61,7 +57,7 @@ export function usePersistentRef(key: string, defaultValue: number): Ref<number>
 export function usePersistentRef<T>(key: string, defaultValue: T): Ref<T>;
 export function usePersistentRef<T extends string | number | boolean | object | null>(
     key: string,
-    defaultValue: T,
+    defaultValue: T
 ): Ref<T> {
     const storageSyncedRef = ref(defaultValue) as Ref<T>;
 

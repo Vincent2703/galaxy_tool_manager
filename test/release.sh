@@ -4,8 +4,8 @@ set -euo pipefail
 # Necessary for testing the release script
 export TEST_MODE=true
 
-: "${ORIGIN:=origin}"
-: "${STABLE_BRANCH:=master}"
+: ${ORIGIN:=origin}
+: ${STABLE_BRANCH:=master}
 
 REPO_ROOT=
 FORK_ROOT=$(mktemp -d -t galaxy_release_test_XXXXXXXX)
@@ -16,7 +16,7 @@ TEST_RELEASE_CURR='99.0'
 TEST_RELEASE_NEXT='99.1'
 TEST_RELEASE_NEXT_NEXT='99.2'
 
-: "${VENV:=${FORK_ROOT}/venv}"
+: ${VENV:=${FORK_ROOT}/venv}
 export VENV
 
 
@@ -60,8 +60,7 @@ function get_stable_version() {
     local part="$1"
     (
         cd_fork work
-        local restore_branch
-        restore_branch="$(git branch --show-current)"
+        local restore_branch="$(git branch --show-current)"
         git checkout -q --no-track -b __stable_version_check "upstream/${STABLE_BRANCH}"
         grep "^VERSION_${part}" lib/galaxy/version.py | sed -E -e "s/^[^'\"]*['\"]([^'\"]*)['\"]$/\1/"
         git checkout -q "$restore_branch"
@@ -132,13 +131,8 @@ function make_forks() {
 
 function create_venv() {
     if [ ! -d "$VENV" ]; then
-        if command -v uv >/dev/null; then
-            log_exec uv venv "$VENV"
-            log_exec uv pip install --python "$VENV/bin/python" wheel packaging
-        else
-            log_exec python3 -m venv "$VENV"
-            log_exec "${VENV}/bin/pip" install wheel packaging
-        fi
+        log_exec python3 -m venv "$VENV"
+        log_exec "${VENV}/bin/pip" install wheel packaging
     fi
     . "${VENV}/bin/activate"
 }
@@ -149,9 +143,8 @@ function verify_version() {
     local minor="$2"
     local ref="$3"
     local _ref="$3"
-    local restore_branch
-    restore_branch="$(git branch --show-current)"
-    [ -n "$(git tag -l "$ref")" ]  || _ref="upstream/${ref}"
+    local restore_branch="$(git branch --show-current)"
+    [ -n "$(git tag -l $ref)" ]  || _ref="upstream/${ref}"
     log_exec git checkout --no-track -b "__${ref}" "$_ref"
     if grep -q "^VERSION_MAJOR = \"${major}\"$" lib/galaxy/version.py; then
         log "**** Major version '${major}' is correct at ref '${ref}'"
@@ -176,9 +169,8 @@ function verify_makefile_version() {
     local major="$1"
     local ref="$2"
     local _ref="$2"
-    local restore_branch
-    restore_branch="$(git branch --show-current)"
-    [ -n "$(git tag -l "$ref")" ]  || _ref="upstream/${ref}"
+    local restore_branch="$(git branch --show-current)"
+    [ -n "$(git tag -l $ref)" ]  || _ref="upstream/${ref}"
     log_exec git checkout --no-track -b "__${ref}" "$_ref"
     if grep -q "^RELEASE_CURR:=${major}$" Makefile; then
         log "**** RELEASE_CURR '${major}' is correct in Makefile at ref '${ref}'"

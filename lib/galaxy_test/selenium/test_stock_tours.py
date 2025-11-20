@@ -2,7 +2,6 @@ import os
 
 from galaxy.util import galaxy_root_path
 from .framework import (
-    selenium_only,
     selenium_test,
     SeleniumTestCase,
     TIMEOUT_MULTIPLIER,
@@ -12,7 +11,6 @@ STOCK_TOURS_DIRECTORY = os.path.join(galaxy_root_path, "config", "plugins", "tou
 
 
 class TestStockToursTestCase(SeleniumTestCase):
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_core_galaxy_ui(self):
         sleep_on_steps = {
@@ -26,7 +24,6 @@ class TestStockToursTestCase(SeleniumTestCase):
             tour_callback=TourCallback(self),
         )
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_core_windows(self):
         self.run_tour(
@@ -34,7 +31,6 @@ class TestStockToursTestCase(SeleniumTestCase):
             tour_callback=TourCallback(self),
         )
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_core_history(self):
         self.run_tour(
@@ -42,7 +38,6 @@ class TestStockToursTestCase(SeleniumTestCase):
             tour_callback=TourCallback(self),
         )
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_core_deferred(self):
         self.run_tour(
@@ -55,5 +50,5 @@ class TourCallback:
     def __init__(self, test_case: TestStockToursTestCase):
         self.test_case = test_case
 
-    def handle_step(self, step, step_index: int):
+    def handle_step(self, step, step_index):
         self.test_case.assert_baseline_accessibility()

@@ -91,7 +91,8 @@ class AssociationDuplicateFix(ABC):
         self.assoc_name = self.assoc_model.__tablename__
 
     def run(self):
-        if duplicate_assocs := self.select_duplicate_associations():
+        duplicate_assocs = self.select_duplicate_associations()
+        if duplicate_assocs:
             self.delete_duplicate_associations(duplicate_assocs)
 
     def select_duplicate_associations(self):

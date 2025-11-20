@@ -8,5 +8,6 @@ jest.mock("@/composables/filter", () => ({
 }));
 
 export const useFilterObjectArray: typeof UseFilterObjectArray = (array): Ref<any[]> => {
+    console.debug("USING MOCKED useFilterObjectArray");
     return computed(() => toValue(array));
 };

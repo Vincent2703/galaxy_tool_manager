@@ -9,7 +9,7 @@
     </span>
 </template>
 <script>
-import Requirement from "./Requirement.vue";
+import Requirement from "./Requirement";
 
 export default {
     components: { Requirement },

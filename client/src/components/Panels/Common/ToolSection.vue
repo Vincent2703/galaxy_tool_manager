@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faFilter } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { useEventBus } from "@vueuse/core";
@@ -11,6 +12,8 @@ import ariaAlert from "@/utils/ariaAlert";
 import Tool from "./Tool.vue";
 import ToolPanelLabel from "./ToolPanelLabel.vue";
 import ToolPanelLinks from "./ToolPanelLinks.vue";
+
+library.add(faFilter);
 
 const emit = defineEmits<{
     (e: "onClick", tool: any, evt: Event): void;
@@ -112,7 +115,7 @@ watch(
     () => props.queryFilter,
     () => {
         opened.value = checkFilter();
-    },
+    }
 );
 
 watch(
@@ -122,7 +125,7 @@ watch(
             const currentState = newVal ? "opened" : "closed";
             ariaAlert(`${name.value} tools menu ${currentState}`);
         }
-    },
+    }
 );
 
 onMounted(() => {
@@ -214,7 +217,7 @@ function toggleMenu(nextState = !opened.value) {
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "scss/theme/blue.scss";
 
 .inline-icon-button {
     font-size: 75%;

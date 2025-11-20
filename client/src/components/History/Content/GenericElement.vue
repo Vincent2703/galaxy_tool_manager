@@ -1,26 +1,22 @@
 <script setup lang="ts">
 import { type PropType, ref, set } from "vue";
 
-import type { DCESummary, DCObject } from "@/api";
+import { type components } from "@/api/schema";
 
 import ContentItem from "./ContentItem.vue";
 
 defineProps({
     dsc: {
-        type: Object as PropType<DCObject>,
+        type: Object as PropType<components["schemas"]["DCObject"]>,
         required: true,
     },
 });
 
-const expandCollections = ref<Record<string, boolean>>({});
-const expandDatasets = ref<Record<string, boolean>>({});
+const expandCollections = ref({});
+const expandDatasets = ref({});
 
 function toggle(expansionMap: Record<string, boolean>, itemId: string) {
     set(expansionMap, itemId, !expansionMap[itemId]);
-}
-
-function childObject(item: DCESummary): DCObject {
-    return item.object as DCObject;
 }
 </script>
 
@@ -37,7 +33,7 @@ function childObject(item: DCESummary): DCObject {
                 @update:expand-dataset="toggle(expandDatasets, item.id)"
                 @view-collection="toggle(expandCollections, item.id)" />
             <div v-if="!!expandCollections[item.id]" class="mx-3">
-                <GenericElement :dsc="childObject(item)" />
+                <GenericElement :dsc="item.object" />
             </div>
         </div>
     </div>

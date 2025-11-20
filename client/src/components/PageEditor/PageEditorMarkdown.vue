@@ -18,7 +18,7 @@
                 variant="link"
                 role="button"
                 @click="showPermissions = true">
-                <FontAwesomeIcon :icon="faUsers" />
+                <FontAwesomeIcon icon="users" />
             </b-button>
             <b-button
                 id="save-button"
@@ -27,7 +27,7 @@
                 variant="link"
                 role="button"
                 @click="saveContent(false)">
-                <FontAwesomeIcon :icon="faSave" />
+                <FontAwesomeIcon icon="save" />
             </b-button>
             <b-button
                 id="view-button"
@@ -36,27 +36,28 @@
                 variant="link"
                 role="button"
                 @click="saveContent(true)">
-                <FontAwesomeIcon :icon="faEye" />
+                <FontAwesomeIcon icon="eye" />
             </b-button>
         </template>
     </MarkdownEditor>
 </template>
 
 <script>
-import { faSave } from "@fortawesome/free-regular-svg-icons";
-import { faEye, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faEye, faSave, faUsers } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import BootstrapVue from "bootstrap-vue";
+import MarkdownEditor from "components/Markdown/MarkdownEditor";
+import { Toast } from "composables/toast";
 import Vue from "vue";
 
-import { Toast } from "@/composables/toast";
-
-import { save } from "./services";
+import { save } from "./util";
 
 import ObjectPermissionsModal from "./ObjectPermissionsModal.vue";
-import MarkdownEditor from "@/components/Markdown/MarkdownEditor.vue";
 
 Vue.use(BootstrapVue);
+
+library.add(faEye, faSave, faUsers);
 
 export default {
     components: {
@@ -88,9 +89,6 @@ export default {
     },
     data: function () {
         return {
-            faEye,
-            faSave,
-            faUsers,
             markdownText: this.content,
             showPermissions: false,
         };

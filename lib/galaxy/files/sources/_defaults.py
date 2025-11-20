@@ -1,2 +1,0 @@
-DEFAULT_WRITABLE = False
-DEFAULT_SCHEME = "gxfiles"

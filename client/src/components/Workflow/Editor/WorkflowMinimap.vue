@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useDraggable, type UseElementBoundingReturn } from "@vueuse/core";
 import type { Ref } from "vue";
-import { computed, nextTick, onMounted, ref, unref, watch } from "vue";
+import { computed, onMounted, ref, unref, watch } from "vue";
 
 import { useAnimationFrame } from "@/composables/sensors/animationFrame";
 import { useAnimationFrameThrottle } from "@/composables/throttle";
@@ -15,9 +15,8 @@ import type {
 } from "@/stores/workflowEditorCommentStore";
 import type { Step, Steps } from "@/stores/workflowStepStore";
 
-import { useWorkflowBoundingBox } from "./composables/workflowBoundingBox";
 import { drawBoxComments, drawFreehandComments, drawSteps } from "./modules/canvasDraw";
-import { type AxisAlignedBoundingBox, Transform } from "./modules/geometry";
+import { AxisAlignedBoundingBox, Transform } from "./modules/geometry";
 
 const props = defineProps<{
     steps: Steps;
@@ -45,18 +44,40 @@ const { throttle: dragThrottle } = useAnimationFrameThrottle();
 watch(
     () => props.viewportBoundingBox,
     () => (redraw = true),
-    { deep: true },
+    { deep: true }
 );
 
-const { getWorkflowBoundingBox } = useWorkflowBoundingBox();
-
+/** bounding box encompassing all nodes in the workflow */
+const aabb = new AxisAlignedBoundingBox();
 let aabbChanged = false;
 
 /** transform mapping workflow coordinates to minimap coordinates */
 let canvasTransform = new Transform();
 
 function recalculateAABB() {
-    const aabb = getWorkflowBoundingBox();
+    aabb.reset();
+
+    Object.values(props.steps).forEach((step) => {
+        const rect = stateStore.stepPosition[step.id];
+
+        if (rect) {
+            aabb.fitRectangle({
+                x: step.position!.left,
+                y: step.position!.top,
+                width: rect.width,
+                height: rect.height,
+            });
+        }
+    });
+
+    props.comments.forEach((comment) => {
+        aabb.fitRectangle({
+            x: comment.position[0],
+            y: comment.position[1],
+            width: comment.size[0],
+            height: comment.size[1],
+        });
+    });
 
     aabb.squareCenter();
     aabb.expand(120);
@@ -77,7 +98,7 @@ watch(
             aabbChanged = true;
         }
     },
-    { deep: true },
+    { deep: true }
 );
 
 // these settings are controlled via css, so they can be defined in one common place
@@ -98,7 +119,7 @@ const size = {
     border: 0,
 };
 
-onMounted(async () => {
+onMounted(() => {
     const element = canvas.value!;
     const style = getComputedStyle(element);
 
@@ -113,8 +134,6 @@ onMounted(async () => {
     size.max = parseInt(style.getPropertyValue("--workflow-overview-max-size"));
     size.padding = parseInt(style.getPropertyValue("--workflow-overview-padding"));
     size.border = parseInt(style.getPropertyValue("--workflow-overview-border"));
-
-    await nextTick();
 
     recalculateAABB();
     redraw = true;
@@ -205,7 +224,7 @@ function renderMinimap() {
                 selectedStep.position!.left - edge,
                 selectedStep.position!.top - edge,
                 rect.width + edge * 2,
-                rect.height + edge * 2,
+                rect.height + edge * 2
             );
         }
 
@@ -221,7 +240,7 @@ function renderMinimap() {
         props.viewportBoundingBox.x,
         props.viewportBoundingBox.y,
         props.viewportBoundingBox.width,
-        props.viewportBoundingBox.height,
+        props.viewportBoundingBox.height
     );
     ctx.fill();
     ctx.stroke();
@@ -239,7 +258,7 @@ watch(dragHandlePosition, () => {
     // resize
     minimapSize.value = Math.max(
         unref(props.viewportBounds.right) - dragHandlePosition.value.x,
-        unref(props.viewportBounds.bottom) - dragHandlePosition.value.y,
+        unref(props.viewportBounds.bottom) - dragHandlePosition.value.y
     );
 
     // clamp
@@ -259,7 +278,7 @@ const scaleFactor = computed(() => size.max / minimapSize.value);
 let dragViewport = false;
 
 useDraggable(canvas, {
-    onStart: (_position, event) => {
+    onStart: (position, event) => {
         // minimap coordinates to global coordinates
         const [x, y] = canvasTransform
             .inverse()
@@ -270,7 +289,7 @@ useDraggable(canvas, {
             dragViewport = true;
         }
     },
-    onMove: (_position, event) => {
+    onMove: (position, event) => {
         dragThrottle(() => {
             if (!dragViewport || Object.values(props.steps).length === 0) {
                 return;
@@ -286,7 +305,7 @@ useDraggable(canvas, {
             emit("panBy", { x, y });
         });
     },
-    onEnd(_position, event) {
+    onEnd(position, event) {
         // minimap coordinates to global coordinates
         const [x, y] = canvasTransform
             .inverse()
@@ -312,8 +331,8 @@ useDraggable(canvas, {
 </template>
 
 <style lang="scss" scoped>
-@import "bootstrap/scss/_functions.scss";
-@import "@/style/scss/theme/blue.scss";
+@import "~bootstrap/scss/_functions.scss";
+@import "theme/blue.scss";
 
 .workflow-overview {
     --workflow-overview-size: 150px;

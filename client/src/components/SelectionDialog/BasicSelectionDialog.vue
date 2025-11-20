@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, type Ref, ref } from "vue";
 
-import type { SelectionItem } from "@/components/SelectionDialog/selectionTypes";
+import { type SelectionItem } from "@/components/SelectionDialog/selectionTypes";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 import SelectionDialog from "@/components/SelectionDialog/SelectionDialog.vue";
 
-interface BasicItem extends SelectionItem {
-    time: string | null;
-}
-
 interface Props {
     detailsKey?: string;
-    getData: () => Promise<Array<object> | undefined>;
+    getData: () => Promise<object[]>;
     isEncoded?: boolean;
     labelKey?: string;
     leafIcon?: string;
@@ -57,22 +53,18 @@ async function load() {
         // TODO: Consider supporting pagination here
         // this could potentially load quite a lot of items
         const incoming = await props.getData();
-        if (incoming) {
-            items.value = incoming.map((entry: any) => {
-                const timeStamp = entry[props.timeKey];
-                showTime.value = !!timeStamp;
-                const item: BasicItem = {
-                    id: entry.id,
-                    label: entry[props.labelKey] || null,
-                    details: entry[props.detailsKey] || null,
-                    time: timeStamp || null,
-                    entry: entry,
-                    isLeaf: true,
-                    url: "",
-                };
-                return item;
-            });
-        }
+        items.value = incoming.map((item: any) => {
+            const timeStamp = item[props.timeKey];
+            showTime.value = !!timeStamp;
+            return {
+                id: item.id,
+                label: item[props.labelKey] || null,
+                details: item[props.detailsKey] || null,
+                time: timeStamp || null,
+                isLeaf: true,
+                url: "",
+            };
+        });
         optionsShow.value = true;
     } catch (err) {
         errorMessage.value = errorMessageAsString(err);

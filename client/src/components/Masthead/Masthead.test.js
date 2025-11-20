@@ -2,14 +2,14 @@ import { createTestingPinia } from "@pinia/testing";
 import { getFakeRegisteredUser } from "@tests/test-data";
 import { mount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
+import { WindowManager } from "layout/window-manager";
 import { PiniaVuePlugin } from "pinia";
 import { getLocalVue } from "tests/jest/helpers";
-import { setupMockConfig } from "tests/jest/mockConfig";
 
-import { WindowManager } from "@/entry/analysis/window-manager";
+import { useServerMock } from "@/api/client/__mocks__";
 import { useUserStore } from "@/stores/userStore";
 
-import { loadMastheadWebhooks } from "./_webhooks";
+import { loadWebhookMenuItems } from "./_webhooks";
 
 import Masthead from "./Masthead.vue";
 
@@ -20,9 +20,9 @@ jest.mock("vue-router/composables", () => ({
     useRouter: jest.fn(),
 }));
 
-const currentUser = getFakeRegisteredUser();
+const { server, http } = useServerMock();
 
-setupMockConfig({});
+const currentUser = getFakeRegisteredUser();
 
 describe("Masthead.vue", () => {
     let wrapper;
@@ -38,12 +38,18 @@ describe("Masthead.vue", () => {
         });
     }
 
-    loadMastheadWebhooks.mockImplementation(stubLoadWebhooks);
+    loadWebhookMenuItems.mockImplementation(stubLoadWebhooks);
 
     beforeEach(async () => {
         localVue = getLocalVue();
         localVue.use(PiniaVuePlugin);
         testPinia = createTestingPinia();
+
+        server.use(
+            http.get("/api/configuration", ({ response }) => {
+                return response(200).json({});
+            })
+        );
 
         windowManager = new WindowManager({});
         const windowTab = windowManager.getTab();
@@ -69,7 +75,7 @@ describe("Masthead.vue", () => {
     });
 
     it("should display window manager button", async () => {
-        expect(wrapper.find("#enable-window-manager a svg").exists()).toBe(true);
+        expect(wrapper.find("#enable-window-manager a span.fa-th").exists()).toBe(true);
         expect(windowManager.active).toBe(false);
         await wrapper.find("#enable-window-manager a").trigger("click");
         expect(windowManager.active).toBe(true);

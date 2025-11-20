@@ -1,13 +1,11 @@
 import { faEye } from "@fortawesome/free-solid-svg-icons";
-import { useEventBus } from "@vueuse/core";
 
 import { GalaxyApi } from "@/api";
 import Filtering, { contains, expandNameTag, type ValidFilter } from "@/utils/filtering";
+import { withPrefix } from "@/utils/redirect";
 import { rethrowSimple } from "@/utils/simple-error";
 
-import type { FieldArray, GridConfig } from "./types";
-
-const { emit } = useEventBus<string>("grid-router-push");
+import { type FieldArray, type GridConfig } from "./types";
 
 /**
  * Local types
@@ -56,9 +54,11 @@ const fields: FieldArray = [
                 title: "View",
                 icon: faEye,
                 handler: (data: VisualizationEntry) => {
-                    emit(`/visualizations/display?visualization=${data.type}&visualization_id=${data.id}`, {
-                        title: data.title,
-                    });
+                    if (data.type === "trackster") {
+                        window.location.href = withPrefix(`/visualization/${data.type}?id=${data.id}`);
+                    } else {
+                        window.location.href = withPrefix(`/plugins/visualizations/${data.type}/saved?id=${data.id}`);
+                    }
                 },
             },
         ],
@@ -71,10 +71,7 @@ const fields: FieldArray = [
     {
         key: "username",
         title: "Owner",
-        type: "link",
-        handler: (data: VisualizationEntry) => {
-            emit(`/visualizations/list_published?f-username=${data.username}`);
-        },
+        type: "text",
     },
     {
         key: "tags",
@@ -101,7 +98,6 @@ const validFilters: Record<string, ValidFilter<string | boolean | undefined>> = 
         handler: contains("tag", "tag", expandNameTag),
         menuItem: true,
     },
-    user: { placeholder: "user", type: String, handler: contains("username"), menuItem: true },
 };
 
 /**

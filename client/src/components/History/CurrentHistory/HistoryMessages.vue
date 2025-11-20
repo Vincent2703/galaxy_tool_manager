@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faArchive, faBurn, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BAlert } from "bootstrap-vue";
@@ -6,6 +7,8 @@ import { computed, ref } from "vue";
 
 import { type AnyUser, type HistorySummary, userOwnsHistory } from "@/api";
 import localize from "@/utils/localization";
+
+library.add(faArchive, faBurn, faTrash);
 
 interface Props {
     history: HistorySummary;
@@ -44,7 +47,7 @@ const currentUserOwnsHistory = computed(() => {
         <BAlert :show="userOverQuota" variant="warning">
             {{
                 localize(
-                    "You are over your disk quota. Tool execution is on hold until your disk usage drops below your allocated quota.",
+                    "You are over your disk quota. Tool execution is on hold until your disk usage drops below your allocated quota."
                 )
             }}
         </BAlert>

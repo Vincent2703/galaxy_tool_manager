@@ -9,7 +9,10 @@ import time
 from typing import (
     Any,
     Callable,
+    Dict,
+    List,
     Optional,
+    Tuple,
 )
 
 from beaker.cache import CacheManager
@@ -39,8 +42,10 @@ from galaxy.files import (
     ConfiguredFileSourcesConf,
     UserDefinedFileSources,
 )
-from galaxy.files.models import FileSourcePluginsConfig
-from galaxy.files.plugins import FileSourcePluginLoader
+from galaxy.files.plugins import (
+    FileSourcePluginLoader,
+    FileSourcePluginsConfig,
+)
 from galaxy.files.templates import ConfiguredFileSourceTemplates
 from galaxy.job_metrics import JobMetrics
 from galaxy.jobs.manager import JobManager
@@ -183,7 +188,7 @@ app = None
 
 
 class HaltableContainer(Container):
-    haltables: list[tuple[str, Callable]]
+    haltables: List[Tuple[str, Callable]]
 
     def __init__(self) -> None:
         super().__init__()
@@ -266,13 +271,9 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
     container_finder: containers.ContainerFinder
     install_model: ModelMapping
     object_store: BaseObjectStore
-    _tool_data_tables: Optional[BaseToolDataTableManager]
-    _genome_builds: Optional[GenomeBuilds]
 
     def __init__(self, fsmon=False, **kwargs) -> None:
         super().__init__()
-        self._genome_builds = None
-        self._tool_data_tables = None
         self.haltables = [
             ("object store", self._shutdown_object_store),
             ("database connection", self._shutdown_model),
@@ -318,15 +319,7 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
             self.trace_logger = None
 
     def _configure_genome_builds(self, data_table_name="__dbkeys__", load_old_style=True):
-        self._genome_builds = GenomeBuilds(self, data_table_name=data_table_name, load_old_style=load_old_style)
-
-    # lazy initialize genome_builds so tool_data_tables is also lazy
-    @property
-    def genome_builds(self) -> GenomeBuilds:
-        if self._genome_builds is None:
-            self._configure_genome_builds()
-        assert self._genome_builds is not None
-        return self._genome_builds
+        self.genome_builds = GenomeBuilds(self, data_table_name=data_table_name, load_old_style=load_old_style)
 
     def wait_for_toolbox_reload(self, old_toolbox):
         timer = ExecutionTimer()
@@ -356,7 +349,7 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
         self.citations_manager = CitationsManager(self)
         self.biotools_metadata_source = get_galaxy_biotools_metadata_source(self.config)
 
-        self.dynamic_tool_manager = DynamicToolManager(self)
+        self.dynamic_tools_manager = DynamicToolManager(self)
         self._toolbox_lock = threading.RLock()
         self._toolbox = tools.ToolBox(self.config.tool_configs, self.config.tool_path, self)
         galaxy_root_dir = os.path.abspath(self.config.root)
@@ -424,30 +417,22 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
 
     def _configure_tool_data_tables(self, from_shed_config):
         # Initialize tool data tables using the config defined by self.config.tool_data_table_config_path.
-        tool_data_tables: BaseToolDataTableManager = ToolDataTableManager(
+        self.tool_data_tables: BaseToolDataTableManager = ToolDataTableManager(
             tool_data_path=self.config.tool_data_path,
             config_filename=self.config.tool_data_table_config_path,
             other_config_dict=self.config,
         )
         # Load additional entries defined by self.config.shed_tool_data_table_config into tool data tables.
         try:
-            tool_data_tables.load_from_config_file(
+            self.tool_data_tables.load_from_config_file(
                 config_filename=self.config.shed_tool_data_table_config,
-                tool_data_path=tool_data_tables.tool_data_path,
+                tool_data_path=self.tool_data_tables.tool_data_path,
                 from_shed_config=from_shed_config,
             )
         except OSError as exc:
             # Missing shed_tool_data_table_config is okay if it's the default
             if exc.errno != errno.ENOENT or self.config.is_set("shed_tool_data_table_config"):
                 raise
-        self._tool_data_tables = tool_data_tables
-
-    @property
-    def tool_data_tables(self) -> BaseToolDataTableManager:
-        if self._tool_data_tables is None:
-            self._configure_tool_data_tables(from_shed_config=False)
-        assert self._tool_data_tables is not None
-        return self._tool_data_tables
 
     def _configure_datatypes_registry(self, use_display_applications=True, use_converters=True):
         # Create an empty datatypes registry.
@@ -566,7 +551,7 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
                 database_exists(url)
                 break
             except Exception:
-                log.info("Waiting for database: attempt %d of %d", i, attempts)
+                log.info("Waiting for database: attempt %d of %d" % (i, attempts))
                 time.sleep(pause)
 
     @property
@@ -580,7 +565,7 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
         self.model.engine.dispose()
 
 
-class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication):
+class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication, InstallationTarget[tools.ToolBox]):
     """Extends the MinimalGalaxyApplication with most managers that are not tied to a web or job handling context."""
 
     model: GalaxyModelMapping
@@ -608,7 +593,7 @@ class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication):
         self.job_config = self._register_singleton(jobs.JobConfiguration)
 
         # Setup infrastructure for short term storage manager.
-        short_term_storage_config_kwds: dict[str, Any] = {}
+        short_term_storage_config_kwds: Dict[str, Any] = {}
         short_term_storage_config_kwds["short_term_storage_directory"] = self.config.short_term_storage_dir
         short_term_storage_default_duration = self.config.short_term_storage_default_duration
         short_term_storage_maximum_duration = self.config.short_term_storage_maximum_duration
@@ -623,8 +608,7 @@ class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication):
         self._register_singleton(ShortTermStorageMonitor, short_term_storage_manager)  # type: ignore[type-abstract]
 
         # Tag handler
-        tag_handler = GalaxyTagHandler(self.model.context)
-        self.tag_handler = self._register_singleton(GalaxyTagHandler, tag_handler)
+        self.tag_handler = self._register_singleton(GalaxyTagHandler)
         self.user_manager = self._register_singleton(UserManager)
         self._register_singleton(GalaxySessionManager)
         self.hda_manager = self._register_singleton(HDAManager)
@@ -639,7 +623,6 @@ class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication):
         self.role_manager = self._register_singleton(RoleManager)
         self.job_manager = self._register_singleton(JobManager)
         self.notification_manager = self._register_singleton(NotificationManager)
-        self.interactivetool_manager = InteractiveToolManager(self)
 
         self.task_manager = self._register_abstract_singleton(
             AsyncTasksManager, CeleryAsyncTasksManager  # type: ignore[type-abstract]  # https://github.com/python/mypy/issues/4717
@@ -679,6 +662,9 @@ class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication):
         # We need the datatype registry for running certain tasks that modify HDAs, and to build the registry we need
         # to setup the installed repositories ... this is not ideal
         self._configure_tool_config_files()
+        self.installed_repository_manager = self._register_singleton(
+            InstalledRepositoryManager, InstalledRepositoryManager(self)
+        )
         self.dynamic_tool_manager = self._register_singleton(DynamicToolManager)
         self.trs_proxy = self._register_singleton(TrsProxy, TrsProxy(self.config))
         self._configure_datatypes_registry(
@@ -688,10 +674,6 @@ class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication):
         self._register_singleton(Registry, self.datatypes_registry)
         galaxy.model.set_datatypes_registry(self.datatypes_registry)
         self.configure_sentry_client()
-        # Load dbkey / genome build manager
-        self._configure_genome_builds(data_table_name="__dbkeys__", load_old_style=True)
-        # Tool Data Tables
-        self._configure_tool_data_tables(from_shed_config=False)
 
         self._configure_tool_shed_registry()
         self._register_singleton(tool_shed_registry.Registry, self.tool_shed_registry)
@@ -731,7 +713,7 @@ class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication):
         ) or not self.config.track_jobs_in_database
 
 
-class UniverseApplication(StructuredApp, GalaxyManagerApplication, InstallationTarget[tools.ToolBox]):
+class UniverseApplication(StructuredApp, GalaxyManagerApplication):
     """Encapsulates the state of a Universe application"""
 
     model: GalaxyModelMapping
@@ -770,6 +752,11 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication, InstallationT
         )
         self.api_keys_manager = self._register_singleton(ApiKeyManager)
 
+        # Tool Data Tables
+        self._configure_tool_data_tables(from_shed_config=False)
+        # Load dbkey / genome build manager
+        self._configure_genome_builds(data_table_name="__dbkeys__", load_old_style=True)
+
         # Genomes
         self.genomes = self._register_singleton(Genomes)
         # Data providers registry.
@@ -788,9 +775,6 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication, InstallationT
         self._configure_toolbox()
         # Load Data Manager
         self.data_managers = self._register_singleton(DataManagers)
-        self.installed_repository_manager = self._register_singleton(
-            InstalledRepositoryManager, InstalledRepositoryManager(self)
-        )
         # Load the update repository manager.
         self.update_repository_manager = self._register_singleton(
             UpdateRepositoryManager, UpdateRepositoryManager(self)
@@ -803,12 +787,14 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication, InstallationT
         self.datatypes_registry.load_external_metadata_tool(self.toolbox)
         # Load history import/export tools.
         load_lib_tools(self.toolbox)
+        self.toolbox.persist_cache(register_postfork=True)
         # visualizations registry: associates resources with visualizations, controls how to render
         self.visualizations_registry = self._register_singleton(
             VisualizationsRegistry,
             VisualizationsRegistry(
                 self,
                 directories_setting=self.config.visualization_plugins_directory,
+                template_cache_dir=self.config.template_cache_path,
             ),
         )
         # Tours registry
@@ -858,6 +844,8 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication, InstallationT
         # Must be initialized after job_config.
         self.workflow_scheduling_manager = scheduling_manager.WorkflowSchedulingManager(self)
 
+        # We need InteractiveToolManager before the job handler starts
+        self.interactivetool_manager = InteractiveToolManager(self)
         # Start the job manager
         self.application_stack.register_postfork_function(self.job_manager.start)
         # Must be initialized after any component that might make use of stack messaging is configured. Alternatively if

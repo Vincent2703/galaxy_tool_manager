@@ -2,6 +2,8 @@
 
 import sys
 
+assert sys.version_info[:2] >= (2, 6)
+
 
 def __main__():
     input_name = sys.argv[1]
@@ -33,9 +35,12 @@ def __main__():
                 skipped_lines += 1
                 if not first_skipped_line:
                     first_skipped_line = i + 1
-    info_msg = f"{i + 1 - skipped_lines} lines converted to BED.  "
+    info_msg = "%i lines converted to BED.  " % (i + 1 - skipped_lines)
     if skipped_lines > 0:
-        info_msg += f"Skipped {skipped_lines} blank/comment/invalid lines starting with line #{first_skipped_line}."
+        info_msg += "Skipped %d blank/comment/invalid lines starting with line #%d." % (
+            skipped_lines,
+            first_skipped_line,
+        )
     print(info_msg)
 
 

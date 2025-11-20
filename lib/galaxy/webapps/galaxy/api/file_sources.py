@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 from fastapi import (
     Body,
@@ -110,7 +111,7 @@ class FastAPIFileSources:
     def instance_index(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-    ) -> list[UserFileSourceModel]:
+    ) -> List[UserFileSourceModel]:
         return self.file_source_instances_manager.index(trans)
 
     @router.get(

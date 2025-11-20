@@ -2,7 +2,6 @@
 import { ref, watch } from "vue";
 
 import { getObjectStoreDetails } from "@/api/objectStores";
-import localize from "@/utils/localization";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 import type { ConcreteObjectStoreModel } from "./types";
@@ -36,15 +35,15 @@ watch(
     () => props.preferredObjectStoreId,
     async () => {
         fetch();
-    },
+    }
 );
 fetch();
-const loadingMessage = localize("Loading Galaxy storage details");
+const loadingMessage = "Loading storage location details";
 </script>
 
 <template>
     <div>
-        <LoadingSpan v-if="loading" :message="loadingMessage" />
+        <LoadingSpan v-if="loading" :message="loadingMessage | localize" />
         <DescribeObjectStore v-else-if="objectStore != null" :what="forWhat" :storage-info="objectStore">
         </DescribeObjectStore>
         <b-alert v-else-if="error" show variant="danger">{{ error }}</b-alert>

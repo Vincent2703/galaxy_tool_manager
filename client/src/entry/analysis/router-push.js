@@ -1,5 +1,5 @@
-import { getGalaxyInstance } from "@/app";
-import { addSearchParams } from "@/utils/url";
+import { getGalaxyInstance } from "app";
+import { addSearchParams } from "utils/url";
 
 /**
  * Is called before the regular router.push() and allows us to provide logs,
@@ -7,24 +7,15 @@ import { addSearchParams } from "@/utils/url";
  * refresh if needed.
  *
  * @param {String} Location as parsed to original router.push()
- * @param {Object} Custom options, to provide a title, force reload, and/or prevent window manager
+ * @param {Object} Custom options, to provide a title and/or force reload
  */
 export function patchRouterPush(VueRouter) {
     const originalPush = VueRouter.prototype.push;
     VueRouter.prototype.push = function push(location, options = {}) {
         // add key to location to force component refresh
-        const { title, force, preventWindowManager } = options;
+        const { title, force } = options;
         if (force) {
-            // since location can either be string or object, we need to pass the string url to addSearchParams
-            if (typeof location === "string") {
-                location = addSearchParams(location, { __vkey__: Date.now() });
-            } else if (typeof location === "object") {
-                // convert to string version addSearchParams can handle
-                let url = this.resolve(location).href;
-                url = addSearchParams(url, { __vkey__: Date.now() });
-                // convert back to object version
-                location = this.resolve(url).route;
-            }
+            location = addSearchParams(location, { __vkey__: Date.now() });
         }
         // verify if confirmation is required
         if (this.confirmation) {
@@ -36,7 +27,7 @@ export function patchRouterPush(VueRouter) {
         }
         // show location in window manager
         const Galaxy = getGalaxyInstance();
-        if (title && !preventWindowManager && Galaxy.frame && Galaxy.frame.active) {
+        if (title && Galaxy.frame && Galaxy.frame.active) {
             Galaxy.frame.add({ title: title, url: location });
             return;
         }

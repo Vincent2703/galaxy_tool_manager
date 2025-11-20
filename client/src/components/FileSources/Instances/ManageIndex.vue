@@ -7,16 +7,16 @@ import { useInstanceTesting } from "@/components/ConfigTemplates/useConfiguratio
 import { useFiltering } from "@/components/ConfigTemplates/useInstanceFiltering";
 import { useFileSourceInstancesStore } from "@/stores/fileSourceInstancesStore";
 
+import InstanceDropdown from "./InstanceDropdown.vue";
 import ManageIndexHeader from "@/components/ConfigTemplates/ManageIndexHeader.vue";
 import FileSourceTypeSpan from "@/components/FileSources/FileSourceTypeSpan.vue";
-import InstanceDropdown from "@/components/FileSources/Instances/InstanceDropdown.vue";
 import TemplateSummarySpan from "@/components/FileSources/Templates/TemplateSummarySpan.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 
 const fileSourceInstancesStore = useFileSourceInstancesStore();
 
 interface Props {
-    message?: string;
+    message: String | undefined | null;
 }
 
 defineProps<Props>();
@@ -41,7 +41,10 @@ const { ConfigurationTestSummaryModal, showTestResults, testResults, test, testi
 <template>
     <div>
         <ConfigurationTestSummaryModal v-model="showTestResults" :error="testingError" :test-results="testResults" />
-        <ManageIndexHeader header="My Repositories" :message="message" create-route="/file_source_instances/create">
+        <ManageIndexHeader
+            :message="message"
+            create-button-id="file-source-create"
+            create-route="/file_source_instances/create">
         </ManageIndexHeader>
         <BTable
             id="user-file-sources-index"

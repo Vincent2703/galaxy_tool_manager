@@ -1,53 +1,31 @@
 <script setup lang="ts">
-import { reactive, type Ref, ref } from "vue";
+import { BModal } from "bootstrap-vue";
+import { reactive, ref } from "vue";
 
-import type { WorkflowSummary } from "@/api/workflows";
-
-import type { SelectedWorkflow } from "./types";
+import type { Workflow } from "@/components/Workflow/workflows.services";
 
 import WorkflowCard from "./WorkflowCard.vue";
 import WorkflowRename from "./WorkflowRename.vue";
-import GModal from "@/components/BaseComponents/GModal.vue";
 import WorkflowPublished from "@/components/Workflow/Published/WorkflowPublished.vue";
-import WorkflowPublishedButtons from "@/components/Workflow/Published/WorkflowPublishedButtons.vue";
 
 interface Props {
-    workflows: WorkflowSummary[];
+    workflows: Workflow[];
     gridView?: boolean;
     hideRuns?: boolean;
     filterable?: boolean;
     publishedView?: boolean;
     editorView?: boolean;
-    compact?: boolean;
     currentWorkflowId?: string;
-    selectedWorkflowIds?: SelectedWorkflow[];
-    itemRefs?: Record<string, Ref<InstanceType<typeof WorkflowCard> | null>>;
-    rangeSelectAnchor?: WorkflowSummary;
-    clickable?: boolean;
 }
 
-const props = withDefaults(defineProps<Props>(), {
-    gridView: false,
-    hideRuns: false,
-    filterable: true,
-    publishedView: false,
-    editorView: false,
-    compact: false,
-    currentWorkflowId: "",
-    selectedWorkflowIds: () => [],
-    itemRefs: () => ({}),
-    rangeSelectAnchor: undefined,
-});
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
-    (e: "select", workflow: WorkflowSummary): void;
     (e: "tagClick", tag: string): void;
     (e: "refreshList", overlayLoading?: boolean, silent?: boolean): void;
     (e: "updateFilter", key: string, value: any): void;
     (e: "insertWorkflow", id: string, name: string): void;
     (e: "insertWorkflowSteps", id: string, stepCount: number): void;
-    (e: "on-key-down", workflow: WorkflowSummary, event: KeyboardEvent): void;
-    (e: "on-workflow-card-click", workflow: WorkflowSummary, event: Event): void;
 }>();
 
 const modalOptions = reactive({
@@ -61,11 +39,10 @@ const modalOptions = reactive({
 });
 
 const showRename = ref(false);
-const showPreview = ref(false);
 
 function onRenameClose() {
     showRename.value = false;
-    emit("refreshList", true, true);
+    emit("refreshList", true);
 }
 
 function onRename(id: string, name: string) {
@@ -74,53 +51,44 @@ function onRename(id: string, name: string) {
     showRename.value = true;
 }
 
+const showPreview = ref(false);
+
 function onPreview(id: string) {
     modalOptions.preview.id = id;
     showPreview.value = true;
 }
 
 // TODO: clean-up types, as soon as better Workflow type is available
-function onInsert(workflow: WorkflowSummary) {
-    emit("insertWorkflow", workflow.latest_workflow_id, workflow.name);
+function onInsert(workflow: Workflow) {
+    emit("insertWorkflow", workflow.latest_workflow_id as any, workflow.name as any);
 }
 
-function onInsertSteps(workflow: WorkflowSummary) {
-    emit("insertWorkflowSteps", workflow.id, workflow.number_of_steps as any);
+function onInsertSteps(workflow: Workflow) {
+    emit("insertWorkflowSteps", workflow.id as any, workflow.number_of_steps as any);
 }
-
-const workflowPublished = ref<InstanceType<typeof WorkflowPublished>>();
 </script>
 
 <template>
-    <div class="workflow-card-list d-flex flex-wrap overflow-auto pt-1">
+    <div class="workflow-card-list" :class="{ grid: props.gridView }">
         <WorkflowCard
-            v-for="workflow in workflows"
-            :ref="props.itemRefs[workflow.id]"
+            v-for="workflow in props.workflows"
             :key="workflow.id"
-            tabindex="0"
             :workflow="workflow"
-            :selectable="!publishedView && !editorView"
-            :selected="props.selectedWorkflowIds.some((w) => w.id === workflow.id)"
             :grid-view="props.gridView"
             :hide-runs="props.hideRuns"
             :filterable="props.filterable"
             :published-view="props.publishedView"
             :editor-view="props.editorView"
-            :compact="props.compact"
             :current="workflow.id === props.currentWorkflowId"
-            :clickable="props.clickable"
-            :highlighted="props.rangeSelectAnchor?.id === workflow.id"
-            class="workflow-card-in-list"
-            @select="(...args) => emit('select', ...args)"
+            class="workflow-card"
             @tagClick="(...args) => emit('tagClick', ...args)"
             @refreshList="(...args) => emit('refreshList', ...args)"
             @updateFilter="(...args) => emit('updateFilter', ...args)"
             @rename="onRename"
             @preview="onPreview"
             @insert="onInsert(workflow)"
-            @insertSteps="onInsertSteps(workflow)"
-            @on-key-down="(...args) => emit('on-key-down', ...args)"
-            @on-workflow-card-click="(...args) => emit('on-workflow-card-click', ...args)" />
+            @insertSteps="onInsertSteps(workflow)">
+        </WorkflowCard>
 
         <WorkflowRename
             :id="modalOptions.rename.id"
@@ -128,29 +96,15 @@ const workflowPublished = ref<InstanceType<typeof WorkflowPublished>>();
             :name="modalOptions.rename.name"
             @close="onRenameClose" />
 
-        <GModal
-            :show.sync="showPreview"
-            size="large"
-            title="Workflow Preview"
+        <BModal
+            v-model="showPreview"
+            ok-only
+            size="xl"
             hide-header
-            fixed-height
-            class="workflow-card-preview-modal"
+            dialog-class="workflow-card-preview-modal w-auto"
             centered>
-            <template v-slot:header>
-                <WorkflowPublishedButtons
-                    v-if="workflowPublished?.workflowInfo"
-                    :id="modalOptions.preview.id"
-                    :workflow-info="workflowPublished?.workflowInfo" />
-            </template>
-
-            <WorkflowPublished
-                v-if="showPreview"
-                :id="modalOptions.preview.id"
-                ref="workflowPublished"
-                :show-heading="false"
-                :show-buttons="false"
-                quick-view />
-        </GModal>
+            <WorkflowPublished v-if="showPreview" :id="modalOptions.preview.id" quick-view />
+        </BModal>
     </div>
 </template>
 
@@ -165,10 +119,27 @@ const workflowPublished = ref<InstanceType<typeof WorkflowPublished>>();
 </style>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
 @import "_breakpoints.scss";
 
 .workflow-card-list {
-    container: cards-list / inline-size;
+    container: card-list / inline-size;
+    display: flex;
+    flex-wrap: wrap;
+
+    .workflow-card {
+        width: 100%;
+    }
+
+    &.grid .workflow-card {
+        width: calc(100% / 3);
+
+        @container card-list (max-width: #{$breakpoint-xl}) {
+            width: calc(100% / 2);
+        }
+
+        @container card-list (max-width: #{$breakpoint-sm}) {
+            width: 100%;
+        }
+    }
 }
 </style>

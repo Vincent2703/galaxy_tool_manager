@@ -1,39 +1,39 @@
 <template>
-    <GButton
+    <BButton
         v-if="isConfigLoaded && canDownload(config)"
-        tooltip
-        tooltip-placement="bottom"
+        v-b-tooltip.hover.bottom
         :title="title"
-        :color="color"
-        :outline="outline"
+        :variant="variant"
         :size="size"
+        role="button"
         @click="onDownload(config)">
         Generate
-        <FontAwesomeIcon v-if="waiting" :icon="faSpinner" spin />
-        <FontAwesomeIcon v-else :icon="faDownload" />
-    </GButton>
+        <FontAwesomeIcon v-if="waiting" icon="spinner" spin />
+        <FontAwesomeIcon v-else icon="download" />
+    </BButton>
 </template>
 
 <script>
 /*
-    A Galaxy Button with logic for interfacing with Galaxy's short term storage
+    A Bootstrap Button with logic for interfacing with Galaxy's short term storage
     component (STS).
 */
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faDownload, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import axios from "axios";
+import { BButton } from "bootstrap-vue";
+import { Toast } from "composables/toast";
+import { getAppRoot } from "onload/loadConfig";
+import { withPrefix } from "utils/redirect";
 
 import { useConfig } from "@/composables/config";
-import { Toast } from "@/composables/toast";
-import { getAppRoot } from "@/onload/loadConfig";
-import { withPrefix } from "@/utils/redirect";
 
-import GButton from "./BaseComponents/GButton.vue";
-
+library.add(faDownload, faSpinner);
 export default {
     components: {
         FontAwesomeIcon,
-        GButton,
+        BButton,
     },
     props: {
         title: {
@@ -54,17 +54,13 @@ export default {
             type: String,
             default: null,
         },
-        color: {
+        variant: {
             type: String,
             default: null,
         },
-        outline: {
-            type: Boolean,
-            default: false,
-        },
         size: {
             type: String,
-            default: "medium",
+            default: "md",
         },
     },
     setup() {
@@ -73,8 +69,6 @@ export default {
     },
     data() {
         return {
-            faDownload,
-            faSpinner,
             waiting: false,
             delay: 200,
         };

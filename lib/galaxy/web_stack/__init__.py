@@ -7,16 +7,15 @@ import sys
 import threading
 from typing import (
     Callable,
+    FrozenSet,
+    List,
     Optional,
-    TYPE_CHECKING,
+    Type,
 )
 
 from galaxy.model import database_utils
 from galaxy.util.facts import get_facts
 from .handlers import HANDLER_ASSIGNMENT_METHODS
-
-if TYPE_CHECKING:
-    from .handlers import ConfiguresHandlers
 
 log = logging.getLogger(__name__)
 
@@ -28,8 +27,8 @@ class ApplicationStackLogFilter(logging.Filter):
 
 class ApplicationStack:
     name: Optional[str] = None
-    prohibited_middleware: frozenset[str] = frozenset()
-    log_filter_class: type[logging.Filter] = ApplicationStackLogFilter
+    prohibited_middleware: FrozenSet[str] = frozenset()
+    log_filter_class: Type[logging.Filter] = ApplicationStackLogFilter
     log_format = "%(name)s %(levelname)s %(asctime)s [pN:%(processName)s,p:%(process)d,tN:%(threadName)s] %(message)s"
     # TODO: this belongs in the pool configuration
     server_name_template = "{server_name}"
@@ -80,17 +79,17 @@ class ApplicationStack:
                 self._preferred_handler_assignment_method = HANDLER_ASSIGNMENT_METHODS.DB_TRANSACTION_ISOLATION
         return self._preferred_handler_assignment_method
 
-    def _set_default_job_handler_assignment_methods(self, job_config: "ConfiguresHandlers", base_pool: str) -> None:
+    def _set_default_job_handler_assignment_methods(self, job_config, base_pool):
         """Override in subclasses to set default job handler assignment methods if not explicitly configured by the administrator.
 
         Called once per job_config.
         """
 
-    def _init_job_handler_assignment_methods(self, job_config: "ConfiguresHandlers", base_pool: str) -> None:
+    def _init_job_handler_assignment_methods(self, job_config, base_pool):
         if not job_config.handler_assignment_methods_configured:
             self._set_default_job_handler_assignment_methods(job_config, base_pool)
 
-    def _init_job_handler_subpools(self, job_config: "ConfiguresHandlers", base_pool: str) -> None:
+    def _init_job_handler_subpools(self, job_config, base_pool):
         """Set up members of "subpools" ("base_pool.*") as handlers (including the base pool itself, if it exists)."""
         for pool_name in self.configured_pools:
             if pool_name == base_pool:
@@ -109,7 +108,7 @@ class ApplicationStack:
                     job_config.add_handler(handler, [tag])
                 job_config.pool_for_tag[tag] = pool_name
 
-    def init_job_handling(self, job_config: "ConfiguresHandlers") -> None:
+    def init_job_handling(self, job_config):
         """Automatically add pools as handlers if they are named per predefined names and there is not an explicit
         job handler assignment configuration.
 
@@ -151,17 +150,17 @@ class ApplicationStack:
     def configured_pools(self):
         return {}
 
-    def has_base_pool(self, pool_name: str) -> bool:
+    def has_base_pool(self, pool_name):
         return self.has_pool(pool_name) or any(pool.startswith(f"{pool_name}.") for pool in self.configured_pools)
 
-    def has_pool(self, pool_name: str) -> bool:
+    def has_pool(self, pool_name):
         return pool_name in self.configured_pools
 
-    def in_pool(self, pool_name: str) -> bool:
+    def in_pool(self, pool_name):
         return False
 
-    def pool_members(self, pool_name: str) -> tuple[str, ...]:
-        return ()
+    def pool_members(self, pool_name):
+        return None
 
     @property
     def facts(self):
@@ -187,7 +186,7 @@ class WebApplicationStack(ApplicationStack):
 class GunicornApplicationStack(ApplicationStack):
     name = "Gunicorn"
     do_post_fork = "--preload" in os.environ.get("GUNICORN_CMD_ARGS", "") or "--preload" in sys.argv
-    postfork_functions: list[Callable] = []
+    postfork_functions: List[Callable] = []
     # Will be set to True by external hook
     late_postfork_event = threading.Event()
     late_postfork_thread: threading.Thread
@@ -228,7 +227,7 @@ class GunicornApplicationStack(ApplicationStack):
 class WeblessApplicationStack(ApplicationStack):
     name = "Webless"
 
-    def _set_default_job_handler_assignment_methods(self, job_config: "ConfiguresHandlers", base_pool: str) -> None:
+    def _set_default_job_handler_assignment_methods(self, job_config, base_pool):
         # We will only get here if --attach-to-pool has been set so it is safe to assume that this handler is dynamic
         # and that we want to use one of the DB serialization methods.
         #
@@ -269,16 +268,16 @@ class WeblessApplicationStack(ApplicationStack):
 
     @property
     def configured_pools(self):
-        return dict.fromkeys(self.config.attach_to_pools, self.config.server_name)
+        return {p: self.config.server_name for p in self.config.attach_to_pools}
 
-    def in_pool(self, pool_name: str) -> bool:
+    def in_pool(self, pool_name):
         return pool_name in self.config.attach_to_pools
 
-    def pool_members(self, pool_name: str) -> tuple[str, ...]:
-        return (self.config.server_name,) if self.in_pool(pool_name) else ()
+    def pool_members(self, pool_name):
+        return (self.config.server_name,) if self.in_pool(pool_name) else None
 
 
-def application_stack_class() -> type[ApplicationStack]:
+def application_stack_class() -> Type[ApplicationStack]:
     """Returns the correct ApplicationStack class for the stack under which
     this Galaxy process is running.
     """
@@ -298,8 +297,12 @@ def application_stack_log_filter():
     return application_stack_class().log_filter_class()
 
 
-def application_stack_log_formatter() -> logging.Formatter:
+def application_stack_log_formatter():
     return logging.Formatter(fmt=application_stack_class().log_format)
+
+
+def register_postfork_function(f, *args, post_fork_only=False, **kwargs):
+    application_stack_class().register_postfork_function(f, *args, post_fork_only=post_fork_only**kwargs)
 
 
 def get_app_kwds(config_section, app_name=None):

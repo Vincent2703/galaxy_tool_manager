@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import (
+    List,
     Union,
 )
 
@@ -58,11 +59,11 @@ class StorageItemCleanupError(Model):
 
 
 class CleanupStorageItemsRequest(Model):
-    item_ids: list[DecodedDatabaseIdField]
+    item_ids: List[DecodedDatabaseIdField]
 
 
 class StorageItemsCleanupResult(Model):
     total_item_count: int
     success_item_count: int
     total_free_bytes: int
-    errors: list[StorageItemCleanupError]
+    errors: List[StorageItemCleanupError]

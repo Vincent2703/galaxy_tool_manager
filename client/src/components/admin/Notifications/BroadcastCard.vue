@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import {
     faBroadcastTower,
     faClock,
@@ -8,17 +9,17 @@ import {
     faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BCol, BRow } from "bootstrap-vue";
+import { BButton, BCol, BInputGroup, BRow } from "bootstrap-vue";
 import { computed } from "vue";
 
 import { useConfirmDialog } from "@/composables/confirmDialog";
 import { useMarkdown } from "@/composables/markdown";
-import type { BroadcastNotification } from "@/stores/broadcastsStore";
+import { type BroadcastNotification } from "@/stores/broadcastsStore";
 
-import GButton from "@/components/BaseComponents/GButton.vue";
-import GButtonGroup from "@/components/BaseComponents/GButtonGroup.vue";
 import Heading from "@/components/Common/Heading.vue";
 import UtcDate from "@/components/UtcDate.vue";
+
+library.add(faBroadcastTower, faClock, faEdit, faHourglassHalf, faInfoCircle, faTrash);
 
 const { confirm } = useConfirmDialog();
 const { renderMarkdown } = useMarkdown({ openLinksInNewPage: true });
@@ -78,7 +79,7 @@ function onEditClick() {
 async function onForceExpirationClick() {
     const confirmed = await confirm(
         "Are you sure you want to expire this broadcast? It will be automatically deleted on the next cleanup cycle.",
-        "Expire broadcast",
+        "Expire broadcast"
     );
     if (confirmed) {
         emit("expire", notification.value);
@@ -104,27 +105,25 @@ function onActionClick(link: string) {
                     <UtcDate class="mr-2" :date="notification.create_time" mode="elapsed" />
                 </span>
 
-                <GButtonGroup v-if="!hasExpired">
-                    <GButton
+                <BInputGroup v-if="!hasExpired">
+                    <BButton
                         id="edit-broadcast-button"
-                        tooltip
-                        color="blue"
-                        transparent
+                        v-b-tooltip.hover
+                        variant="link"
                         title="Edit broadcast"
                         @click="onEditClick">
                         <FontAwesomeIcon :icon="faEdit" />
-                    </GButton>
+                    </BButton>
 
-                    <GButton
+                    <BButton
                         id="delete-button"
-                        tooltip
-                        color="blue"
-                        transparent
+                        v-b-tooltip.hover
+                        variant="link"
                         title="Delete broadcast"
                         @click="onForceExpirationClick">
                         <FontAwesomeIcon :icon="faTrash" />
-                    </GButton>
-                </GButtonGroup>
+                    </BButton>
+                </BInputGroup>
             </BRow>
         </BRow>
 
@@ -137,15 +136,15 @@ function onActionClick(link: string) {
                 </BRow>
 
                 <BRow no-gutters>
-                    <GButton
+                    <BButton
                         v-for="actionLink in notification.content.action_links"
                         :key="actionLink.action_name"
                         class="mr-1"
                         :title="actionLink.action_name"
-                        color="blue"
+                        variant="primary"
                         @click="onActionClick(actionLink.link)">
                         {{ actionLink.action_name }}
-                    </GButton>
+                    </BButton>
                 </BRow>
             </BCol>
 
@@ -178,7 +177,7 @@ function onActionClick(link: string) {
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "scss/theme/blue.scss";
 .broadcast-card {
     border-radius: 0.25rem;
     border: 1px solid $gray-300;

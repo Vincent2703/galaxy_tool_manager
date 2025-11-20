@@ -56,11 +56,11 @@
         </template>
         <template v-slot:actions>
             <b-row class="m-1">
-                <GButton class="mb-2 mr-sm-2 mb-sm-0" @click="installSelected">
+                <b-button class="mb-2 mr-sm-2 mb-sm-0" @click="installSelected">
                     <!-- v-bind:disabled="!hasSelection"  -->
                     <span class="fa fa-plus" />
                     Attempt Build
-                </GButton>
+                </b-button>
             </b-row>
         </template>
         <template v-slot:body>
@@ -96,11 +96,9 @@ import _ from "underscore";
 import Vue from "vue";
 
 import { getContainerResolutionToolbox, resolveContainersWithInstall } from "../AdminServices";
+import ContainerResolutionDetails from "./ContainerResolutionDetails";
+import { DESCRIPTION } from "./ContainerResolver";
 import DependencyIndexMixin from "./DependencyIndexMixin";
-
-import ContainerResolutionDetails from "./ContainerResolutionDetails.vue";
-import { DESCRIPTION } from "./ContainerResolver.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
 
 Vue.use(BootstrapVue);
 
@@ -108,7 +106,7 @@ const RESOLVER_TYPE_OPTIONS = _.keys(DESCRIPTION).map((resolverType) => ({ value
 RESOLVER_TYPE_OPTIONS.splice(0, 0, { value: null, text: "*any*" });
 
 export default {
-    components: { ContainerResolutionDetails, GButton },
+    components: { ContainerResolutionDetails },
     mixins: [DependencyIndexMixin],
     data() {
         return {

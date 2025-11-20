@@ -10,11 +10,8 @@ from galaxy import (
 )
 from galaxy.managers import histories
 from galaxy.managers.sharable import SlugBuilder
-from galaxy.model import (
-    Dataset,
-    Role,
-)
-from galaxy.model.db.role import get_private_role_user_emails_dict
+from galaxy.model import Role
+from galaxy.model.base import transaction
 from galaxy.model.item_attrs import (
     UsesAnnotations,
     UsesItemRatings,
@@ -33,7 +30,6 @@ from galaxy.webapps.base.controller import (
     BaseUIController,
     SharableMixin,
 )
-from galaxy.webapps.galaxy.services.histories import HistoriesService
 from ..api import depends
 
 log = logging.getLogger(__name__)
@@ -43,7 +39,6 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
     history_manager: histories.HistoryManager = depends(histories.HistoryManager)
     history_serializer: histories.HistorySerializer = depends(histories.HistorySerializer)
     slug_builder: SlugBuilder = depends(SlugBuilder)
-    service: HistoriesService = depends(HistoriesService)
 
     def __init__(self, app: StructuredApp):
         super().__init__(app)
@@ -139,20 +134,13 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
         history = self.history_manager.get_owned(self.decode_id(history_id), trans.user, current_history=trans.history)
         if trans.request.method == "GET":
             inputs = []
-            all_roles = set(trans.user.all_roles())
-            private_role_emails = get_private_role_user_emails_dict(trans.sa_session)
+            all_roles = trans.user.all_roles()
             current_actions = history.default_permissions
-            for action_key, action in Dataset.permitted_actions.items():
+            for action_key, action in trans.app.model.Dataset.permitted_actions.items():
                 in_roles = set()
                 for a in current_actions:
                     if a.action == action.action:
                         in_roles.add(a.role)
-
-                role_tuples = []
-                for role in all_roles:
-                    displayed_name = private_role_emails.get(role.id, role.name)
-                    role_tuples.append((displayed_name, trans.security.encode_id(role.id)))
-
                 inputs.append(
                     {
                         "type": "select",
@@ -162,7 +150,7 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
                         "name": action_key,
                         "label": action.action,
                         "help": action.description,
-                        "options": role_tuples,
+                        "options": [(role.name, trans.security.encode_id(role.id)) for role in set(all_roles)],
                         "value": [trans.security.encode_id(role.id) for role in in_roles],
                     }
                 )
@@ -170,7 +158,7 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
         else:
             self.history_manager.error_unless_mutable(history)
             permissions = {}
-            for action_key, action in Dataset.permitted_actions.items():
+            for action_key, action in trans.app.model.Dataset.permitted_actions.items():
                 in_roles = payload.get(action_key) or []
                 in_roles = [trans.sa_session.get(Role, trans.security.decode_id(x)) for x in in_roles]
                 permissions[trans.app.security_agent.get_action(action.action)] = in_roles
@@ -214,12 +202,8 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
                 ):
                     # If it's not private to me, and I can manage it, set fixed private permissions.
                     trans.app.security_agent.set_all_dataset_permissions(hda.dataset, private_permissions)
-
-            importable = history.importable
-            link_access = self.service.shareable_service.disable_link_access(trans, history_id)
         return {
-            "message": f"Success, requested permissions have been changed in {'all histories' if all_histories else history.name}.",
-            "sharing_status_changed": importable != link_access.importable,
+            "message": f"Success, requested permissions have been changed in {'all histories' if all_histories else history.name}."
         }
 
     # ......................................................................... actions/orig. async
@@ -235,7 +219,8 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
                 hda.purged = True
                 trans.sa_session.add(hda)
                 trans.log_event(f"HDA id {hda.id} has been purged")
-                trans.sa_session.commit()
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
                 if hda.dataset.user_can_purge:
                     try:
                         hda.dataset.full_delete()
@@ -246,7 +231,9 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
                     except Exception:
                         log.exception(f"Unable to purge dataset ({hda.dataset.id}) on purge of hda ({hda.id}):")
                 count += 1
-            return trans.show_ok_message(f"{count} datasets have been deleted permanently", refresh_frames=["history"])
+            return trans.show_ok_message(
+                "%d datasets have been deleted permanently" % count, refresh_frames=["history"]
+            )
         return trans.show_error_message("Cannot purge deleted datasets from this session.")
 
     @web.expose_api_anonymous
@@ -280,7 +267,7 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
             return {
                 "title": "Change history name(s)",
                 "inputs": [
-                    {"name": f"name_{i}", "label": f"Current: {h.name}", "value": h.name}
+                    {"name": "name_%i" % i, "label": f"Current: {h.name}", "value": h.name}
                     for i, h in enumerate(histories)
                 ],
             }
@@ -288,7 +275,7 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
             messages = []
             for i, h in enumerate(histories):
                 cur_name = h.get_display_name()
-                new_name = payload.get(f"name_{i}")
+                new_name = payload.get("name_%i" % i)
                 # validate name is empty
                 if not isinstance(new_name, str) or not new_name.strip():
                     messages.append(f"You must specify a valid name for History '{cur_name}'.")
@@ -299,7 +286,8 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
                 elif new_name != cur_name:
                     h.name = new_name
                     trans.sa_session.add(h)
-                    trans.sa_session.commit()
+                    with transaction(trans.sa_session):
+                        trans.sa_session.commit()
                     trans.log_event(f"History renamed: id: {str(h.id)}, renamed to: {new_name}")
                     messages.append(f"History '{cur_name}' renamed to '{new_name}'.")
             message = sanitize_text(" ".join(messages)) if messages else "History names remain unchanged."

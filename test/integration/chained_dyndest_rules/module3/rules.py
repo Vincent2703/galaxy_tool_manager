@@ -1,4 +1,4 @@
-from galaxy.jobs.job_destination import JobDestination
+from galaxy.jobs import JobDestination
 
 
 def dyndest_chain_1():

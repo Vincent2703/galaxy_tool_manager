@@ -1,5 +1,6 @@
 import logging
 from typing import (
+    List,
     Optional,
 )
 
@@ -65,7 +66,7 @@ class GridData:
     """
 
     model_class: Optional[type] = None
-    columns: list[GridColumn] = []
+    columns: List[GridColumn] = []
     default_limit: int = 1000
 
     def __init__(self):
@@ -85,7 +86,7 @@ class GridData:
 
         # Process sort arguments.
         sort_by = kwargs.get("sort_by", self.default_sort_key)
-        sort_desc = string_as_bool(kwargs.get("sort_desc", False))
+        sort_desc = string_as_bool(kwargs.get("sort_desc", True))
         for column in self.columns:
             if column.key == sort_by:
                 query = column.sort(trans, query, not sort_desc, column_name=sort_by)

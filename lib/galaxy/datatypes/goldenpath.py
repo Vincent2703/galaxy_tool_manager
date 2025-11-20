@@ -2,6 +2,7 @@ import abc
 import logging
 import os
 from typing import (
+    Set,
     Union,
 )
 
@@ -311,7 +312,7 @@ class AGPLine(metaclass=abc.ABCMeta):
     checks that involve multiple lines should not be considered.
     """
 
-    allowed_comp_types: set[str] = set()
+    allowed_comp_types: Set[str] = set()
 
     def __init__(self, fname, line_number, obj, obj_beg, obj_end, pid, comp_type):
         self.is_gap = None

@@ -1,60 +1,75 @@
-<script setup lang="ts">
-import { computed } from "vue";
-
-import type { JobBaseModel } from "@/api/jobs";
-
-import Heading from "../Common/Heading.vue";
-import CodeRow from "./CodeRow.vue";
-import JobInformation from "./JobInformation.vue";
-import JobMetrics from "@/components/JobMetrics/JobMetrics.vue";
-import JobParameters from "@/components/JobParameters/JobParameters.vue";
-
-const props = defineProps<{
-    job?: JobBaseModel;
-    jobId?: string;
-    invocationId?: string;
-}>();
-
-const id = computed(() => props.job?.id || props.jobId);
-
-// Curious as to why we're trying to access traceback, info and remote_host like this, when they don't exist on
-// `JobBaseModel`? Possibly historical reasons? (leaving as is for now)
-const traceback = computed(() => (props.job && "traceback" in props.job ? (props.job?.traceback as string) : null));
-const info = computed(() => (props.job && "info" in props.job ? (props.job?.info as string) : null));
-const remoteHost = computed(() => (props.job && "remote_host" in props.job ? (props.job.remote_host as string) : null));
-</script>
-
 <template>
-    <div v-if="id">
-        <JobInformation :job-id="id" :include-times="true" :invocation-id="invocationId">
-            <!-- only needed for admin job component -->
-            <tr v-if="traceback">
+    <b-card>
+        <JobInformation :job_id="id" :include-times="true">
+            <tr v-if="hasTraceback">
                 <td>Traceback</td>
                 <td>
-                    <CodeRow :code-label="'Traceback'" :code-item="traceback" />
+                    <CodeRow :code-label="'Traceback'" :code-item="job.traceback" />
                 </td>
             </tr>
-            <tr v-if="info">
+            <tr v-if="hasInfo">
                 <td>Info</td>
                 <td>
-                    <CodeRow :code-label="'Info'" :code-item="info" />
+                    <CodeRow :code-label="'Info'" :code-item="job.info" />
                 </td>
             </tr>
-            <tr v-if="remoteHost">
+            <tr v-if="hasRemoteHost">
                 <td>Remote Host</td>
                 <td>
-                    {{ remoteHost }}
+                    {{ job.remote_host }}
                 </td>
             </tr>
         </JobInformation>
         <br />
-        <Heading id="job-parameters-heading" h1 separator inline size="md"> Job Parameters </Heading>
+        <h2 class="h-md">Job Parameters</h2>
         <JobParameters :job-id="id" :include-title="false" />
         <br />
-        <Heading id="job-metrics-heading" h1 separator inline size="md"> Job Metrics </Heading>
+        <h2 class="h-md">Job Metrics</h2>
         <JobMetrics :job-id="id" :include-title="false" />
-    </div>
+    </b-card>
 </template>
+
+<script>
+import JobMetrics from "components/JobMetrics/JobMetrics";
+
+import JobInformation from "./JobInformation";
+
+import CodeRow from "./CodeRow.vue";
+import JobParameters from "components/JobParameters/JobParameters.vue";
+
+export default {
+    components: {
+        CodeRow,
+        JobInformation,
+        JobMetrics,
+        JobParameters,
+    },
+    props: {
+        job: {
+            type: Object,
+            required: false,
+        },
+        jobId: {
+            type: String,
+            required: false,
+        },
+    },
+    computed: {
+        id() {
+            return this.job?.id || this.jobId;
+        },
+        hasTraceback() {
+            return this.job?.traceback;
+        },
+        hasInfo() {
+            return this.job?.info;
+        },
+        hasRemoteHost() {
+            return this.job?.remote_host;
+        },
+    },
+};
+</script>
 
 <style scoped>
 .break-word {

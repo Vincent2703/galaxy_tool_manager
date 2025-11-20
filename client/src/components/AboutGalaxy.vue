@@ -5,7 +5,6 @@
 import { computed } from "vue";
 import { RouterLink } from "vue-router";
 
-import { galaxyLogo } from "@/components/icons/galaxyIcons";
 import { useConfig } from "@/composables/config";
 import { getAppRoot } from "@/onload/loadConfig";
 
@@ -30,7 +29,7 @@ const versionUserDocumentationUrl = computed(() => {
 
 <template>
     <div v-if="isConfigLoaded" class="about-galaxy">
-        <Heading h1 :icon="galaxyLogo" size="lg">Help and Support</Heading>
+        <Heading h1 :icon="['gxd', 'galaxyLogo']" size="lg">Help and Support</Heading>
         <div class="p-2">
             <Heading h2 separator size="md">Support</Heading>
             <div v-if="config.wiki_url">
@@ -86,7 +85,7 @@ const versionUserDocumentationUrl = computed(() => {
                 <template v-if="config.version_extra">
                     <p v-localize>The server also provides the following extra version information</p>
                     <ul>
-                        <li v-for="([name, value], index) in Object.entries(config.version_extra)" :key="index">
+                        <li v-for="(value, name, index) in config.version_extra" :key="index">
                             <strong>{{ name }}</strong>
                             : {{ value }}
                         </li>
@@ -117,7 +116,7 @@ const versionUserDocumentationUrl = computed(() => {
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .about-galaxy h1 {
     --fa-primary-color: #{$brand-primary};

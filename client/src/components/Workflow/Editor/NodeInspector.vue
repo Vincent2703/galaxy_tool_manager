@@ -48,10 +48,6 @@ function close() {
     inspectorStore.generalMaximized = false;
     emit("close");
 }
-
-function updateStored(v: boolean) {
-    inspectorStore.setStored(props.step, v);
-}
 </script>
 
 <template>
@@ -94,7 +90,9 @@ function updateStored(v: boolean) {
                     </template>
 
                     <BDropdownForm form-class="px-2" title="remember size for all steps using this tool">
-                        <BFormCheckbox :checked="inspectorStore.isStored(props.step)" @input="updateStored">
+                        <BFormCheckbox
+                            :checked="inspectorStore.isStored(props.step)"
+                            @input="(v) => inspectorStore.setStored(props.step, v)">
                             remember size
                         </BFormCheckbox>
                     </BDropdownForm>
@@ -139,7 +137,7 @@ function updateStored(v: boolean) {
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .tool-inspector {
     --clearance: 8px;

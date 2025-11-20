@@ -1,9 +1,6 @@
 <template>
     <div>
-        <div
-            v-for="(input, index) in inputs"
-            :key="index"
-            :class="{ 'bordered-input': syncWithGraph && activeNodeId === index }">
+        <div v-for="(input, index) in inputs" :key="index">
             <div v-if="input.type == 'conditional'" class="ui-portlet-section mt-3">
                 <div class="portlet-header">
                     <b>{{ input.test_param.label || input.test_param.name }}</b>
@@ -64,25 +61,7 @@
                 :collapsed-disable-icon="collapsedDisableIcon"
                 :loading="loading"
                 :workflow-building-mode="workflowBuildingMode"
-                :workflow-run="workflowRun"
-                @change="onChange">
-                <template v-slot:workflow-run-form-title-badges>
-                    <FormInputMismatchBadge v-if="valMismatches(input.name)" @stop-flagging="$emit('stop-flagging')" />
-                </template>
-                <template v-slot:workflow-run-form-title-items>
-                    <GButton
-                        v-if="syncWithGraph"
-                        size="small"
-                        color="blue"
-                        transparent
-                        :title="activeNodeId === index ? 'Active' : 'View in Graph'"
-                        :disabled="activeNodeId === index"
-                        @click="$emit('update:active-node-id', index)">
-                        <span class="fas fa-sitemap" />
-                        <span class="fas fa-arrow-right" />
-                    </GButton>
-                </template>
-            </FormElement>
+                @change="onChange" />
         </div>
     </div>
 </template>
@@ -92,10 +71,8 @@ import { set } from "vue";
 
 import { matchCase } from "@/components/Form/utilities";
 
-import FormInputMismatchBadge from "./Elements/FormInputMismatchBadge.vue";
 import FormCard from "./FormCard.vue";
 import FormRepeat from "./FormRepeat.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
 import FormElement from "@/components/Form/FormElement.vue";
 
 export default {
@@ -104,8 +81,6 @@ export default {
         FormCard,
         FormElement,
         FormRepeat,
-        FormInputMismatchBadge,
-        GButton,
     },
     props: {
         inputs: {
@@ -137,11 +112,11 @@ export default {
             default: null,
         },
         collapsedEnableIcon: {
-            type: Object,
+            type: String,
             default: null,
         },
         collapsedDisableIcon: {
-            type: Object,
+            type: String,
             default: null,
         },
         onChange: {
@@ -155,22 +130,6 @@ export default {
         workflowBuildingMode: {
             type: Boolean,
             default: false,
-        },
-        workflowRun: {
-            type: Boolean,
-            default: false,
-        },
-        activeNodeId: {
-            type: Number,
-            default: null,
-        },
-        syncWithGraph: {
-            type: Boolean,
-            default: false,
-        },
-        stepsNotMatchingRequest: {
-            type: Array,
-            default: () => [],
         },
     },
     methods: {
@@ -208,16 +167,6 @@ export default {
 
             this.onChangeForm();
         },
-        valMismatches(name) {
-            return this.workflowRun && this.stepsNotMatchingRequest.map((step) => step.toString()).includes(name);
-        },
     },
 };
 </script>
-
-<style scoped>
-.bordered-input {
-    border: 1px solid blue;
-    border-radius: 0.25rem;
-}
-</style>

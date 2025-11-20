@@ -1,11 +1,11 @@
-import { computed, getCurrentScope, onScopeDispose, reactive, ref, watch } from "vue";
+import { useMagicKeys } from "@vueuse/core";
+import { computed, onScopeDispose, reactive, ref, watch } from "vue";
 
-import type { Rectangle } from "@/components/Workflow/Editor/modules/geometry";
-import { useMagicKeys } from "@/composables/useMagicKeys";
+import { type Rectangle } from "@/components/Workflow/Editor/modules/geometry";
 import { useUserLocalStorage } from "@/composables/userLocalStorage";
 
 import { defineScopedStore } from "./scopedStore";
-import type { WorkflowCommentColor } from "./workflowEditorCommentStore";
+import { type WorkflowCommentColor } from "./workflowEditorCommentStore";
 
 export type CommentTool = "textComment" | "markdownComment" | "frameComment" | "freehandComment" | "freehandEraser";
 export type EditorTool = "pointer" | "boxSelect" | CommentTool;
@@ -66,11 +66,9 @@ export const useWorkflowEditorToolbarStore = defineScopedStore("workflowEditorTo
 
         inputCatcherEventListeners.add(listener);
 
-        if (getCurrentScope()) {
-            onScopeDispose(() => {
-                inputCatcherEventListeners.delete(listener);
-            });
-        }
+        onScopeDispose(() => {
+            inputCatcherEventListeners.delete(listener);
+        });
     }
 
     onInputCatcherEvent("pointerdown", () => (inputCatcherPressed.value = true));
@@ -83,7 +81,7 @@ export const useWorkflowEditorToolbarStore = defineScopedStore("workflowEditorTo
             if (!inputCatcherActive.value) {
                 inputCatcherPressed.value = false;
             }
-        },
+        }
     );
 
     const { shift, space, alt, ctrl } = useMagicKeys();

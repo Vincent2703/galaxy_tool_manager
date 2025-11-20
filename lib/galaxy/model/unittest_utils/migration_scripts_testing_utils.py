@@ -1,6 +1,10 @@
 import os
 import subprocess
 import tempfile
+from typing import (
+    List,
+    Tuple,
+)
 
 import pytest
 from alembic.config import Config
@@ -14,7 +18,7 @@ from galaxy.util import galaxy_directory
 
 
 @pytest.fixture(scope="session")
-def alembic_config_text(migrations_dir) -> list[str]:
+def alembic_config_text(migrations_dir) -> List[str]:
     """Contents of production alembic.ini as list of lines"""
     current_config_path = migrations_dir / "alembic.ini"
     with open(current_config_path) as f:
@@ -27,7 +31,7 @@ def tmp_directory():
         yield tmp_dir
 
 
-def update_config_for_staging(config_text: list[str], script_location: str, version_locations: str, dburl: str) -> None:
+def update_config_for_staging(config_text: List[str], script_location: str, version_locations: str, dburl: str) -> None:
     """
     config_text is a list containing the text of an alembic.ini file split into lines.
     This function updates config_text in place, setting values to config options.
@@ -68,7 +72,7 @@ def run_command(cmd: str) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, text=True)
 
 
-def get_db_heads(config: Config) -> tuple[str, ...]:
+def get_db_heads(config: Config) -> Tuple[str, ...]:
     """Return revision ids (version heads) stored in the database."""
     dburl = config.get_main_option("sqlalchemy.url")
     assert dburl

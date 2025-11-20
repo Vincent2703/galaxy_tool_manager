@@ -1,10 +1,11 @@
 """Fixtures for a version of API testing that relies more heavily on pytest injection."""
 
 import os
-from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import (
     Any,
+    Iterator,
+    List,
     Optional,
 )
 
@@ -129,8 +130,8 @@ def target_history(
 
 @pytest.fixture
 def required_tools(
-    dataset_populator: DatasetPopulator, history_id: str, required_tool_ids: list[str]
-) -> list[RequiredTool]:
+    dataset_populator: DatasetPopulator, history_id: str, required_tool_ids: List[str]
+) -> List[RequiredTool]:
     tools = []
     for tool_id in required_tool_ids:
         tool = RequiredTool(dataset_populator, tool_id, history_id)
@@ -139,7 +140,7 @@ def required_tools(
 
 
 @pytest.fixture
-def required_tool(dataset_populator: DatasetPopulator, history_id: str, required_tool_ids: list[str]) -> RequiredTool:
+def required_tool(dataset_populator: DatasetPopulator, history_id: str, required_tool_ids: List[str]) -> RequiredTool:
     if len(required_tool_ids) != 1:
         raise AssertionError("required_tool fixture must only be used on methods that require a single tool")
     tool_id = required_tool_ids[0]
@@ -147,7 +148,7 @@ def required_tool(dataset_populator: DatasetPopulator, history_id: str, required
     return tool
 
 
-@pytest.fixture(params=["legacy", "21.01", "request"])
+@pytest.fixture(params=["legacy", "21.01"])
 def tool_input_format(request) -> Iterator[DescribeToolInputs]:
     yield DescribeToolInputs(request.param)
 
@@ -161,7 +162,7 @@ def check_required_tools(anonymous_galaxy_interactor, request):
 
 
 @pytest.fixture
-def required_tool_ids(anonymous_galaxy_interactor, request) -> list[str]:
+def required_tool_ids(anonymous_galaxy_interactor, request) -> List[str]:
     tool_ids = []
     for marker in request.node.iter_markers():
         if marker.name == "requires_tool_id":

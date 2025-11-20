@@ -1,11 +1,5 @@
 <template>
-    <component
-        :is="providerComponent"
-        :id="itemId"
-        :key="view"
-        v-slot="{ result: item, loading }"
-        :view="view"
-        auto-refresh>
+    <component :is="providerComponent" :id="itemId" v-slot="{ result: item, loading }" auto-refresh>
         <LoadingSpan v-if="loading" message="Loading dataset" />
         <div v-else>
             <ContentItem
@@ -17,7 +11,7 @@
                 :expand-dataset="expandDataset"
                 :is-dataset="item.history_content_type == 'dataset' || item.element_type == 'hda'"
                 @update:expand-dataset="expandDataset = $event"
-                @view-collection="onViewCollection"
+                @view-collection="viewCollection = !viewCollection"
                 @delete="onDelete"
                 @toggleHighlights="onHighlight(item)"
                 @undelete="onUndelete(item)"
@@ -30,18 +24,18 @@
 </template>
 
 <script>
+import LoadingSpan from "components/LoadingSpan";
+import { Toast } from "composables/toast";
 import { mapActions } from "pinia";
 
 import { deleteContent, updateContentFields } from "@/components/History/model/queries";
 import { DatasetCollectionProvider, DatasetProvider } from "@/components/providers";
 import { DatasetCollectionElementProvider } from "@/components/providers/storeProviders";
-import { Toast } from "@/composables/toast";
 import { useHistoryStore } from "@/stores/historyStore";
 import { errorMessageAsString } from "@/utils/simple-error";
 
-import ContentItem from "./ContentItem.vue";
-import GenericElement from "./GenericElement.vue";
-import LoadingSpan from "@/components/LoadingSpan.vue";
+import ContentItem from "./ContentItem";
+import GenericElement from "./GenericElement";
 
 export default {
     components: {
@@ -66,7 +60,6 @@ export default {
         return {
             viewCollection: false,
             expandDataset: false,
-            view: this.itemSrc === "hdca" ? "collection" : "element",
         };
     },
     computed: {
@@ -79,7 +72,6 @@ export default {
                 case "dce":
                     return "DatasetCollectionElementProvider";
                 default:
-                    // Failed on LDDAs https://github.com/galaxyproject/galaxy/issues/19687
                     throw Error(`Unknown element src ${this.itemSrc}`);
             }
         },
@@ -130,12 +122,6 @@ export default {
             } catch (error) {
                 this.onError(error, "Failed to highlight related items");
             }
-        },
-        onViewCollection(collection) {
-            if (this.view === "collection" && collection.model_class === "HistoryDatasetCollectionAssociation") {
-                this.view = "element";
-            }
-            this.viewCollection = !this.viewCollection;
         },
     },
 };

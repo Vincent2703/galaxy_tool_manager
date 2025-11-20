@@ -13,6 +13,7 @@ from galaxy.managers.pages import (
     PageContentProcessor,
     placeholderRenderForSave,
 )
+from galaxy.model.base import transaction
 from galaxy.model.mapping import init_models_from_config
 from galaxy.objectstore import build_object_store_from_config
 from galaxy.security.idencoding import IdEncodingHelper
@@ -41,7 +42,7 @@ def main(argv):
         )
 
     model = init_models_from_config(config, object_store=object_store)
-    session = model.context.current()
+    session = model.context.current
     pagerevs = session.query(model.PageRevision).all()
     mock_trans = Bunch(app=Bunch(security=security_helper), model=model, user_is_admin=lambda: True, sa_session=session)
     for p in pagerevs:
@@ -53,7 +54,9 @@ def main(argv):
                 if not args.dry_run:
                     p.content = unicodify(processor.output(), "utf-8")
                     session.add(p)
-                    session.commit()
+                    session = session()
+                    with transaction(session):
+                        session.commit()
                 else:
                     print(f"Modifying revision {p.id}.")
                     print(difflib.unified_diff(p.content, newcontent))

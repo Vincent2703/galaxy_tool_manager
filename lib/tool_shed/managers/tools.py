@@ -2,7 +2,10 @@ import os
 import tempfile
 from collections import namedtuple
 from typing import (
+    Dict,
+    List,
     Optional,
+    Tuple,
 )
 
 from galaxy import exceptions
@@ -18,7 +21,10 @@ from galaxy.tool_shed.util.hg_util import (
     clone_repository,
     get_changectx_for_changeset,
 )
-from galaxy.tool_util.model_factory import parse_tool_custom
+from galaxy.tool_util.models import (
+    parse_tool,
+    ParsedTool,
+)
 from galaxy.tool_util.parser import (
     get_tool_source,
     ToolSource,
@@ -32,11 +38,9 @@ from tool_shed.context import (
 from tool_shed.util.common_util import generate_clone_url_for
 from tool_shed.webapp.model import RepositoryMetadata
 from tool_shed.webapp.search.tool_search import ToolSearch
-from tool_shed_client.schema import ShedParsedTool
-from .repositories import get_repository_revision_metadata_model
 from .trs import trs_tool_id_to_repository_metadata
 
-STOCK_TOOL_SOURCES: Optional[dict[str, dict[str, ToolSource]]] = None
+STOCK_TOOL_SOURCES: Optional[Dict[str, Dict[str, ToolSource]]] = None
 
 
 def search(trans: SessionRequestContext, q: str, page: int = 1, page_size: int = 10) -> dict:
@@ -80,7 +84,7 @@ def search(trans: SessionRequestContext, q: str, page: int = 1, page_size: int =
 
 def get_repository_metadata_tool_dict(
     trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str
-) -> tuple[RepositoryMetadata, RepositoryMetadataToolDict]:
+) -> Tuple[RepositoryMetadata, RepositoryMetadataToolDict]:
     if trs_tool_id.count("~") < 2:
         RequestParameterInvalidException(f"Invalid TRS tool id ({trs_tool_id})")
 
@@ -90,7 +94,7 @@ def get_repository_metadata_tool_dict(
         raise ObjectNotFound()
     tool_version_repository_metadata: RepositoryMetadata = metadata_by_version[tool_version]
     raw_metadata = tool_version_repository_metadata.metadata
-    tool_dicts: list[RepositoryMetadataToolDict] = raw_metadata.get("tools", [])
+    tool_dicts: List[RepositoryMetadataToolDict] = raw_metadata.get("tools", [])
     for tool_dict in tool_dicts:
         if tool_dict["id"] != tool_id or tool_dict["version"] != tool_version:
             continue
@@ -100,9 +104,9 @@ def get_repository_metadata_tool_dict(
 
 def parsed_tool_model_cached_for(
     trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: Optional[str] = None
-) -> ShedParsedTool:
+) -> ParsedTool:
     model_cache = trans.app.model_cache
-    parsed_tool = model_cache.get_cache_entry_for(ShedParsedTool, trs_tool_id, tool_version)
+    parsed_tool = model_cache.get_cache_entry_for(ParsedTool, trs_tool_id, tool_version)
     if parsed_tool is not None:
         return parsed_tool
     parsed_tool = parsed_tool_model_for(trans, trs_tool_id, tool_version, repository_clone_url=repository_clone_url)
@@ -112,34 +116,26 @@ def parsed_tool_model_cached_for(
 
 def parsed_tool_model_for(
     trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: Optional[str] = None
-) -> ShedParsedTool:
-    tool_source, repository_metadata = tool_source_for(
-        trans, trs_tool_id, tool_version, repository_clone_url=repository_clone_url
-    )
-    parsed_tool = parse_tool_custom(tool_source, ShedParsedTool)
-    if repository_metadata:
-        revision_model = get_repository_revision_metadata_model(
-            trans.app, repository_metadata.repository, repository_metadata, recursive=False
-        )
-        parsed_tool.repository_revision = revision_model
-    return parsed_tool
+) -> ParsedTool:
+    tool_source = tool_source_for(trans, trs_tool_id, tool_version, repository_clone_url=repository_clone_url)
+    return parse_tool(tool_source)
 
 
 def tool_source_for(
     trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: Optional[str] = None
-) -> tuple[ToolSource, Optional[RepositoryMetadata]]:
+) -> ToolSource:
     if "~" in trs_tool_id:
         return _shed_tool_source_for(trans, trs_tool_id, tool_version, repository_clone_url)
     else:
         tool_source = _stock_tool_source_for(trs_tool_id, tool_version)
         if tool_source is None:
             raise ObjectNotFound()
-        return tool_source, None
+        return tool_source
 
 
 def _shed_tool_source_for(
     trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: Optional[str] = None
-) -> tuple[ToolSource, RepositoryMetadata]:
+) -> ToolSource:
     rval = get_repository_metadata_tool_dict(trans, trs_tool_id, tool_version)
     repository_metadata, tool_version_metadata = rval
     tool_config = tool_version_metadata["tool_config"]
@@ -165,7 +161,7 @@ def _shed_tool_source_for(
                 f"Target tool expected at [{path_to_tool}] and not found, inconsistent repository state or application configuration"
             )
         tool_source = get_tool_source(path_to_tool)
-        return tool_source, repository_metadata
+        return tool_source
     finally:
         remove_dir(work_dir)
 

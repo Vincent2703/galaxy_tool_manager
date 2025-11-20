@@ -22,16 +22,12 @@ watch(
     () => props.value,
     (newValue) => {
         name.value = newValue;
-    },
+    }
 );
 
 watch(name, (newValue) => {
     emit("input", newValue);
 });
-
-function updateName(v: string) {
-    name.value = v;
-}
 </script>
 
 <template>
@@ -41,12 +37,11 @@ function updateName(v: string) {
         label-for="collection-name">
         <BFormInput
             id="collection-name"
-            :value="name"
+            v-model="name"
             class="collection-name"
             :placeholder="localize('Enter a name for your new ' + shortWhatIsBeingCreated)"
             size="sm"
             required
-            :state="!name ? false : null"
-            @update="updateName" />
+            :state="!name ? false : null" />
     </BFormGroup>
 </template>

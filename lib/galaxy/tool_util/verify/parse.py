@@ -1,10 +1,8 @@
 import logging
 import os
 import traceback
-from dataclasses import dataclass
 from typing import (
     Any,
-    Dict,
     Iterable,
     List,
     Optional,
@@ -17,8 +15,6 @@ from packaging.version import Version
 from galaxy.tool_util.parameters import (
     input_models_for_tool_source,
     test_case_state as case_state,
-    TestCaseToolState,
-    ToolParameterBundleModel,
 )
 from galaxy.tool_util.parser.interface import (
     InputSource,
@@ -34,12 +30,12 @@ from galaxy.tool_util.parser.util import (
     parse_tool_version_with_defaults,
 )
 from galaxy.tool_util.parser.xml import __parse_assert_list_from_elem
+from galaxy.tool_util.verify.assertion_models import relaxed_assertion_list
 from galaxy.tool_util.verify.interactor import (
     InvalidToolTestDict,
     ToolTestDescription,
     ValidToolTestDict,
 )
-from galaxy.tool_util_models.assertions import relaxed_assertion_list
 from galaxy.util import (
     string_as_bool,
     string_as_bool_or_none,
@@ -71,18 +67,15 @@ def parse_tool_test_descriptions(
     profile = tool_source.parse_profile()
     for i, raw_test_dict in enumerate(raw_tests_dict.get("tests", [])):
         validation_exception: Optional[Exception] = None
-        request_and_schema: Optional[TestRequestAndSchema] = None
-        try:
+        if validate_on_load:
             tool_parameter_bundle = input_models_for_tool_source(tool_source)
-            validated_test_case = case_state(raw_test_dict, tool_parameter_bundle.parameters, profile, validate=True)
-            request_and_schema = TestRequestAndSchema(
-                validated_test_case.tool_state,
-                tool_parameter_bundle,
-            )
-        except Exception as e:
-            validation_exception = e
+            try:
+                case_state(raw_test_dict, tool_parameter_bundle.parameters, profile, validate=True)
+            except Exception as e:
+                # TOOD: restrict types of validation exceptions a bit probably?
+                validation_exception = e
 
-        if validation_exception and validate_on_load:
+        if validation_exception:
             tool_id, tool_version = _tool_id_and_version(tool_source, tool_guid)
             test = ToolTestDescription.from_tool_source_dict(
                 InvalidToolTestDict(
@@ -98,23 +91,13 @@ def parse_tool_test_descriptions(
                 )
             )
         else:
-            test = _description_from_tool_source(tool_source, raw_test_dict, i, tool_guid, request_and_schema)
+            test = _description_from_tool_source(tool_source, raw_test_dict, i, tool_guid)
         tests.append(test)
     return tests
 
 
-@dataclass
-class TestRequestAndSchema:
-    request: TestCaseToolState
-    request_schema: ToolParameterBundleModel
-
-
 def _description_from_tool_source(
-    tool_source: ToolSource,
-    raw_test_dict: ToolSourceTest,
-    test_index: int,
-    tool_guid: Optional[str],
-    request_and_schema: Optional[TestRequestAndSchema],
+    tool_source: ToolSource, raw_test_dict: ToolSourceTest, test_index: int, tool_guid: Optional[str]
 ) -> ToolTestDescription:
     required_files: RequiredFilesT = []
     required_data_tables: RequiredDataTablesT = []
@@ -126,12 +109,6 @@ def _description_from_tool_source(
     maxseconds = raw_test_dict.get("maxseconds", None)
     if maxseconds is not None:
         maxseconds = int(maxseconds)
-
-    request: Optional[Dict[str, Any]] = None
-    request_schema: Optional[Dict[str, Any]] = None
-    if request_and_schema:
-        request = request_and_schema.request.input_state
-        request_schema = request_and_schema.request_schema.dict()
 
     tool_id, tool_version = _tool_id_and_version(tool_source, tool_guid)
     processed_test_dict: Union[ValidToolTestDict, InvalidToolTestDict]
@@ -147,8 +124,6 @@ def _description_from_tool_source(
         processed_test_dict = ValidToolTestDict(
             {
                 "inputs": processed_inputs,
-                "request": request,
-                "request_schema": request_schema,
                 "outputs": raw_test_dict["outputs"],
                 "output_collections": raw_test_dict["output_collections"],
                 "num_outputs": num_outputs,
@@ -369,7 +344,7 @@ class ParamContext:
         self.allow_unqualified_access = parent_context.allow_unqualified_access
 
     def for_state(self) -> str:
-        name = self.name if self.index is None else f"{self.name}_{self.index}"
+        name = self.name if self.index is None else "%s_%d" % (self.name, self.index)
         parent_for_state = self.parent_context.for_state()
         if parent_for_state:
             return f"{parent_for_state}|{name}"
@@ -385,11 +360,11 @@ class ParamContext:
         else:
             for parent_context_param in self.parent_context.param_names():
                 if self.index is not None:
-                    yield f"{parent_context_param}|{self.name}_{self.index}"
+                    yield "%s|%s_%d" % (parent_context_param, self.name, self.index)
                 else:
                     yield f"{parent_context_param}|{self.name}"
             if self.index is not None:
-                yield f"{self.name}_{self.index}"
+                yield "%s_%d" % (self.name, self.index)
             else:
                 yield self.name
 

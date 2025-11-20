@@ -3,15 +3,17 @@ This module *does not* contain API routes. It exclusively contains dependencies 
 """
 
 import inspect
-from collections.abc import AsyncGenerator
 from enum import Enum
 from string import Template
 from typing import (
     Any,
+    AsyncGenerator,
     Callable,
     cast,
     NamedTuple,
     Optional,
+    Tuple,
+    Type,
     TypeVar,
 )
 from urllib.parse import (
@@ -79,11 +81,6 @@ from galaxy.model import User
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.structured_app import StructuredApp
-from galaxy.tool_util.parameters import (
-    HasToolParameters,
-    to_json_schema_string,
-    ToolState,
-)
 from galaxy.web.framework.decorators import require_admin_message
 from galaxy.webapps.base.controller import BaseAPIController
 from galaxy.webapps.galaxy.api.cbv import cbv
@@ -129,7 +126,7 @@ class GalaxyTypeDepends(Depends):
         self.galaxy_type_depends = dep_type
 
 
-def depends(dep_type: type[T], app=get_app_with_request_session) -> T:
+def depends(dep_type: Type[T], app=get_app_with_request_session) -> T:
     async def _do_resolve(request: Request):
         async for _dep in app():
             yield _dep.resolve(dep_type)
@@ -396,8 +393,6 @@ CORSPreflightRequired = Depends(cors_preflight)
 
 
 class BaseGalaxyAPIController(BaseAPIController):
-    app: StructuredApp
-
     def __init__(self, app: StructuredApp):
         super().__init__(app)
 
@@ -553,21 +548,7 @@ class APICorsRoute(APIRoute):
         original_route_handler = super().get_route_handler()
 
         async def custom_route_handler(request: Request) -> Response:
-            try:
-                response: Response = await original_route_handler(request)
-            except Exception as exc:
-                # Find and use FastAPI's exception handler
-                handler = None
-                for exc_class, exc_handler in request.app.exception_handlers.items():
-                    if isinstance(exc, exc_class):
-                        handler = exc_handler
-                        break
-
-                if handler is None:
-                    raise exc
-
-                # Call the handler - it's already a callable that takes (request, exc)
-                response = await handler(request, exc)
+            response: Response = await original_route_handler(request)
             response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
             response.headers["Access-Control-Max-Age"] = "600"
             return response
@@ -582,7 +563,7 @@ class APIContentTypeRoute(APIRoute):
 
     match_content_type: str
 
-    def accept_matches(self, scope: Scope) -> tuple[Match, Scope]:
+    def accept_matches(self, scope: Scope) -> Tuple[Match, Scope]:
         content_type_header = Headers(scope=scope).get("content-type", None)
         if not content_type_header:
             return Match.PARTIAL, scope
@@ -590,7 +571,7 @@ class APIContentTypeRoute(APIRoute):
             return Match.NONE, scope
         return Match.FULL, scope
 
-    def matches(self, scope: Scope) -> tuple[Match, Scope]:
+    def matches(self, scope: Scope) -> Tuple[Match, Scope]:
         accept_match, accept_scope = self.accept_matches(scope)
         if accept_match == Match.NONE:
             return accept_match, accept_scope
@@ -601,7 +582,7 @@ class APIContentTypeRoute(APIRoute):
         )
 
 
-def as_form(cls: type[BaseModel]):
+def as_form(cls: Type[BaseModel]):
     """
     Adds an as_form class method to decorated models. The as_form class method
     can be used with FastAPI endpoints.
@@ -628,14 +609,6 @@ def as_form(cls: type[BaseModel]):
     _as_form.__signature__ = sig  # type: ignore[attr-defined]
     cls.as_form = _as_form  # type: ignore[attr-defined]
     return cls
-
-
-def json_schema_response_for_tool_state_model(
-    state_type: type[ToolState], has_parameters: HasToolParameters
-) -> Response:
-    pydantic_model = state_type.parameter_model_for(has_parameters)
-    json_str = to_json_schema_string(pydantic_model)
-    return Response(content=json_str, media_type="application/json")
 
 
 async def try_get_request_body_as_json(request: Request) -> Optional[Any]:

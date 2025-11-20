@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { faGlobe, faLink, faShareAlt } from "@fortawesome/free-solid-svg-icons";
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faGlobe, faLink, faShareAlt, faUsers } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BButton } from "bootstrap-vue";
+
+library.add(faGlobe, faShareAlt, faLink, faUsers);
 
 interface SharingIndicatorsProps {
     object: {
@@ -27,7 +30,7 @@ const props = defineProps<SharingIndicatorsProps>();
             variant="link"
             title="Find all published items"
             @click.prevent="$emit('filter', 'published')">
-            <FontAwesomeIcon :icon="faGlobe" />
+            <FontAwesomeIcon icon="globe" />
         </BButton>
         <BButton
             v-if="props.object.importable"
@@ -37,7 +40,7 @@ const props = defineProps<SharingIndicatorsProps>();
             variant="link"
             title="Find all importable items"
             @click.prevent="$emit('filter', 'importable')">
-            <FontAwesomeIcon :icon="faLink" />
+            <FontAwesomeIcon icon="link" />
         </BButton>
         <BButton
             v-if="props.object.shared"
@@ -47,7 +50,7 @@ const props = defineProps<SharingIndicatorsProps>();
             variant="link"
             title="Find all items shared with me"
             @click.prevent="$emit('filter', 'shared_with_me')">
-            <FontAwesomeIcon :icon="faShareAlt" />
+            <FontAwesomeIcon icon="share-alt" />
         </BButton>
     </span>
 </template>

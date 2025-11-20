@@ -31,7 +31,7 @@ function toggleInfo() {
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "scss/theme/blue.scss";
 
 button {
     padding: 0.5rem;

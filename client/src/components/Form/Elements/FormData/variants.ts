@@ -1,10 +1,7 @@
-import { faCopy, faFile, faFolder } from "@fortawesome/free-regular-svg-icons";
-import type { IconDefinition } from "font-awesome-6";
-
 /** Data input variations interface */
-export interface VariantInterface {
+interface VariantInterface {
     batch: string;
-    icon: IconDefinition;
+    icon: string;
     library?: boolean;
     multiple: boolean;
     src: string;
@@ -22,7 +19,7 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
     data: [
         {
             src: SOURCE.DATASET,
-            icon: faFile,
+            icon: "fa-file",
             tooltip: "Single dataset",
             library: true,
             multiple: false,
@@ -30,14 +27,14 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
         },
         {
             src: SOURCE.DATASET,
-            icon: faCopy,
+            icon: "fa-copy",
             tooltip: "Multiple datasets",
             multiple: true,
             batch: BATCH.LINKED,
         },
         {
             src: SOURCE.COLLECTION,
-            icon: faFolder,
+            icon: "fa-folder",
             tooltip: "Dataset collection",
             multiple: false,
             batch: BATCH.LINKED,
@@ -46,7 +43,7 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
     data_multiple: [
         {
             src: SOURCE.DATASET,
-            icon: faCopy,
+            icon: "fa-copy",
             tooltip: "Multiple datasets",
             library: true,
             multiple: true,
@@ -54,7 +51,7 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
         },
         {
             src: SOURCE.COLLECTION,
-            icon: faFolder,
+            icon: "fa-folder",
             tooltip: "Dataset collection",
             multiple: true,
             batch: BATCH.DISABLED,
@@ -63,7 +60,7 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
     data_collection: [
         {
             src: SOURCE.COLLECTION,
-            icon: faFolder,
+            icon: "fa-folder",
             tooltip: "Dataset collection",
             multiple: false,
             batch: BATCH.DISABLED,
@@ -72,7 +69,7 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
     workflow_data: [
         {
             src: SOURCE.DATASET,
-            icon: faFile,
+            icon: "fa-file",
             tooltip: "Single dataset",
             multiple: false,
             batch: BATCH.DISABLED,
@@ -81,7 +78,7 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
     workflow_data_multiple: [
         {
             src: SOURCE.DATASET,
-            icon: faCopy,
+            icon: "fa-copy",
             tooltip: "Multiple datasets",
             multiple: true,
             batch: BATCH.DISABLED,
@@ -90,7 +87,7 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
     workflow_data_collection: [
         {
             src: SOURCE.COLLECTION,
-            icon: faFolder,
+            icon: "fa-folder",
             tooltip: "Dataset collection",
             multiple: false,
             batch: BATCH.DISABLED,
@@ -99,14 +96,14 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
     module_data: [
         {
             src: SOURCE.DATASET,
-            icon: faFile,
+            icon: "fa-file",
             tooltip: "Single dataset",
             multiple: false,
             batch: BATCH.DISABLED,
         },
         {
             src: SOURCE.DATASET,
-            icon: faCopy,
+            icon: "fa-copy",
             tooltip: "Multiple datasets",
             multiple: true,
             batch: BATCH.ENABLED,
@@ -115,14 +112,14 @@ export const VARIANTS: Record<string, Array<VariantInterface>> = {
     module_data_collection: [
         {
             src: SOURCE.COLLECTION,
-            icon: faFolder,
+            icon: "fa-folder",
             tooltip: "Dataset collection",
             multiple: false,
             batch: BATCH.DISABLED,
         },
         {
             src: SOURCE.COLLECTION,
-            icon: faFolder,
+            icon: "fa-folder",
             tooltip: "Multiple collections",
             multiple: true,
             batch: BATCH.ENABLED,

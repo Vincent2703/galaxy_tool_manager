@@ -3,7 +3,6 @@ import { computed } from "vue";
 
 export interface FormBooleanProps {
     value: boolean | string;
-    noLabel?: boolean;
 }
 
 const props = defineProps<FormBooleanProps>();
@@ -25,6 +24,6 @@ const label = computed(() => (currentValue.value ? "Yes" : "No"));
 
 <template>
     <b-form-checkbox v-model="currentValue" class="no-highlight" switch>
-        <span v-if="!props.noLabel">{{ label }}</span>
+        {{ label }}
     </b-form-checkbox>
 </template>

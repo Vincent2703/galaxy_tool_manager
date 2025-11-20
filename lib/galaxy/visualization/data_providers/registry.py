@@ -1,5 +1,7 @@
 from typing import (
+    Dict,
     Optional,
+    Type,
     Union,
 )
 
@@ -32,8 +34,8 @@ from galaxy.visualization.data_providers.basic import (
 from galaxy.visualization.data_providers.phyloviz import PhylovizDataProvider
 
 # a dict keyed on datatype with a 'default' string key.
-PROVIDER_BY_DATATYPE_CLASS_DICT = dict[Union[Literal["default"], type[Data]], type[BaseDataProvider]]
-DATA_PROVIDER_BY_TYPE_NAME_DICT = dict[str, Union[type[BaseDataProvider], PROVIDER_BY_DATATYPE_CLASS_DICT]]
+PROVIDER_BY_DATATYPE_CLASS_DICT = Dict[Union[Literal["default"], Type[Data]], Type[BaseDataProvider]]
+DATA_PROVIDER_BY_TYPE_NAME_DICT = Dict[str, Union[Type[BaseDataProvider], PROVIDER_BY_DATATYPE_CLASS_DICT]]
 
 
 class DataProviderRegistry:
@@ -70,7 +72,7 @@ class DataProviderRegistry:
         """
 
         data_provider: Optional[BaseDataProvider]
-        data_provider_class: type[BaseDataProvider]
+        data_provider_class: Type[BaseDataProvider]
 
         # any datatype class that is a subclass of another needs to be
         # checked before the parent in this conditional.

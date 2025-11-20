@@ -1,7 +1,6 @@
 from galaxy_test.base.decorators import requires_admin
 from galaxy_test.base.populators import flakey
 from .framework import (
-    selenium_only,
     selenium_test,
     SeleniumTestCase,
 )
@@ -10,7 +9,6 @@ from .framework import (
 class TestAdminApp(SeleniumTestCase):
     run_as_admin = True
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @requires_admin
     def test_html_allowlist(self):
@@ -39,7 +37,6 @@ class TestAdminApp(SeleniumTestCase):
         self.sleep_for(self.wait_types.UX_RENDER)
         self.screenshot("admin_allowlist_converter_sanitized")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @flakey
     @requires_admin
@@ -103,7 +100,6 @@ class TestAdminApp(SeleniumTestCase):
         self.sleep_for(self.wait_types.UX_TRANSITION)
         self.screenshot("admin_toolshed_repo_uninstalled")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @requires_admin
     def test_admin_dependencies_display(self):
@@ -126,7 +122,6 @@ class TestAdminApp(SeleniumTestCase):
         admin_component.manage_dependencies.unused_paths.wait_for_visible()
         self.screenshot("admin_dependencies_unused")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @requires_admin
     def test_admin_jobs_display(self):
@@ -155,7 +150,6 @@ class TestAdminApp(SeleniumTestCase):
         # And confirm that it has toggled back to what it was.
         assert lock_label.wait_for_text() == original_label
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @requires_admin
     def test_admin_server_display(self):
@@ -184,7 +178,6 @@ class TestAdminApp(SeleniumTestCase):
         assert title_element.text == "Local Data"
         self.screenshot("admin_local_data")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @requires_admin
     def test_admin_user_display(self):
@@ -211,7 +204,6 @@ class TestAdminApp(SeleniumTestCase):
         admin_component.roles_grid.wait_for_visible()
         self.screenshot("admin_roles")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @requires_admin
     def test_admin_data_manager(self):

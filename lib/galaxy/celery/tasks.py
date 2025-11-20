@@ -31,7 +31,6 @@ from galaxy.managers.datasets import (
     DatasetManager,
 )
 from galaxy.managers.hdas import HDAManager
-from galaxy.managers.jobs import JobSubmitter
 from galaxy.managers.lddas import LDDAManager
 from galaxy.managers.markdown_util import generate_branded_pdf
 from galaxy.managers.model_stores import ModelStoreManager
@@ -42,6 +41,7 @@ from galaxy.model import (
     Job,
     User,
 )
+from galaxy.model.base import transaction
 from galaxy.model.scoped_session import galaxy_scoped_session
 from galaxy.objectstore import BaseObjectStore
 from galaxy.objectstore.caching import check_caches
@@ -57,9 +57,7 @@ from galaxy.schema.tasks import (
     MaterializeDatasetInstanceTaskRequest,
     PrepareDatasetCollectionDownload,
     PurgeDatasetsTaskRequest,
-    QueueJobs,
     SetupHistoryExportJob,
-    TOOL_SOURCE_CLASS,
     WriteHistoryContentTo,
     WriteHistoryTo,
     WriteInvocationTo,
@@ -75,15 +73,13 @@ log = get_logger(__name__)
 
 
 @lru_cache
-def cached_create_tool_from_representation(
-    app: MinimalManagerApp,
-    raw_tool_source: str,
-    tool_source_class: TOOL_SOURCE_CLASS,
-    tool_dir: str = "",
-):
-    return create_tool_from_representation(
-        app=app, raw_tool_source=raw_tool_source, tool_dir=tool_dir, tool_source_class=tool_source_class
-    )
+def setup_data_table_manager(app):
+    app._configure_tool_data_tables(from_shed_config=False)
+
+
+@lru_cache
+def cached_create_tool_from_representation(app: MinimalManagerApp, raw_tool_source: str):
+    return create_tool_from_representation(app=app, raw_tool_source=raw_tool_source, tool_source_class="XmlToolSource")
 
 
 @galaxy_task(action="recalculate a user's disk usage")
@@ -117,11 +113,10 @@ def purge_datasets(
 def materialize(
     hda_manager: HDAManager,
     request: MaterializeDatasetInstanceTaskRequest,
-    sa_session: galaxy_scoped_session,
     task_user_id: Optional[int] = None,
 ):
     """Materialize datasets using HDAManager."""
-    hda_manager.materialize(request, sa_session())
+    hda_manager.materialize(request)
 
 
 @galaxy_task(action="set metadata for job")
@@ -162,7 +157,8 @@ def change_datatype(
         path = dataset_instance.dataset.get_file_name()
         datatype = sniff.guess_ext(path, datatypes_registry.sniff_order)
     datatypes_registry.change_datatype(dataset_instance, datatype)
-    sa_session.commit()
+    with transaction(sa_session):
+        sa_session.commit()
     set_metadata(hda_manager, ldda_manager, sa_session, dataset_id, model_class)
 
 
@@ -178,7 +174,8 @@ def touch(
     stmt = select(model.HistoryDatasetCollectionAssociation).filter_by(id=item_id)
     item = sa_session.execute(stmt).scalar_one()
     item.touch()
-    sa_session.commit()
+    with transaction(sa_session):
+        sa_session.commit()
 
 
 @galaxy_task(action="set dataset association metadata")
@@ -205,14 +202,15 @@ def set_metadata(
     try:
         if overwrite:
             hda_manager.overwrite_metadata(dataset_instance)
-        dataset_instance.datatype.set_meta(dataset_instance)
+        dataset_instance.datatype.set_meta(dataset_instance)  # type:ignore [arg-type]
         dataset_instance.set_peek()
         # Reset SETTING_METADATA state so the dataset instance getter picks the dataset state
         dataset_instance.set_metadata_success_state()
     except Exception as e:
         log.info(f"Setting metadata failed on {model_class} {dataset_instance.id}: {str(e)}")
         dataset_instance.state = dataset_instance.states.FAILED_METADATA
-    sa_session.commit()
+    with transaction(sa_session):
+        sa_session.commit()
 
 
 def _get_dataset_manager(
@@ -231,14 +229,11 @@ def setup_fetch_data(
     self,
     job_id: int,
     raw_tool_source: str,
-    tool_source_class: TOOL_SOURCE_CLASS,
     app: MinimalManagerApp,
     sa_session: galaxy_scoped_session,
     task_user_id: Optional[int] = None,
 ):
-    tool = cached_create_tool_from_representation(
-        app=app, raw_tool_source=raw_tool_source, tool_source_class=tool_source_class
-    )
+    tool = cached_create_tool_from_representation(app=app, raw_tool_source=raw_tool_source)
     job = sa_session.get(Job, job_id)
     assert job
     # self.request.hostname is the actual worker name given by the `-n` argument, not the hostname as you might think.
@@ -267,14 +262,11 @@ def setup_fetch_data(
 def finish_job(
     job_id: int,
     raw_tool_source: str,
-    tool_source_class: TOOL_SOURCE_CLASS,
     app: MinimalManagerApp,
     sa_session: galaxy_scoped_session,
     task_user_id: Optional[int] = None,
 ):
-    tool = cached_create_tool_from_representation(
-        app=app, raw_tool_source=raw_tool_source, tool_source_class=tool_source_class
-    )
+    tool = cached_create_tool_from_representation(app=app, raw_tool_source=raw_tool_source)
     job = sa_session.get(Job, job_id)
     assert job
     # TODO: assert state ?
@@ -297,7 +289,7 @@ def abort_when_job_stops(function: Callable, session: galaxy_scoped_session, job
     if not is_aborted(session, job_id):
         future = celery_app.fork_pool.submit(
             function,
-            None,
+            timeout=None,
             **kwargs,
         )
         while True:
@@ -342,21 +334,6 @@ def fetch_data(
     mini_job_wrapper = MinimalJobWrapper(job=job, app=app)
     mini_job_wrapper.change_state(model.Job.states.RUNNING, flush=True, job=job)
     return abort_when_job_stops(_fetch_data, session=sa_session, job_id=job_id, setup_return=setup_return)
-
-
-@galaxy_task(action="queuing up submitted jobs")
-def queue_jobs(request: QueueJobs, app: MinimalManagerApp, job_submitter: JobSubmitter):
-    tool = cached_create_tool_from_representation(
-        app=app,
-        raw_tool_source=request.tool_source.raw_tool_source,
-        tool_dir=request.tool_source.tool_dir,
-        tool_source_class=request.tool_source.tool_source_class,
-    )
-
-    job_submitter.queue_jobs(
-        tool,
-        request,
-    )
 
 
 @galaxy_task(ignore_result=True, action="setting up export history job")
@@ -474,6 +451,7 @@ def import_data_bundle(
     tool_data_file_path: Optional[str] = None,
     task_user_id: Optional[int] = None,
 ):
+    setup_data_table_manager(app)
     if src == "uri":
         assert uri
         tool_data_import_manager.import_data_bundle_by_uri(config, uri, tool_data_file_path=tool_data_file_path)
@@ -528,12 +506,13 @@ def send_notification_to_recipients_async(
 @galaxy_task(action="dispatch pending notifications")
 def dispatch_pending_notifications(notification_manager: NotificationManager):
     """Dispatch pending notifications."""
-    if count := notification_manager.dispatch_pending_notifications_via_channels():
+    count = notification_manager.dispatch_pending_notifications_via_channels()
+    if count:
         log.info(f"Successfully dispatched {count} notifications.")
 
 
 @galaxy_task(action="clean up job working directories")
-def cleanup_jwds(sa_session: galaxy_scoped_session, object_store: BaseObjectStore, config: GalaxyAppConfiguration):
+def cleanup_jwds(sa_session: galaxy_scoped_session, object_store: BaseObjectStore, days: int = 5):
     """Cleanup job working directories for failed jobs that are older than X days"""
 
     def get_failed_jobs():
@@ -555,7 +534,6 @@ def cleanup_jwds(sa_session: galaxy_scoped_session, object_store: BaseObjectStor
             log.error(f"Error deleting job working directory: {path} : {e.strerror}")
 
     failed_jobs = get_failed_jobs()
-    days = config.failed_jobs_working_directory_cleanup_days
 
     if not failed_jobs:
         log.info("No failed jobs found within the last %s days", days)

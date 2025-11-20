@@ -3,18 +3,20 @@ Mixins for Ratable model managers and serializers.
 """
 
 import logging
+from typing import Type
 
 from sqlalchemy import select
 from sqlalchemy.sql.expression import func
 
 from galaxy.model import ItemRatingAssociation
+from galaxy.model.base import transaction
 from . import base
 
 log = logging.getLogger(__name__)
 
 
 class RatableManagerMixin:
-    rating_assoc: type[ItemRatingAssociation]
+    rating_assoc: Type[ItemRatingAssociation]
 
     def rating(self, item, user, as_int=True):
         """Returns the integer rating given to this item by the user.
@@ -57,7 +59,8 @@ class RatableManagerMixin:
         self.session().add(rating)
         if flush:
             session = self.session()
-            session.commit()
+            with transaction(session):
+                session.commit()
         return rating
 
     # TODO?: all ratings for a user

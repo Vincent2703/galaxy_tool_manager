@@ -1,6 +1,8 @@
 import logging
 from typing import (
+    Dict,
     Optional,
+    Set,
 )
 
 from galaxy.managers.base import StorageCleanerManager
@@ -29,7 +31,7 @@ class StorageCleanerService(ServiceBase):
         self.user_manager = user_manager
         self.history_cleaner = history_cleaner
         self.hda_cleaner = hda_cleaner
-        self.storage_cleaner_map: dict[StoredItemType, StorageCleanerManager] = {
+        self.storage_cleaner_map: Dict[StoredItemType, StorageCleanerManager] = {
             "history": self.history_cleaner,
             "dataset": self.hda_cleaner,
         }
@@ -64,6 +66,6 @@ class StorageCleanerService(ServiceBase):
         user = self.get_authenticated_user(trans)
         return self.storage_cleaner_map[stored_item_type].get_archived(user, offset, limit, order)
 
-    def cleanup_items(self, trans: ProvidesHistoryContext, stored_item_type: StoredItemType, item_ids: set[int]):
+    def cleanup_items(self, trans: ProvidesHistoryContext, stored_item_type: StoredItemType, item_ids: Set[int]):
         user = self.get_authenticated_user(trans)
         return self.storage_cleaner_map[stored_item_type].cleanup_items(user, item_ids)

@@ -4,6 +4,7 @@ export function getFakeRegisteredUser(data: Partial<RegisteredUser> = {}): Regis
     return {
         id: "fake_user_id",
         email: "fake_user_email",
+        tags_used: [],
         isAnonymous: false,
         username: "fake_username",
         total_disk_usage: 0,

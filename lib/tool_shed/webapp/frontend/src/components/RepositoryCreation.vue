@@ -1,29 +1,28 @@
 <script setup lang="ts">
 import UtcDate from "@/components/UtcDate.vue"
 
-import type { Repository } from "@/api"
-
+import { type FragmentType, useFragment } from "@/gql/fragment-masking"
 import { goToRepository } from "@/router"
+import { CreateFragment } from "@/gqlFragements"
 
-interface Props {
-    repository: Repository
-}
-
-const props = defineProps<Props>()
+const props = defineProps<{
+    creation: FragmentType<typeof CreateFragment>
+}>()
+const creation = useFragment(CreateFragment, props.creation)
 
 function onClick() {
-    goToRepository(props.repository.id)
+    goToRepository(creation.encodedId)
 }
 </script>
 
 <template>
     <q-item clickable v-ripple @click="onClick">
-        <q-item-section v-if="repository">
-            <q-item-label>{{ repository.name }}</q-item-label>
+        <q-item-section v-if="creation">
+            <q-item-label>{{ creation.name }}</q-item-label>
             <q-item-label caption>
                 <div>
-                    {{ repository.owner }}/{{ repository.name }} created
-                    <utc-date :date="repository.create_time" mode="elapsed" />
+                    {{ creation.user.username }}/{{ creation.name }} created
+                    <utc-date :date="creation.createTime" mode="elapsed" />
                 </div>
             </q-item-label>
         </q-item-section>

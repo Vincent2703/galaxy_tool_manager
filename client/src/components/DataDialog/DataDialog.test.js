@@ -5,7 +5,7 @@ import { Services } from "./services";
 import { UrlTracker } from "./utilities";
 
 import DataDialog from "./DataDialog.vue";
-import SelectionDialog from "@/components/SelectionDialog/SelectionDialog.vue";
+import SelectionDialog from "components/SelectionDialog/SelectionDialog.vue";
 
 jest.mock("app");
 
@@ -134,9 +134,6 @@ describe("DataDialog.vue", () => {
         wrapper = shallowMount(DataDialog, {
             propsData: mockOptions,
             localVue,
-            stubs: {
-                Icon: true,
-            },
         });
         expect(wrapper.findComponent(SelectionDialog).exists()).toBe(true);
         // Cannot get nested slot templates to render into the wrapper

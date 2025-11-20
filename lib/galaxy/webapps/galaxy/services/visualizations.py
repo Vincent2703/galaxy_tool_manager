@@ -3,6 +3,7 @@ import logging
 from typing import (
     cast,
     Optional,
+    Tuple,
     Union,
 )
 
@@ -21,6 +22,7 @@ from galaxy.model import (
     Visualization,
     VisualizationRevision,
 )
+from galaxy.model.base import transaction
 from galaxy.model.item_attrs import (
     add_item_annotation,
     get_item_annotation_str,
@@ -75,7 +77,7 @@ class VisualizationsService(ServiceBase):
         trans: ProvidesUserContext,
         payload: VisualizationIndexQueryPayload,
         include_total_count: bool = False,
-    ) -> tuple[VisualizationSummaryList, Union[int, None]]:
+    ) -> Tuple[VisualizationSummaryList, int]:
         """Return a list of Visualizations viewable by the user
 
         :rtype:     list
@@ -173,7 +175,8 @@ class VisualizationsService(ServiceBase):
 
             session = trans.sa_session
             session.add(revision)
-            session.commit()
+            with transaction(session):
+                session.commit()
 
         return VisualizationCreateResponse(id=str(visualization.id))
 
@@ -218,7 +221,8 @@ class VisualizationsService(ServiceBase):
         # allow updating vis title
         visualization.title = title
         visualization.deleted = deleted
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
 
         return VisualizationUpdateResponse(**rval) if rval else None
 
@@ -276,7 +280,8 @@ class VisualizationsService(ServiceBase):
         visualization.latest_revision = revision
         # TODO:?? does this automatically add revision to visualzation.revisions?
         trans.sa_session.add(revision)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         return revision
 
     def _create_visualization(
@@ -318,7 +323,8 @@ class VisualizationsService(ServiceBase):
 
         session = trans.sa_session
         session.add(visualization)
-        session.commit()
+        with transaction(session):
+            session.commit()
 
         return visualization
 
@@ -353,5 +359,6 @@ class VisualizationsService(ServiceBase):
         # TODO: need to handle custom db keys.
         imported_visualization = visualization.copy(user=user, title=f"imported: {visualization.title}")
         trans.sa_session.add(imported_visualization)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         return imported_visualization

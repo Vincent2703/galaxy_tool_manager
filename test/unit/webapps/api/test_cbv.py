@@ -70,14 +70,12 @@ def test_method_order_preserved() -> None:
 
     app = FastAPI()
     app.include_router(router)
-    client = TestClient(app)
 
-    assert client.get("/test").json() == 1
-    assert client.get("/other").json() == 2
+    assert TestClient(app).get("/test").json() == 1
+    assert TestClient(app).get("/other").json() == 2
 
 
 def test_multiple_decorators() -> None:
-    app = FastAPI()
     router = APIRouter()
 
     @cbv(router)
@@ -92,9 +90,7 @@ def test_multiple_decorators() -> None:
                 return {"item_query": item_query}
             return []
 
-    app = FastAPI()
-    app.include_router(router)
-    client = TestClient(app)
+    client = TestClient(router)
 
     assert client.get("/items").json() == []
     assert client.get("/items/1").json() == {"item_path": "1"}

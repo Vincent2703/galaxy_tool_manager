@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { faCheck, faCog, faRetweet, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faCog, faHourglassHalf, faRetweet } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BAlert, BButton, BButtonGroup, BCollapse, BFormCheckbox } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
@@ -12,6 +13,8 @@ import Heading from "@/components/Common/Heading.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 import NotificationCard from "@/components/Notifications/NotificationCard.vue";
 import NotificationsPreferences from "@/components/User/Notifications/NotificationsPreferences.vue";
+
+library.add(faCog, faHourglassHalf, faRetweet);
 
 const notificationsStore = useNotificationsStore();
 const { notifications, loadingNotifications } = storeToRefs(notificationsStore);
@@ -34,7 +37,7 @@ const filteredNotifications = computed(() => {
     return notifications.value.filter(filterNotifications);
 });
 const allSelected = computed(
-    () => haveSelected.value && selectedNotificationIds.value.length === notifications.value.length,
+    () => haveSelected.value && selectedNotificationIds.value.length === notifications.value.length
 );
 
 function filterNotifications(notification: UserNotification) {
@@ -73,16 +76,11 @@ function togglePreferences() {
 <template>
     <div aria-labelledby="notifications-list" class="notifications-list-container">
         <div class="notifications-list-header">
-            <Heading id="notifications-title" h1 separator inline size="lg" class="flex-grow-1 mb-2">
+            <Heading id="notifications-title" h1 separator inline size="xl" class="flex-grow-1 mb-2">
                 Notifications
             </Heading>
 
-            <BButton
-                class="mb-2"
-                size="sm"
-                variant="outline-primary"
-                :pressed="preferencesOpen"
-                @click="togglePreferences">
+            <BButton class="mb-2" variant="outline-primary" :pressed="preferencesOpen" @click="togglePreferences">
                 <FontAwesomeIcon :icon="faCog" />
                 Notifications preferences
             </BButton>
@@ -119,12 +117,12 @@ function togglePreferences() {
 
                     <div v-if="haveSelected">
                         <BButton size="sm" variant="outline-primary" @click="updateNotifications({ seen: true })">
-                            <FontAwesomeIcon :icon="faCheck" />
+                            <FontAwesomeIcon icon="check" />
                             Mark as read
                         </BButton>
 
                         <BButton size="sm" variant="outline-primary" @click="updateNotifications({ deleted: true })">
-                            <FontAwesomeIcon :icon="faTrash" />
+                            <FontAwesomeIcon icon="trash" />
                             Delete
                         </BButton>
                     </div>
@@ -140,7 +138,7 @@ function togglePreferences() {
                             :pressed="showUnread"
                             variant="outline-primary"
                             @click="showUnread = !showUnread">
-                            <FontAwesomeIcon :icon="faCheck" />
+                            <FontAwesomeIcon icon="check" />
                             Unread
                         </BButton>
 
@@ -150,7 +148,7 @@ function togglePreferences() {
                             :pressed="showShared"
                             variant="outline-primary"
                             @click="showShared = !showShared">
-                            <FontAwesomeIcon :icon="faRetweet" />
+                            <FontAwesomeIcon icon="retweet" />
                             Shared
                         </BButton>
                     </BButtonGroup>
@@ -166,21 +164,21 @@ function togglePreferences() {
                 name="notifications-list"
                 class="notifications-list"
                 tag="div">
-                <NotificationCard
-                    v-for="notification in filteredNotifications"
-                    :key="notification.id"
-                    selectable
-                    unread-border
-                    :notification="notification"
-                    :selected="selectedNotificationIds?.includes(notification.id)"
-                    @select="selectOrDeselectNotification" />
+                <div v-for="item in filteredNotifications" :key="item.id">
+                    <NotificationCard
+                        selectable
+                        unread-border
+                        :notification="item"
+                        :selected="selectedNotificationIds?.includes(item.id)"
+                        @select="selectOrDeselectNotification" />
+                </div>
             </TransitionGroup>
         </div>
     </div>
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "scss/theme/blue.scss";
 
 .notifications-list-container {
     .notifications-list-header {

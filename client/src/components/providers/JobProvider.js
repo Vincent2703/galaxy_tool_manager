@@ -1,8 +1,7 @@
 import axios from "axios";
-
-import { SingleQueryProvider } from "@/components/providers/SingleQueryProvider";
-import { getAppRoot } from "@/onload/loadConfig";
-import { rethrowSimple } from "@/utils/simple-error";
+import { SingleQueryProvider } from "components/providers/SingleQueryProvider";
+import { getAppRoot } from "onload/loadConfig";
+import { rethrowSimple } from "utils/simple-error";
 
 import { cleanPaginationParameters, stateIsTerminal } from "./utils";
 
@@ -52,10 +51,7 @@ export function jobsProvider(ctx, callback, extraParams = {}) {
     const { root, ...requestParams } = ctx;
     const apiUrl = `${root}api/jobs`;
     const cleanParams = cleanPaginationParameters(requestParams);
-    const promise = axios.get(apiUrl, {
-        params: { ...cleanParams, ...extraParams },
-        paramsSerializer: { indexes: null },
-    });
+    const promise = axios.get(apiUrl, { params: { ...cleanParams, ...extraParams } });
 
     // Must return a promise that resolves to an array of items
     return promise.then((data) => {

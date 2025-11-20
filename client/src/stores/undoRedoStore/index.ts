@@ -1,4 +1,4 @@
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 
 import { useClamp, useStep } from "@/composables/math";
 import { useUserLocalStorage } from "@/composables/userLocalStorage";
@@ -31,13 +31,6 @@ export const useUndoRedoStore = defineScopedStore("undoRedoStore", () => {
 
     /** names of actions which were deleted due to savedUndoActions being exceeded */
     const deletedActions = ref<string[]>([]);
-
-    const changeId = ref(0);
-
-    watch(
-        () => [undoActionStack.value.length, deletedActions.value.length],
-        () => (changeId.value += 1),
-    );
 
     function $reset() {
         undoActionStack.value.forEach((action) => action.destroy());
@@ -223,7 +216,6 @@ export const useUndoRedoStore = defineScopedStore("undoRedoStore", () => {
         $reset,
         rollBackTo,
         rollForwardTo,
-        changeId,
     };
 });
 

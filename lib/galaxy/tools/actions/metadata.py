@@ -1,23 +1,21 @@
 import logging
 import os
+from json import dumps
 from typing import (
     Any,
+    Dict,
     Optional,
 )
 
 from galaxy.job_execution.datasets import DatasetPath
 from galaxy.metadata import get_metadata_compute_strategy
 from galaxy.model import (
-    Dataset,
-    DatasetInstance,
     History,
-    HistoryDatasetAssociation,
     Job,
-    LibraryDatasetDatasetAssociation,
     User,
 )
+from galaxy.model.base import transaction
 from galaxy.model.dataset_collections.matching import MatchingCollections
-from galaxy.schema.credentials import CredentialsContext
 from galaxy.tools._types import ToolStateJobInstancePopulatedT
 from galaxy.tools.execute import (
     DatasetCollectionElementsSliceT,
@@ -55,7 +53,6 @@ class SetMetadataToolAction(ToolAction):
         collection_info: Optional[MatchingCollections] = None,
         job_callback: Optional[JobCallbackT] = DEFAULT_JOB_CALLBACK,
         preferred_object_store_id: Optional[str] = DEFAULT_PREFERRED_OBJECT_STORE_ID,
-        credentials_context: Optional[CredentialsContext] = None,
         set_output_hid: bool = DEFAULT_SET_OUTPUT_HID,
         flush_job: bool = True,
         skip: bool = False,
@@ -80,10 +77,10 @@ class SetMetadataToolAction(ToolAction):
         self,
         tool,
         trans,
-        incoming: Optional[dict[str, Any]],
+        incoming: Optional[Dict[str, Any]],
         overwrite: bool = True,
         history: Optional[History] = None,
-        job_params: Optional[dict[str, Any]] = None,
+        job_params: Optional[Dict[str, Any]] = None,
     ):
         trans.check_user_activation()
         session = trans.get_galaxy_session()
@@ -109,10 +106,10 @@ class SetMetadataToolAction(ToolAction):
         session_id: Optional[int],
         history_id: Optional[int],
         user: Optional[User] = None,
-        incoming: Optional[dict[str, Any]] = None,
+        incoming: Optional[Dict[str, Any]] = None,
         overwrite: bool = True,
         history: Optional[History] = None,
-        job_params: Optional[dict[str, Any]] = None,
+        job_params: Optional[Dict[str, Any]] = None,
     ):
         """
         Execute using application.
@@ -122,12 +119,12 @@ class SetMetadataToolAction(ToolAction):
             # Why are we looping here and not just using a fixed input name? Needed?
             if not name.startswith("input"):
                 continue
-            if isinstance(value, HistoryDatasetAssociation):
-                dataset: DatasetInstance = value
+            if isinstance(value, app.model.HistoryDatasetAssociation):
+                dataset = value
                 dataset_name = name
                 type = "hda"
                 break
-            elif isinstance(value, LibraryDatasetDatasetAssociation):
+            elif isinstance(value, app.model.LibraryDatasetDatasetAssociation):
                 dataset = value
                 dataset_name = name
                 type = "ldda"
@@ -138,13 +135,15 @@ class SetMetadataToolAction(ToolAction):
         sa_session = app.model.context
 
         # Create the job object
-        job = Job()
+        job = app.model.Job()
         job.galaxy_version = app.config.version_major
         job.session_id = session_id
         job.history_id = history_id
         job.tool_id = tool.id
         if user:
             job.user_id = user.id
+        if job_params:
+            job.params = dumps(job_params)
         start_job_state = job.state  # should be job.states.NEW
         try:
             # For backward compatibility, some tools may not have versions yet.
@@ -156,7 +155,8 @@ class SetMetadataToolAction(ToolAction):
             job.states.WAITING
         )  # we need to set job state to something other than NEW, or else when tracking jobs in db it will be picked up before we have added input / output parameters
         sa_session.add(job)
-        sa_session.commit()  # ensure job.id is available
+        with transaction(sa_session):  # ensure job.id is available
+            sa_session.commit()
 
         # add parameters to job_parameter table
         # Store original dataset state, so we can restore it. A separate table might be better (no chance of 'losing' the original state)?
@@ -177,7 +177,7 @@ class SetMetadataToolAction(ToolAction):
             sa_session,
             exec_dir=None,
             tmp_dir=job_working_dir,
-            dataset_files_path=Dataset.file_path,
+            dataset_files_path=app.model.Dataset.file_path,
             output_fnames=input_paths,
             config_root=app.config.root,
             config_file=app.config.config_file,
@@ -202,7 +202,8 @@ class SetMetadataToolAction(ToolAction):
         # i.e. if state was set to 'running' the set metadata job would never run, as it would wait for input (the dataset to set metadata on) to be in a ready state
         dataset.state = dataset.states.SETTING_METADATA
         job.state = start_job_state  # job inputs have been configured, restore initial job state
-        sa_session.commit()
+        with transaction(sa_session):
+            sa_session.commit()
 
         # clear e.g. converted files
         dataset.datatype.before_setting_metadata(dataset)

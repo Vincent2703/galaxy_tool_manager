@@ -1,20 +1,14 @@
-<tool id="Convert characters1" name="Convert" version="1.0.1" profile="24.2">
+<tool id="Convert characters1" name="Convert" version="1.0.0">
   <description>delimiters to TAB</description>
-  <requirements>
-    <requirement type="package" version="3.13">python</requirement>
-  </requirements>
-  <required_files>
-    <include path="convert_characters.py"/>
-  </required_files>
-  <command>
-    python '$__tool_directory__/convert_characters.py'
-      #if $strip
-        --strip
-      #end if
-      #if $condense
-        --condense
-      #end if
-      '$input' '$convert_from' '$out_file1'
+  <command interpreter="python">
+convert_characters.py
+#if $strip
+  --strip
+#end if
+#if $condense
+  --condense
+#end if
+$input $convert_from $out_file1
   </command>
   <inputs>
     <param name="convert_from" type="select" label="Convert all">
@@ -36,6 +30,9 @@
   <outputs>
     <data format="tabular" name="out_file1" />
   </outputs>
+  <stdio>
+    <exit_code range="1:" level="fatal" />
+  </stdio>
   <tests>
     <test>
       <param name="convert_from" value="s"/>

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-
 import { STATES } from "./states";
 import type { HelpText, States } from "./stateTypes";
 
@@ -53,7 +51,7 @@ function onFilter(value: string) {
                     <span v-else
                         ><code>{{ key }}</code></span
                     >
-                    <FontAwesomeIcon v-if="state.icon" :icon="state.icon" />
+                    <icon v-if="state.icon" :icon="state.icon" />
                 </dt>
                 <dd>{{ helpText[key] || state.text }}</dd>
             </div>

@@ -1,6 +1,6 @@
 import { createLocalVue, mount } from "@vue/test-utils";
 
-import StatelessTags from "./StatelessTags.vue";
+import StatelessTags from "./StatelessTags";
 
 describe("Tags/StatelessTags.vue", () => {
     const localVue = createLocalVue();

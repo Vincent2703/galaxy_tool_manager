@@ -117,31 +117,6 @@ export class AxisAlignedBoundingBox implements Rectangle {
             this.endY > other.y
         );
     }
-
-    move(position: Vector) {
-        const storedWidth = this.width;
-        const storedHeight = this.height;
-
-        this.x = position[0];
-        this.y = position[1];
-
-        this.width = storedWidth;
-        this.height = storedHeight;
-    }
-
-    scale(factor: number) {
-        this.width *= factor;
-        this.height *= factor;
-    }
-
-    transformTo(other: Rectangle): Transform {
-        const scale: Vector = [this.width / other.width, this.height / other.height];
-        const offset: Vector = [other.x - this.x, other.y - this.y];
-
-        const transform = new Transform().scale(scale).translate(offset);
-
-        return transform;
-    }
 }
 
 /* Format
@@ -242,14 +217,6 @@ export class Transform {
 
     get scaleY() {
         return this.matrix[3];
-    }
-
-    get offsetX() {
-        return this.matrix[4];
-    }
-
-    get offsetY() {
-        return this.matrix[5];
     }
 }
 

@@ -1,10 +1,10 @@
-import logging
 import os
 import shutil
 import tempfile
 from typing import (
     cast,
     IO,
+    List,
     Optional,
     Union,
 )
@@ -22,8 +22,8 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 from galaxy.exceptions import (
     ActionInputError,
     InsufficientPermissionsException,
-    RequestParameterInvalidException,
 )
+from galaxy.model.base import transaction
 from galaxy.webapps.galaxy.api import as_form
 from tool_shed.context import SessionRequestContext
 from tool_shed.managers.repositories import (
@@ -37,11 +37,7 @@ from tool_shed.managers.repositories import (
     get_repository_metadata_dict,
     get_repository_metadata_for_management,
     index_repositories,
-    index_repositories_paginated,
-    IndexRequest,
-    PaginatedIndexRequest,
     readmes,
-    reset_metadata_on_repositories,
     reset_metadata_on_repository,
     search,
     to_detailed_model,
@@ -58,9 +54,7 @@ from tool_shed_client.schema import (
     CreateRepositoryRequest,
     DetailedRepository,
     from_legacy_install_info,
-    IndexSortByType,
     InstallInfo,
-    PaginatedRepositoryIndexResults,
     Repository,
     RepositoryMetadata,
     RepositoryPermissions,
@@ -68,8 +62,6 @@ from tool_shed_client.schema import (
     RepositorySearchResults,
     RepositoryUpdate,
     RepositoryUpdateRequest,
-    ResetMetadataOnRepositoriesRequest,
-    ResetMetadataOnRepositoriesResponse,
     ResetMetadataOnRepositoryRequest,
     ResetMetadataOnRepositoryResponse,
     UpdateRepositoryRequest,
@@ -87,14 +79,10 @@ from . import (
     OptionalRepositoryNameParam,
     OptionalRepositoryOwnerParam,
     RepositoryIdPathParam,
-    RepositoryIndexCategoryQueryParam,
     RepositoryIndexDeletedQueryParam,
-    RepositoryIndexFilterParam,
     RepositoryIndexNameQueryParam,
     RepositoryIndexOwnerQueryParam,
     RepositoryIndexQueryParam,
-    RepositoryIndexSortByParam,
-    RepositoryIndexSortDescParam,
     RepositorySearchPageQueryParam,
     RepositorySearchPageSizeQueryParam,
     RequiredChangesetParam,
@@ -105,12 +93,9 @@ from . import (
     UsernameIdPathParam,
 )
 
-log = logging.getLogger(__name__)
-
-
 router = Router(tags=["repositories"])
 
-IndexResponse = Union[RepositorySearchResults, list[Repository], PaginatedRepositoryIndexResults]
+IndexResponse = Union[RepositorySearchResults, List[Repository]]
 
 
 @as_form
@@ -130,25 +115,15 @@ class FastAPIRepositories:
     def index(
         self,
         q: Optional[str] = RepositoryIndexQueryParam,
-        filter: Optional[str] = RepositoryIndexFilterParam,
         page: Optional[int] = RepositorySearchPageQueryParam,
         page_size: Optional[int] = RepositorySearchPageSizeQueryParam,
         deleted: Optional[bool] = RepositoryIndexDeletedQueryParam,
         owner: Optional[str] = RepositoryIndexOwnerQueryParam,
         name: Optional[str] = RepositoryIndexNameQueryParam,
-        category_id: Optional[str] = RepositoryIndexCategoryQueryParam,
-        sort_desc: Optional[bool] = RepositoryIndexSortDescParam,
-        sort_by: Optional[IndexSortByType] = RepositoryIndexSortByParam,
         trans: SessionRequestContext = DependsOnTrans,
     ) -> IndexResponse:
-
-        if q and filter:
-            raise RequestParameterInvalidException(
-                "Cannot specify both the 'q' and 'filter' parameter at the same time."
-            )
-
         if q:
-            page = page or 1
+            assert page is not None
             assert page_size is not None
             search_results = search(trans, q, page, page_size)
             return RepositorySearchResults(**search_results)
@@ -158,32 +133,8 @@ class FastAPIRepositories:
         # elif params.tool_ids:
         #    response = index_tool_ids(self.app, params.tool_ids)
         #    return response
-        elif page:
-            assert page_size is not None
-            paginated_index_request = PaginatedIndexRequest(
-                page=page,
-                page_size=page_size,
-                owner=owner,
-                name=name,
-                deleted=deleted or False,
-                filter=filter,
-                category_id=category_id,
-                sort_by=sort_by,
-                sort_desc=sort_desc,
-            )
-            paginated_repositories = index_repositories_paginated(self.app, paginated_index_request)
-            return paginated_repositories
         else:
-            index_request = IndexRequest(
-                owner=owner,
-                name=name,
-                deleted=deleted or False,
-                filter=filter,
-                category_id=category_id,
-                sort_by=sort_by,
-                sort_desc=sort_desc,
-            )
-            repositories = index_repositories(self.app, index_request)
+            repositories = index_repositories(self.app, name, owner, deleted or False)
             return [to_model(self.app, r) for r in repositories]
 
     @router.get(
@@ -272,7 +223,7 @@ class FastAPIRepositories:
         owner: Optional[str] = OptionalRepositoryOwnerParam,
         name: Optional[str] = OptionalRepositoryNameParam,
         tsr_id: Optional[str] = OptionalRepositoryIdParam,
-    ) -> list[str]:
+    ) -> List[str]:
         return get_ordered_installable_revisions(self.app, name, owner, tsr_id)
 
     @router.post(
@@ -300,20 +251,6 @@ class FastAPIRepositories:
         encoded_repository_id: str = RepositoryIdPathParam,
     ) -> ResetMetadataOnRepositoryResponse:
         return reset_metadata_on_repository(trans, encoded_repository_id)
-
-    @router.post(
-        "/api/repositories/reset_metadata_on_repositories",
-        description="reset metadata on all of your repositories",
-        operation_id="repositories__reset_all",
-    )
-    def reset_metadata_on_repositories(
-        self,
-        trans: SessionRequestContext = DependsOnTrans,
-        request: ResetMetadataOnRepositoriesRequest = depend_on_either_json_or_form_data(
-            ResetMetadataOnRepositoriesRequest
-        ),
-    ) -> ResetMetadataOnRepositoriesResponse:
-        return reset_metadata_on_repositories(trans, request)
 
     @router.get(
         "/api/repositories/updates",
@@ -414,7 +351,7 @@ class FastAPIRepositories:
         self,
         trans: SessionRequestContext = DependsOnTrans,
         encoded_repository_id: str = RepositoryIdPathParam,
-    ) -> list[str]:
+    ) -> List[str]:
         repository = get_repository_in_tool_shed(self.app, encoded_repository_id)
         ensure_can_manage(trans, repository)
         return trans.app.security_agent.usernames_that_can_push(repository)
@@ -428,7 +365,7 @@ class FastAPIRepositories:
         trans: SessionRequestContext = DependsOnTrans,
         encoded_repository_id: str = RepositoryIdPathParam,
         username: str = UsernameIdPathParam,
-    ) -> list[str]:
+    ) -> List[str]:
         repository = get_repository_in_tool_shed(self.app, encoded_repository_id)
         if not can_manage_repo(trans, repository):
             raise InsufficientPermissionsException("You do not have permission to update this repository.")
@@ -449,7 +386,8 @@ class FastAPIRepositories:
         repository_metadata = get_repository_metadata_for_management(trans, encoded_repository_id, changeset_revision)
         repository_metadata.malicious = True
         trans.sa_session.add(repository_metadata)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.delete(
@@ -466,7 +404,8 @@ class FastAPIRepositories:
         repository_metadata = get_repository_metadata_for_management(trans, encoded_repository_id, changeset_revision)
         repository_metadata.malicious = False
         trans.sa_session.add(repository_metadata)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.put(
@@ -483,7 +422,8 @@ class FastAPIRepositories:
         ensure_can_manage(trans, repository)
         repository.deprecated = True
         trans.sa_session.add(repository)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.delete(
@@ -500,7 +440,8 @@ class FastAPIRepositories:
         ensure_can_manage(trans, repository)
         repository.deprecated = False
         trans.sa_session.add(repository)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.delete(
@@ -512,7 +453,7 @@ class FastAPIRepositories:
         trans: SessionRequestContext = DependsOnTrans,
         encoded_repository_id: str = RepositoryIdPathParam,
         username: str = UsernameIdPathParam,
-    ) -> list[str]:
+    ) -> List[str]:
         repository = get_repository_in_tool_shed(self.app, encoded_repository_id)
         if not can_manage_repo(trans, repository):
             raise InsufficientPermissionsException("You do not have permission to update this repository.")
@@ -530,13 +471,13 @@ class FastAPIRepositories:
         encoded_repository_id: str = RepositoryIdPathParam,
         commit_message: Optional[str] = CommitMessageQueryParam,
         trans: SessionRequestContext = DependsOnTrans,
-        files: Optional[list[UploadFile]] = None,
+        files: Optional[List[UploadFile]] = None,
         revision_request: RepositoryUpdateRequest = Depends(RepositoryUpdateRequestFormData.as_form),  # type: ignore[attr-defined]
     ) -> RepositoryUpdate:
         try:
             # Code stolen from Marius' work in Galaxy's Tools API.
 
-            files2: list[StarletteUploadFile] = cast(list[StarletteUploadFile], files or [])
+            files2: List[StarletteUploadFile] = cast(List[StarletteUploadFile], files or [])
             # FastAPI's UploadFile is a very light wrapper around starlette's UploadFile
             if not files2:
                 data = await request.form()
@@ -572,6 +513,9 @@ class FastAPIRepositories:
                 if os.path.exists(filename):
                     os.remove(filename)
         except Exception:
+            import logging
+
+            log = logging.getLogger(__name__)
             log.exception("Problem in here...")
             raise
 

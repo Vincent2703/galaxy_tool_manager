@@ -1,72 +1,23 @@
 <script setup>
-import { faGear, faQuestion, faSignOutAlt, faSpinner, faUser } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BNavbar, BNavbarBrand, BNavbarNav } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { userLogout } from "utils/logout";
+import { withPrefix } from "utils/redirect";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router/composables";
 
-import {
-    getOIDCIdpsWithRegistration,
-    isOnlyOneOIDCProviderConfigured,
-    redirectToSingleProvider,
-} from "@/components/User/ExternalIdentities/ExternalIDHelper";
 import { useConfig } from "@/composables/config";
 import { useUserStore } from "@/stores/userStore";
-import { userLogout } from "@/utils/logout";
-import { withPrefix } from "@/utils/redirect";
 
-import { loadMastheadWebhooks } from "./_webhooks";
-
-import MastheadDropdown from "./MastheadDropdown.vue";
-import MastheadItem from "./MastheadItem.vue";
-import QuotaMeter from "./QuotaMeter.vue";
+import { loadWebhookMenuItems } from "./_webhooks";
+import MastheadDropdown from "./MastheadDropdown";
+import MastheadItem from "./MastheadItem";
+import QuotaMeter from "./QuotaMeter";
 
 const { isAnonymous, currentUser } = storeToRefs(useUserStore());
 
 const router = useRouter();
 const { config, isConfigLoaded } = useConfig();
-
-const hasOIDCRegistration = computed(() => {
-    const oIDCIdps = isConfigLoaded.value ? config.value.oidc : {};
-    const oIDCIdpsWithRegistration = getOIDCIdpsWithRegistration(oIDCIdps);
-    if (oIDCIdpsWithRegistration) {
-        return Object.keys(oIDCIdpsWithRegistration).length > 0;
-    } else {
-        return false;
-    }
-});
-
-const hasExactlyOneOIDCRegistration = computed(() => {
-    const oIDCIdps = isConfigLoaded.value ? config.value.oidc : {};
-    const oIDCIdpsWithRegistration = getOIDCIdpsWithRegistration(oIDCIdps);
-    if (oIDCIdpsWithRegistration) {
-        return Object.keys(oIDCIdpsWithRegistration).length === 1;
-    } else {
-        return false;
-    }
-});
-
-async function performLogin() {
-    const oIDCIdps = isConfigLoaded.value ? config.value.oidc : {};
-    if (config.value.disable_local_accounts && isOnlyOneOIDCProviderConfigured(oIDCIdps)) {
-        const redirectUri = await redirectToSingleProvider(oIDCIdps);
-        window.location = redirectUri;
-    } else {
-        openUrl("/login/start");
-    }
-}
-
-function performRegistration() {
-    if (!config.value.allow_local_account_creation && hasExactlyOneOIDCRegistration.value) {
-        const oIDCIdps = isConfigLoaded.value ? config.value.oidc : {};
-        const oIDCIdpsWithRegistration = getOIDCIdpsWithRegistration(oIDCIdps);
-        window.location =
-            oIDCIdpsWithRegistration[Object.keys(oIDCIdpsWithRegistration)[0]].end_user_registration_endpoint;
-    } else {
-        openUrl("/register/start");
-    }
-}
 
 const props = defineProps({
     brand: {
@@ -121,7 +72,7 @@ function onWindowToggle() {
 }
 
 onMounted(() => {
-    loadMastheadWebhooks(extensionTabs.value);
+    loadWebhookMenuItems(extensionTabs.value);
 });
 </script>
 
@@ -163,75 +114,58 @@ onMounted(() => {
                 @click="extensionTabClick(tab)" />
             <MastheadItem
                 id="help"
-                :icon="faQuestion"
+                icon="fa-question"
                 url="/about"
                 tooltip="Support, Contact, and Community"
                 @click="openUrl('/about')" />
             <QuotaMeter />
             <MastheadItem
-                v-if="isAnonymous"
+                v-if="isAnonymous && config.allow_user_creation"
                 id="user"
                 class="loggedout-only"
-                data-description="login masthead button"
-                title="Login"
-                @click="performLogin()" />
+                title="Login or Register"
+                @click="openUrl('/login/start')" />
             <MastheadItem
-                v-if="isAnonymous && (config.allow_local_account_creation || hasOIDCRegistration)"
-                id="user-register"
+                v-if="isAnonymous && !config.allow_user_creation"
+                id="user"
                 class="loggedout-only"
-                data-description="register masthead button"
-                title="Register"
-                @click="performRegistration()" />
+                title="Login"
+                @click="openUrl('/login/start')" />
             <MastheadDropdown
                 v-if="currentUser && !isAnonymous && !config.single_user"
                 id="user"
                 class="loggedin-only"
-                :icon="faUser"
+                icon="fa-user"
                 :title="currentUser.username"
                 tooltip="User Preferences"
                 :menu="[
                     {
                         title: 'Preferences',
-                        icon: faGear,
+                        icon: 'fa-gear',
                         handler: () => openUrl('/user'),
                     },
                     {
                         title: 'Sign Out',
-                        icon: faSignOutAlt,
+                        icon: 'fa-sign-out-alt',
                         handler: () => userLogout(),
                     },
                 ]"
                 @click="userLogout" />
-            <MastheadDropdown
-                v-if="currentUser && !isAnonymous && config.single_user"
-                id="user"
-                class="loggedin-only"
-                :icon="faUser"
-                :title="currentUser.username"
-                tooltip="User Preferences"
-                :menu="[
-                    {
-                        title: 'Preferences',
-                        icon: faGear,
-                        handler: () => openUrl('/user'),
-                    },
-                ]"
-                @click="user" />
         </BNavbarNav>
-        <FontAwesomeIcon v-else :icon="faSpinner" class="fa-spin mr-2 text-light" />
+        <Icon v-else icon="spinner" class="fa-spin mr-2 text-light" />
     </BNavbar>
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 #masthead {
     padding: 0;
     margin-bottom: 0;
     background: var(--masthead-color);
-    height: var(--masthead-height);
+    height: $masthead-height;
     &:deep(.navbar-nav) {
-        height: var(--masthead-height);
+        height: $masthead-height;
         & > li {
             // This allows the background color to fill the full height of the
             // masthead, while still keeping the contents centered (using flex)
@@ -277,13 +211,12 @@ onMounted(() => {
     }
     .navbar-brand {
         cursor: pointer;
-        line-height: var(--masthead-height);
+        line-height: $masthead-height;
         img {
             filter: $text-shadow;
             display: inline;
             border: none;
-            height: var(--masthead-logo-height);
-            padding: inherit;
+            height: 2rem;
         }
     }
     .navbar-text {
@@ -291,7 +224,7 @@ onMounted(() => {
         font-weight: bold;
         font-family: Verdana, sans-serif;
         font-size: 1rem;
-        line-height: var(--masthead-height);
+        line-height: $masthead-height;
         color: var(--masthead-text-color);
     }
 }

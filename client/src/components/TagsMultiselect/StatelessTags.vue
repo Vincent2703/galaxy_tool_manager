@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { faAngleUp } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BButton, BTooltip } from "bootstrap-vue";
+import { BButton } from "bootstrap-vue";
+import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 
 import { useToast } from "@/composables/toast";
@@ -20,7 +19,6 @@ interface StatelessTagsProps {
     useToggleLink?: boolean;
     maxVisibleTags?: number;
     placeholder?: string;
-    inline?: boolean;
 }
 
 const props = withDefaults(defineProps<StatelessTagsProps>(), {
@@ -38,6 +36,7 @@ const emit = defineEmits<{
 }>();
 
 const userTagsStore = useUserTagsStore();
+const { userTags } = storeToRefs(userTagsStore);
 const { warning } = useToast();
 
 onMounted(() => {
@@ -98,43 +97,23 @@ function onTagClicked(tag: string) {
 
 <template>
     <div class="stateless-tags">
-        <div v-if="!disabled" class="tags-edit" :class="{ 'align-items-baseline d-flex flex-wrap': props.inline }">
+        <div v-if="!disabled" class="tags-edit">
             <div class="interactive-tags">
                 <Tag
-                    v-for="tag in trimmedTags"
+                    v-for="tag in tags"
                     :key="tag"
                     :option="tag"
                     :editable="true"
                     :clickable="props.clickable"
                     @deleted="onDelete"
-                    @click="onTagClicked" />
-
-                <BButton
-                    v-if="slicedTags.length > 0 && !toggledOpen"
-                    :id="toggleButtonId"
-                    variant="link"
-                    class="toggle-link show-more-tags"
-                    @click.stop="() => (toggledOpen = true)">
-                    {{ slicedTags.length }} more...
-                </BButton>
-                <BButton
-                    v-else-if="slicedTags.length > 0 && toggledOpen"
-                    :id="toggleButtonId"
-                    v-b-tooltip.hover
-                    variant="link"
-                    title="Show fewer tags"
-                    class="toggle-link show-less-tags"
-                    @click.stop="() => (toggledOpen = false)">
-                    <FontAwesomeIcon :icon="faAngleUp" fixed-width />
-                    Fewer tags
-                </BButton>
+                    @click="onTagClicked"></Tag>
             </div>
 
             <HeadlessMultiselect
-                :options="userTagsStore.userTags"
+                :options="userTags"
                 :selected="props.value"
                 :placeholder="props.placeholder"
-                :validator="(x) => !!isValid(x)"
+                :validator="isValid"
                 @addOption="onAddTag"
                 @input="onInput"
                 @selected="(tag) => userTagsStore.onTagUsed(tag)" />
@@ -148,8 +127,7 @@ function onTagClicked(tag: string) {
                     :option="tag"
                     :editable="false"
                     :clickable="props.clickable"
-                    @click="onTagClicked" />
-
+                    @click="onTagClicked"></Tag>
                 <BButton
                     v-if="slicedTags.length > 0 && !toggledOpen"
                     :id="toggleButtonId"
@@ -159,7 +137,7 @@ function onTagClicked(tag: string) {
                     {{ slicedTags.length }} more...
                 </BButton>
 
-                <BTooltip
+                <b-tooltip
                     v-if="slicedTags.length > 0 && !toggledOpen"
                     :target="toggleButtonId"
                     custom-class="stateless-tags--tag-preview-tooltip"
@@ -170,8 +148,8 @@ function onTagClicked(tag: string) {
                         :option="tag"
                         :editable="false"
                         :clickable="props.clickable"
-                        @click="onTagClicked" />
-                </BTooltip>
+                        @click="onTagClicked"></Tag>
+                </b-tooltip>
             </div>
         </div>
     </div>

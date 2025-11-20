@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 from galaxy.app_unittest_utils.toolbox_support import (
     BaseToolBoxTestCase,
@@ -8,16 +7,11 @@ from galaxy.app_unittest_utils.toolbox_support import (
 from galaxy.tool_shed.galaxy_install.tools import tool_panel_manager
 from galaxy.util import parse_xml
 from tool_shed.tools import tool_version_manager
-from ._util import TestToolShedApp
 
 DEFAULT_GUID = "123456"
 
 
 class TestToolPanelManager(BaseToolBoxTestCase):
-    def setUp(self):
-        super().setUp()
-        self.ts_app = TestToolShedApp()
-
     def get_new_toolbox(self):
         return SimplifiedToolBox(self)
 
@@ -77,7 +71,7 @@ class TestToolPanelManager(BaseToolBoxTestCase):
 
     def test_add_twice(self):
         self._init_dynamic_tool_conf()
-        previous_guid: Optional[str] = None
+        previous_guid = None
         for v in "1", "2", "3":
             self.__toolbox = self.get_new_toolbox()
             changeset = f"0123456789abcde{v}"
@@ -113,7 +107,7 @@ class TestToolPanelManager(BaseToolBoxTestCase):
             # New GUID replaced old one in tool panel but both
             # appear in integrated tool panel.
             if previous_guid:
-                assert (f"tool_{previous_guid}") not in section.panel_items()
+                assert (f"tool_{previous_guid}") not in section.panel_items()  # type: ignore[unreachable]
             assert (f"tool_{guid}") in self.toolbox._integrated_tool_panel["tid1"].panel_items()
             previous_guid = guid
 
@@ -208,4 +202,4 @@ class TestToolPanelManager(BaseToolBoxTestCase):
 
     @property
     def tvm(self):
-        return tool_version_manager.ToolVersionManager(self.ts_app)
+        return tool_version_manager.ToolVersionManager(self.app)

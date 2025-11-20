@@ -1,15 +1,17 @@
 <template>
     <div v-if="!multiple || !ordered" class="rule-column-selector">
-        <div class="d-flex justify-content-end align-items-center">
-            <span v-b-tooltip.hover class="mr-auto help-text" :title="help">{{ label }}</span>
+        <label class="d-flex justify-content-end align-items-center">
+            <span v-b-tooltip.hover class="mr-auto" :title="help">{{ label }}</span>
             <div v-b-tooltip.hover class="mr-1" :title="title">
-                <SelectBasic :value="target" :multiple="multiple" :options="columnOptions" @input="handleInput" />
+                <Select2 :value="target" :multiple="multiple" @input="handleInput">
+                    <option v-for="(col, index) in colHeaders" :key="col" :value="index">{{ col }}</option>
+                </Select2>
             </div>
             <slot></slot>
-        </div>
+        </label>
     </div>
     <div v-else class="rule-column-selector">
-        <span class="help-text" :title="help">{{ label }}</span>
+        <span>{{ label }}</span>
         <slot></slot>
         <ol>
             <li v-for="(targetEl, index) in target" :key="targetEl" :index="index" class="rule-column-selector-target">
@@ -26,7 +28,11 @@
                     <i @click="$emit('update:orderedEdit', true)">... {{ l("Assign Another Column") }}</i>
                 </span>
                 <span v-else class="rule-column-selector-target-select">
-                    <SelectBasic placeholder="Select a column" :options="remainingOptions" @input="handleAdd" />
+                    <Select2 placeholder="Select a column" @input="handleAdd">
+                        <option />
+                        <!-- empty option selection for placeholder -->
+                        <option v-for="(col, index) in remainingHeaders" :key="col" :value="index">{{ col }}</option>
+                    </Select2>
                 </span>
             </li>
         </ol>
@@ -34,15 +40,13 @@
 </template>
 
 <script>
+import Select2 from "components/Select2";
+import _l from "utils/localization";
 import Vue from "vue";
-
-import _l from "@/utils/localization";
-
-import SelectBasic from "@/components/RuleBuilder/SelectBasic.vue";
 
 export default {
     components: {
-        SelectBasic,
+        Select2,
     },
     props: {
         target: {
@@ -82,15 +86,18 @@ export default {
         },
     },
     computed: {
-        columnOptions() {
-            return this.colHeaders.map((col, index) => ({ id: index, text: col }));
-        },
-        remainingOptions() {
+        remainingHeaders() {
+            const colHeaders = this.colHeaders;
             if (!this.multiple) {
-                return this.columnOptions;
+                return colHeaders;
             }
-            const exclude = new Set(this.target.map(Number));
-            return this.columnOptions.filter((opt) => !exclude.has(opt.id));
+            const remaining = {};
+            for (const key in colHeaders) {
+                if (this.target.indexOf(parseInt(key)) === -1) {
+                    remaining[key] = colHeaders[key];
+                }
+            }
+            return remaining;
         },
         title() {
             return _l("Select a column");
@@ -129,5 +136,3 @@ export default {
     },
 };
 </script>
-
-<style scoped src="@/components/Help/help-text.scss" />

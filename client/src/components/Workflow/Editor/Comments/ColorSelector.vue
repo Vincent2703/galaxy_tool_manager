@@ -40,7 +40,7 @@ function onClickColor(color: WorkflowCommentColor) {
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .comment-color-selector {
     position: absolute;

@@ -1,6 +1,4 @@
-from galaxy_test.base.decorators import requires_admin
 from .framework import (
-    selenium_only,
     selenium_test,
     SeleniumTestCase,
     UsesLibraryAssertions,
@@ -8,39 +6,29 @@ from .framework import (
 
 
 class TestLibraryToCollections(SeleniumTestCase, UsesLibraryAssertions):
-    run_as_admin = True
+    requires_admin = True
 
     @selenium_test
-    @requires_admin
     def test_library_collection_export_new_history(self):
         self.collection_export(is_new_history=True)
 
     @selenium_test
-    @requires_admin
     def test_library_collection_export(self):
         self.collection_export()
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    @requires_admin
     def test_library_pair_export_new_history(self):
         self.collection_export(is_new_history=True, collection_option="paired")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    @requires_admin
     def test_library_pair_export(self):
         self.collection_export(collection_option="paired")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    @requires_admin
     def test_export_pairs_list_new_history(self):
         self.list_of_pairs_export(is_new_history=True)
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    @requires_admin
     def test_export_pairs_list(self):
         self.list_of_pairs_export()
 
@@ -91,8 +79,9 @@ class TestLibraryToCollections(SeleniumTestCase, UsesLibraryAssertions):
         ).wait_for_and_click()
         self.screenshot(f"test_export_pairs_list={is_new_history}")
         self.components.libraries.folder.add_to_history_as_collection.wait_for_and_click()
-        self.collection_builder_pair_rows(0, 1)
-        self.components.collection_builders.list_wizard.dismiss_unmatched.wait_for_and_click()
+        self.components.libraries.folder.clear_filters.wait_for_and_click()
+        self.collection_builder_click_paired_item("forward", 0)
+        self.collection_builder_click_paired_item("reverse", 1)
         self.components.libraries.folder.export_to_history_collection_name.wait_for_and_send_keys(
             self._get_random_name()
         )

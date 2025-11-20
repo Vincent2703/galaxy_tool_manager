@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { onMounted } from "vue";
 
 import type { WorkflowInvocation } from "@/api/invocations";
 import { useHistoryStore } from "@/stores/historyStore";
+import { refreshContentsWrapper } from "@/utils/data";
+import Webhooks from "@/utils/webhooks";
 
-import Webhook from "@/components/Common/Webhook.vue";
 import GridInvocation from "@/components/Grid/GridInvocation.vue";
 import WorkflowInvocationState from "@/components/WorkflowInvocationState/WorkflowInvocationState.vue";
 
@@ -13,20 +14,27 @@ const props = defineProps<{
     invocations: WorkflowInvocation[];
 }>();
 
-const historyStore = useHistoryStore();
-
 onMounted(() => {
-    historyStore.startWatchingHistory();
+    new Webhooks.WebhookView({
+        type: "workflow",
+        toolId: null,
+        toolVersion: null,
+    });
+    refreshContentsWrapper();
 });
 
-const targetHistories = computed(() =>
-    props.invocations.reduce((histories, invocation) => {
-        if (invocation.history_id && !histories.includes(invocation.history_id)) {
-            histories.push(invocation.history_id);
-        }
-        return histories;
-    }, [] as string[]),
-);
+const historyStore = useHistoryStore();
+
+const targetHistories = props.invocations.reduce((histories, invocation) => {
+    if (invocation.history_id && !histories.includes(invocation.history_id)) {
+        histories.push(invocation.history_id);
+    }
+    return histories;
+}, [] as string[]);
+const wasNewHistoryTarget =
+    props.invocations.length > 0 &&
+    !!props.invocations[0]?.history_id &&
+    historyStore.currentHistoryId !== props.invocations[0].history_id;
 </script>
 
 <template>
@@ -43,8 +51,9 @@ const targetHistories = computed(() =>
         <WorkflowInvocationState
             v-else-if="props.invocations.length === 1 && props.invocations[0]"
             :invocation-id="props.invocations[0].id"
+            :new-history-target="wasNewHistoryTarget"
             is-full-page
             success />
-        <Webhook type="workflow" />
+        <div id="webhook-view"></div>
     </div>
 </template>

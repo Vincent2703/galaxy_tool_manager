@@ -4,7 +4,7 @@ import MockAdapter from "axios-mock-adapter";
 import flushPromises from "flush-promises";
 import { getLocalVue } from "tests/jest/helpers";
 
-import ToolFooter from "./ToolFooter.vue";
+import ToolFooter from "./ToolFooter";
 
 const localVue = getLocalVue(true);
 
@@ -46,7 +46,7 @@ describe("ToolFooter", () => {
 
     it("check props", async () => {
         await flushPromises();
-        expect(wrapper.findAll(".footer-section-name").at(0).text()).toBeLocalizationOf("References");
+        expect(wrapper.findAll(".footer-section-name").at(0).text()).toBeLocalizationOf("Citations");
         const referenceA = wrapper.find(".formatted-reference .csl-entry");
         expect(referenceA.attributes()["data-csl-entry-id"]).toBe("entry_a");
         expect(referenceA.text()).toContain("1111");

@@ -32,7 +32,7 @@ const emit = defineEmits<{
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .input-list {
     overflow-y: auto;

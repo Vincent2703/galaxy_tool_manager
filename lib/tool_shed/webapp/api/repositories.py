@@ -5,6 +5,7 @@ from io import StringIO
 from time import strftime
 from typing import (
     Callable,
+    Dict,
 )
 
 from webob.compat import cgi_FieldStorage
@@ -37,7 +38,6 @@ from tool_shed.managers.repositories import (
     get_value_mapper,
     index_repositories,
     index_tool_ids,
-    IndexRequest,
     reset_metadata_on_repository,
     search,
     to_element_dict,
@@ -52,7 +52,6 @@ from tool_shed.util import (
     tool_util,
 )
 from tool_shed.webapp import model
-from tool_shed.webapp.model.db import get_repository_by_name_and_owner
 from tool_shed_client.schema import (
     CreateRepositoryRequest,
     LegacyInstallInfoTuple,
@@ -93,7 +92,7 @@ class RepositoriesController(BaseShedAPIController):
         owner = payload.get("owner", "")
         if not owner:
             raise HTTPBadRequest(detail="Missing required parameter 'owner'.")
-        repository = get_repository_by_name_and_owner(self.app.model.context, name, owner)
+        repository = repository_util.get_repository_by_name_and_owner(self.app, name, owner)
         if repository is None:
             error_message = f"Cannot locate repository with name {name} and owner {owner},"
             log.debug(error_message)
@@ -226,7 +225,7 @@ class RepositoriesController(BaseShedAPIController):
             return []
         return repository.installable_revisions(self.app)
 
-    def __get_value_mapper(self, trans) -> dict[str, Callable]:
+    def __get_value_mapper(self, trans) -> Dict[str, Callable]:
         return get_value_mapper(self.app)
 
     @expose_api_raw_anonymous_and_sessionless
@@ -292,8 +291,7 @@ class RepositoriesController(BaseShedAPIController):
             response = index_tool_ids(self.app, tool_ids)
             return json.dumps(response)
         else:
-            index_request = IndexRequest(owner=owner, name=name, deleted=deleted)
-            repositories = index_repositories(self.app, index_request)
+            repositories = index_repositories(self.app, name, owner, deleted)
             repository_dicts = []
             for repository in repositories:
                 repository_dict = repository.to_dict(view="collection", value_mapper=self.__get_value_mapper(trans))
@@ -333,7 +331,7 @@ class RepositoriesController(BaseShedAPIController):
         owner = payload.get("owner", "")
         if not owner:
             raise HTTPBadRequest(detail="Missing required parameter 'owner'.")
-        repository = get_repository_by_name_and_owner(self.app.model.context, name, owner)
+        repository = repository_util.get_repository_by_name_and_owner(self.app, name, owner)
         if repository is None:
             error_message = f"Cannot locate repository with name {name} and owner {owner},"
             log.debug(error_message)
@@ -351,7 +349,7 @@ class RepositoriesController(BaseShedAPIController):
     @web.legacy_expose_api
     def reset_metadata_on_repositories(self, trans, payload, **kwd):
         """
-        POST /api/repositories/reset_metadata_on_repositories
+        PUT /api/repositories/reset_metadata_on_repositories
 
         Resets all metadata on all repositories in the Tool Shed in an "orderly fashion".  Since there are currently only two
         repository types (tool_dependecy_definition and unrestricted), the order in which metadata is reset is repositories of

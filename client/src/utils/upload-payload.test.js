@@ -1,11 +1,11 @@
-import { uploadPayload } from "./upload-payload.js";
+import { isUrl, uploadPayload } from "./upload-payload.js";
 
 describe("uploadPayload", () => {
     test("basic validation", () => {
         expect(() => uploadPayload([], "historyId")).toThrow("No valid items provided.");
         expect(() => uploadPayload([{}], "historyId")).toThrow("Content not available.");
         expect(() => uploadPayload([{ fileContent: "fileContent" }], "historyId")).toThrow(
-            "Unknown file mode: undefined.",
+            "Unknown file mode: undefined."
         );
         expect(() =>
             uploadPayload(
@@ -21,9 +21,15 @@ describe("uploadPayload", () => {
                         toPosixLines: false,
                     },
                 ],
-                "historyId",
-            ),
+                "historyId"
+            )
         ).toThrow("Invalid url: xyz://test.me.1");
+    });
+
+    test("url detection", () => {
+        expect(isUrl("xyz://")).toBeFalsy();
+        expect(isUrl("ftp://")).toBeTruthy();
+        expect(isUrl("http://")).toBeTruthy();
     });
 
     test("regular payload", () => {
@@ -32,6 +38,7 @@ describe("uploadPayload", () => {
                 { fileContent: " fileContent ", fileMode: "new", fileName: "1" },
                 {
                     dbKey: "dbKey2",
+                    deferred: true,
                     extension: "extension2",
                     fileData: { size: 1 },
                     fileMode: "local",
@@ -59,21 +66,12 @@ describe("uploadPayload", () => {
                     spaceToTab: false,
                     toPosixLines: false,
                 },
-                {
-                    dbKey: "dbKey5",
-                    extension: "extension5",
-                    fileData: { size: 1 },
-                    fileMode: "local",
-                    fileName: "Galaxy5-[PreviousGalaxyFile].bed",
-                    spaceToTab: true,
-                    toPosixLines: true,
-                },
             ],
-            "historyId",
+            "historyId"
         );
         expect(p).toEqual({
             auto_decompress: true,
-            files: [{ size: 1 }, { size: 1 }],
+            files: [{ size: 1 }],
             history_id: "historyId",
             targets: [
                 {
@@ -81,6 +79,7 @@ describe("uploadPayload", () => {
                     elements: [
                         {
                             dbkey: "?",
+                            deferred: undefined,
                             ext: "auto",
                             name: "1",
                             paste_content: " fileContent ",
@@ -90,6 +89,7 @@ describe("uploadPayload", () => {
                         },
                         {
                             dbkey: "dbKey2",
+                            deferred: true,
                             ext: "extension2",
                             name: "2",
                             space_to_tab: true,
@@ -126,14 +126,6 @@ describe("uploadPayload", () => {
                             to_posix_lines: false,
                             url: "http://test.me",
                         },
-                        {
-                            dbkey: "dbKey5",
-                            ext: "extension5",
-                            name: "PreviousGalaxyFile",
-                            space_to_tab: true,
-                            src: "files",
-                            to_posix_lines: true,
-                        },
                     ],
                 },
             ],
@@ -146,6 +138,7 @@ describe("uploadPayload", () => {
                 { fileContent: "fileContent", fileMode: "new", fileName: "1" },
                 {
                     dbKey: "dbKey",
+                    deferred: true,
                     extension: "extension",
                     fileContent: "fileContent",
                     fileData: "fileData",
@@ -154,23 +147,13 @@ describe("uploadPayload", () => {
                     spaceToTab: true,
                     toPosixLines: true,
                 },
-                {
-                    dbKey: "dbKey2",
-                    extension: "extension2",
-                    fileContent: "fileContent",
-                    fileData: "fileData",
-                    fileMode: "local",
-                    fileName: "Galaxy2-[PreviousGalaxyFile].bed",
-                    spaceToTab: true,
-                    toPosixLines: true,
-                },
             ],
             "historyId",
-            true,
+            true
         );
         expect(p).toEqual({
             auto_decompress: true,
-            files: ["fileData", "fileData"],
+            files: ["fileData"],
             history_id: "historyId",
             targets: [
                 {
@@ -181,6 +164,7 @@ describe("uploadPayload", () => {
                                 items: [
                                     {
                                         dbkey: "?",
+                                        deferred: undefined,
                                         ext: "auto",
                                         name: "1",
                                         paste_content: "fileContent",
@@ -190,16 +174,9 @@ describe("uploadPayload", () => {
                                     },
                                     {
                                         dbkey: "dbKey",
+                                        deferred: true,
                                         ext: "extension",
                                         name: "2",
-                                        space_to_tab: true,
-                                        src: "files",
-                                        to_posix_lines: true,
-                                    },
-                                    {
-                                        dbkey: "dbKey2",
-                                        ext: "extension2",
-                                        name: "PreviousGalaxyFile",
                                         space_to_tab: true,
                                         src: "files",
                                         to_posix_lines: true,

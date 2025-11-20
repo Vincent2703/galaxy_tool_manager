@@ -96,7 +96,6 @@ describe("Lint", () => {
                 untypedParameters: getUntypedWorkflowParameters(steps),
                 steps: steps,
                 annotation: "annotation",
-                readme: "readme",
                 license: null,
                 creator: null,
                 datatypesMapper: testDatatypesMapper,
@@ -111,16 +110,14 @@ describe("Lint", () => {
     });
 
     it("test checked vs unchecked issues", async () => {
-        const numLintChecksPassing = 4;
-        const numLintChecksFailing = 5;
         const checked = wrapper.findAll("[data-icon='check']");
-        expect(checked.length).toBe(numLintChecksPassing);
+        expect(checked.length).toBe(2);
 
         const unchecked = wrapper.findAll("[data-icon='exclamation-triangle']");
-        expect(unchecked.length).toBe(numLintChecksFailing);
+        expect(unchecked.length).toBe(5);
 
         const links = wrapper.findAll("a");
-        expect(links.length).toBe(numLintChecksFailing);
+        expect(links.length).toBe(5);
         expect(links.at(0).text()).toContain("Provide Creator Details.");
         expect(links.at(1).text()).toContain("Specify a License.");
         expect(links.at(2).text()).toContain("untyped_parameter");

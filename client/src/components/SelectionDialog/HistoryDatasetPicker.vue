@@ -16,14 +16,10 @@ import SelectionDialog from "@/components/SelectionDialog/SelectionDialog.vue";
 
 interface HistoryRecord extends SelectionItem {
     size: number;
-    update_time: string;
-}
-
-interface DatasetRecord extends SelectionItem {
-    update_time: string | null;
 }
 
 interface Props {
+    folderId: string;
     title?: string;
     actionButtonText?: string;
 }
@@ -94,7 +90,7 @@ const selectAllIcon = computed(() => {
 });
 
 function historyEntryToRecord(entry: HistorySummary): HistoryRecord {
-    const result: HistoryRecord = {
+    const result = {
         id: entry.id,
         label: entry.name,
         details: entry.annotation || "",
@@ -102,21 +98,19 @@ function historyEntryToRecord(entry: HistorySummary): HistoryRecord {
         url: entry.url,
         size: entry.count,
         update_time: entry.update_time,
-        entry: entry,
     };
 
     return result;
 }
 
-function datasetEntryToRecord(entry: HDASummary): DatasetRecord {
-    const result: DatasetRecord = {
+function datasetEntryToRecord(entry: HDASummary): SelectionItem {
+    const result = {
         id: entry.id,
         label: entry.name || "",
         details: "",
         isLeaf: true,
         url: entry.url,
         update_time: entry.update_time,
-        entry: entry,
     };
 
     return result;
@@ -144,7 +138,7 @@ function checkIfAllSelected(): boolean {
         items.value.length &&
             items.value.every((item) => {
                 return selected.value.findIndex((i) => i.id === item.id) !== -1;
-            }),
+            })
     );
 }
 
@@ -159,11 +153,11 @@ async function historiesProvider(ctx: ItemsProviderContext, url?: string): Promi
         }
 
         const limit = ctx.perPage;
-        const offset = (ctx.currentPage ? ctx.currentPage - 1 : 0) * ctx.perPage;
+        const offset = (ctx.currentPage - 1) * ctx.perPage;
         const sortDesc = ctx.sortDesc;
         const sortBy: HistorySortByLiteral =
             ctx.sortBy === "label" ? "name" : (ctx.sortBy as HistorySortByLiteral) || "update_time";
-        const queryDict = HistoriesFilters.getQueryDict(ctx.filter ?? "");
+        const queryDict = HistoriesFilters.getQueryDict(ctx.filter);
 
         const { response, data, error } = await GalaxyApi().GET("/api/histories", {
             params: {
@@ -207,7 +201,7 @@ async function datasetsProvider(ctx: ItemsProviderContext, selectedHistory: Hist
 
     try {
         const limit = ctx.perPage;
-        const offset = (ctx.currentPage ? ctx.currentPage - 1 : 0) * ctx.perPage;
+        const offset = (ctx.currentPage - 1) * ctx.perPage;
         const query = ctx.filter || "";
         const querySortBy = ctx.sortBy === "time" ? "update_time" : "name";
         const sortPrefix = ctx.sortDesc ? "-dsc" : "-asc";

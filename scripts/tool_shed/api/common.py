@@ -33,13 +33,13 @@ def display(url, api_key=None, return_formatted=True):
             # All collection members should have a name in the response.
             # url is optional
             if "url" in i:
-                print("#{}: {}".format(n + 1, i.pop("url")))
+                print("#%d: %s" % (n + 1, i.pop("url")))
             if "name" in i:
                 print(f"  name: {i.pop('name')}")
             for k, v in i.items():
                 print(f"  {k}: {v}")
         print()
-        print(f"{len(r)} element(s) in collection")
+        print("%d element(s) in collection" % len(r))
     elif isinstance(r, dict):
         # Response is an element as defined in the REST style.
         print("Member Information")

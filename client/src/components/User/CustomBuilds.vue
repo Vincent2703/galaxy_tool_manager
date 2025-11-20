@@ -1,7 +1,10 @@
 <template>
-    <div>
-        <BreadcrumbHeading :items="breadcrumbItems" />
-
+    <b-container>
+        <b-row>
+            <b-col>
+                <h1 class="h-sm">Current Custom Builds</h1>
+            </b-col>
+        </b-row>
         <b-row>
             <b-col>
                 <b-table small show-empty class="grid" :items="customBuilds" :fields="fields">
@@ -30,8 +33,6 @@
                         multiple
                         taggable
                         label="label"
-                        select-label=""
-                        deselect-label=""
                         track-by="value"
                         :searchable="false"
                         :options="installedBuilds">
@@ -134,36 +135,35 @@ chr3    159599783
 chr4    155630120
 chr5    152537259</pre
                     >
+                    <p class="card-text">
+                        Trackster uses this information to populate the select box for chrom/contig, andto set the
+                        maximum basepair of the track browser. You may either upload a .len fileof this format (Len File
+                        option), or directly enter the information into the box (Len Entry option).
+                    </p>
                 </b-card>
             </b-col>
         </b-row>
-    </div>
+    </b-container>
 </template>
 
 <script>
 import "vue-multiselect/dist/vue-multiselect.min.css";
 
+import { getGalaxyInstance } from "app";
 import axios from "axios";
 import BootstrapVue from "bootstrap-vue";
 import Vue from "vue";
 import Multiselect from "vue-multiselect";
 
-import { getGalaxyInstance } from "@/app";
-import { useHistoryStore } from "@/stores/historyStore";
-
-import BreadcrumbHeading from "@/components/Common/BreadcrumbHeading.vue";
-
 Vue.use(BootstrapVue);
 
 export default {
     components: {
-        BreadcrumbHeading,
         Multiselect,
     },
     data() {
         const Galaxy = getGalaxyInstance();
         return {
-            breadcrumbItems: [{ title: "User Preferences", to: "/user" }, { title: "Current Custom Builds" }],
             customBuildsUrl: `${Galaxy.root}api/users/${Galaxy.user.id}/custom_builds`,
             selectedInstalledBuilds: [],
             installedBuilds: [],
@@ -214,9 +214,9 @@ export default {
             return value;
         },
     },
-    async created() {
-        const { loadCurrentHistoryId } = useHistoryStore();
-        const historyId = await loadCurrentHistoryId();
+    created() {
+        const Galaxy = getGalaxyInstance();
+        const historyId = Galaxy.currHistoryPanel && Galaxy.currHistoryPanel.model.id;
         this.loadCustomBuilds();
         if (historyId) {
             this.loadCustomBuildsMetadata(historyId);

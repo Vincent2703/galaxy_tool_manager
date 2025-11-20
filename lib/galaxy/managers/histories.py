@@ -9,8 +9,11 @@ import logging
 from typing import (
     Any,
     cast,
+    Dict,
+    List,
     Optional,
-    TYPE_CHECKING,
+    Set,
+    Tuple,
     Union,
 )
 
@@ -53,6 +56,7 @@ from galaxy.model import (
     HistoryUserShareAssociation,
     Job,
 )
+from galaxy.model.base import transaction
 from galaxy.model.index_filter_util import (
     append_user_filter,
     raw_text_column_filter,
@@ -82,9 +86,6 @@ from galaxy.util.search import (
     RawTextTerm,
 )
 
-if TYPE_CHECKING:
-    from sqlalchemy.engine import ScalarResult
-
 log = logging.getLogger(__name__)
 
 INDEX_SEARCH_FILTERS = {
@@ -95,7 +96,7 @@ INDEX_SEARCH_FILTERS = {
 }
 
 
-class HistoryManager(sharable.SharableModelManager[model.History], deletable.PurgableManagerMixin, SortableManager):
+class HistoryManager(sharable.SharableModelManager, deletable.PurgableManagerMixin, SortableManager):
     model_class = model.History
     foreign_key_name = "history"
     user_share_model = model.HistoryUserShareAssociation
@@ -120,7 +121,7 @@ class HistoryManager(sharable.SharableModelManager[model.History], deletable.Pur
 
     def index_query(
         self, trans: ProvidesUserContext, payload: HistoryIndexQueryPayload, include_total_count: bool = False
-    ) -> tuple["ScalarResult[model.History]", Union[int, None]]:
+    ) -> Tuple[List[model.History], int]:
         show_deleted = False
         show_own = payload.show_own
         show_published = payload.show_published
@@ -234,13 +235,13 @@ class HistoryManager(sharable.SharableModelManager[model.History], deletable.Pur
             stmt = stmt.limit(payload.limit)
         if payload.offset is not None:
             stmt = stmt.offset(payload.offset)
-        return trans.sa_session.scalars(stmt), total_matches
+        return trans.sa_session.scalars(stmt), total_matches  # type:ignore[return-value]
 
     # .... sharable
     # overriding to handle anonymous users' current histories in both cases
     def by_user(
         self, user: model.User, current_history: Optional[model.History] = None, **kwargs: Any
-    ) -> list[model.History]:
+    ) -> List[model.History]:
         """
         Get all the histories for a given user (allowing anon users' theirs)
         ordered by update time.
@@ -360,11 +361,11 @@ class HistoryManager(sharable.SharableModelManager[model.History], deletable.Pur
         stmt = select(Job).where(Job.history == history).where(Job.state.in_(Job.non_ready_states))
         return self.session().scalars(stmt)
 
-    def queue_history_import(self, trans, archive_type, archive_source, target_history=None):
+    def queue_history_import(self, trans, archive_type, archive_source):
         # Run job to do import.
         history_imp_tool = trans.app.toolbox.get_tool("__IMPORT_HISTORY__")
         incoming = {"__ARCHIVE_SOURCE__": archive_source, "__ARCHIVE_TYPE__": archive_type}
-        job, *_ = history_imp_tool.execute(trans, incoming=incoming, history=target_history)
+        job, *_ = history_imp_tool.execute(trans, incoming=incoming)
         trans.app.job_manager.enqueue(job, tool=history_imp_tool)
         return job
 
@@ -420,7 +421,7 @@ class HistoryManager(sharable.SharableModelManager[model.History], deletable.Pur
         return job
 
     def get_sharing_extra_information(
-        self, trans, item, users: set[model.User], errors: set[str], option: Optional[sharable.SharingOptions] = None
+        self, trans, item, users: Set[model.User], errors: Set[str], option: Optional[sharable.SharingOptions] = None
     ) -> ShareHistoryExtra:
         """Returns optional extra information about the datasets of the history that can be accessed by the users."""
         extra = ShareHistoryExtra()
@@ -505,7 +506,8 @@ class HistoryManager(sharable.SharableModelManager[model.History], deletable.Pur
         """
         history.archived = True
         history.archive_export_id = archive_export_id
-        self.session().commit()
+        with transaction(self.session()):
+            self.session().commit()
 
         return history
 
@@ -527,7 +529,8 @@ class HistoryManager(sharable.SharableModelManager[model.History], deletable.Pur
             )
 
         history.archived = False
-        self.session().commit()
+        with transaction(self.session()):
+            self.session().commit()
 
         return history
 
@@ -570,7 +573,7 @@ class HistoryStorageCleanerManager(StorageCleanerManager):
         offset: Optional[int],
         limit: Optional[int],
         order: Optional[StoredItemOrderBy],
-    ) -> list[StoredItem]:
+    ) -> List[StoredItem]:
         stmt = select(model.History).where(
             model.History.user_id == user.id,
             model.History.deleted == true(),
@@ -605,7 +608,7 @@ class HistoryStorageCleanerManager(StorageCleanerManager):
         offset: Optional[int],
         limit: Optional[int],
         order: Optional[StoredItemOrderBy],
-    ) -> list[StoredItem]:
+    ) -> List[StoredItem]:
         stmt = select(model.History).where(
             model.History.user_id == user.id,
             model.History.archived == true(),
@@ -621,10 +624,10 @@ class HistoryStorageCleanerManager(StorageCleanerManager):
         archived = [self._history_to_stored_item(item) for item in result]
         return archived
 
-    def cleanup_items(self, user: model.User, item_ids: set[int]) -> StorageItemsCleanupResult:
+    def cleanup_items(self, user: model.User, item_ids: Set[int]) -> StorageItemsCleanupResult:
         success_item_count = 0
         total_free_bytes = 0
-        errors: list[StorageItemCleanupError] = []
+        errors: List[StorageItemCleanupError] = []
 
         for history_id in item_ids:
             try:
@@ -638,7 +641,8 @@ class HistoryStorageCleanerManager(StorageCleanerManager):
 
         if success_item_count:
             session = self.history_manager.session()
-            session.commit()
+            with transaction(session):
+                session.commit()
 
         return StorageItemsCleanupResult(
             total_item_count=len(item_ids),
@@ -836,7 +840,7 @@ class HistorySerializer(sharable.SharableModelSerializer, deletable.PurgableSeri
         super().add_serializers()
         deletable.PurgableSerializerMixin.add_serializers(self)
 
-        serializers: dict[str, Serializer] = {
+        serializers: Dict[str, Serializer] = {
             "model_class": lambda item, key, **context: "History",
             "size": lambda item, key, **context: int(item.disk_size),
             "nice_size": lambda item, key, **context: item.disk_nice_size,
@@ -873,7 +877,7 @@ class HistorySerializer(sharable.SharableModelSerializer, deletable.PurgableSeri
         containing the ids of each HDA in that state.
         """
         history = item
-        state_ids: dict[str, list[str]] = {}
+        state_ids: Dict[str, List[str]] = {}
         for state in model.Dataset.states.values():
             state_ids[state] = []
 

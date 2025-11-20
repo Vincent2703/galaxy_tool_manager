@@ -11,16 +11,12 @@ jobs:
     outputs:
       commit-id: ${{ steps.client-commit.outputs.commit }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           path: 'galaxy root'
-          persist-credentials: false
-      - name: Read Node.js version
-        id: node-version
-        run: echo "version=$(cat 'galaxy root/client/.node_version')" >> $GITHUB_OUTPUT
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ steps.node-version.outputs.version }}
+          node-version: '18.12.1'
           cache: 'yarn'
           cache-dependency-path: 'galaxy root/client/yarn.lock'
       - name: get client commit

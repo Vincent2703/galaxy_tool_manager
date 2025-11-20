@@ -1,11 +1,10 @@
 import axios from "axios";
 import MockAdapter from "axios-mock-adapter";
+import toolsList from "components/ToolsView/testData/toolsList";
+import toolsListInPanel from "components/ToolsView/testData/toolsListInPanel";
+import { useConfig } from "composables/config";
 
-import toolsList from "@/components/ToolsView/testData/toolsList";
-import toolsListInPanel from "@/components/ToolsView/testData/toolsListInPanel";
-import { useConfig } from "@/composables/config";
-
-import { createSortedResultPanel, filterTools } from "./utilities";
+import { createSortedResultObject, filterTools } from "./utilities";
 
 jest.mock("composables/config");
 useConfig.mockReturnValue({
@@ -42,7 +41,7 @@ describe("ToolBox", () => {
         const matchedTools = resultIds.map((id) => {
             return { id: id, sections: [], order: 0 };
         });
-        const toolsResultsSection = createSortedResultPanel(matchedTools, toolPanelMock);
+        const toolsResultsSection = createSortedResultObject(matchedTools, toolPanelMock);
         expect(toolsResultsSection.idResults).toEqual(resultIds);
         const resultSectionIds = Object.keys(toolsResultsSection.resultPanel);
         expect(resultSectionIds.length).toBe(2);

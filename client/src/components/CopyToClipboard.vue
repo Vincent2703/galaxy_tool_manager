@@ -1,12 +1,14 @@
 <template>
-    <FontAwesomeIcon class="cursor-pointer" :title="title" :icon="faCopy" @click="copy(text, message)" />
+    <FontAwesomeIcon class="cursor-pointer" :title="title" :icon="['far', 'copy']" @click="copy(text, message)" />
 </template>
 
 <script>
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCopy } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { copy } from "utils/clipboard";
 
-import { copy } from "@/utils/clipboard";
+library.add(faCopy);
 
 export default {
     components: {
@@ -26,11 +28,6 @@ export default {
             default: "copy to clipboard",
             required: false,
         },
-    },
-    data() {
-        return {
-            faCopy,
-        };
     },
     methods: {
         copy(text, message) {

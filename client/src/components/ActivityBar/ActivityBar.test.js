@@ -1,9 +1,8 @@
 import { createTestingPinia } from "@pinia/testing";
 import { shallowMount } from "@vue/test-utils";
 import { PiniaVuePlugin } from "pinia";
-import { dispatchEvent, getLocalVue, mockUnprivilegedToolsRequest } from "tests/jest/helpers";
+import { dispatchEvent, getLocalVue } from "tests/jest/helpers";
 
-import { useServerMock } from "@/api/client/__mocks__";
 import { useConfig } from "@/composables/config";
 import { useActivityStore } from "@/stores/activityStore";
 import { useEventStore } from "@/stores/eventStore";
@@ -19,8 +18,6 @@ useConfig.mockReturnValue({
 jest.mock("vue-router/composables", () => ({
     useRoute: jest.fn(() => ({})),
 }));
-
-const { server, http } = useServerMock();
 
 const localVue = getLocalVue();
 localVue.use(PiniaVuePlugin);
@@ -50,7 +47,6 @@ describe("ActivityBar", () => {
         const pinia = createTestingPinia({ stubActions: false });
         activityStore = useActivityStore("default");
         eventStore = useEventStore();
-        mockUnprivilegedToolsRequest(server, http);
         wrapper = shallowMount(mountTarget, {
             localVue,
             pinia,

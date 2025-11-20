@@ -7,7 +7,10 @@ import os
 from enum import Enum
 from typing import (
     Any,
+    Dict,
+    List,
     Optional,
+    Tuple,
     Union,
 )
 
@@ -44,10 +47,7 @@ from galaxy.managers.history_contents import (
     HistoryContentsManager,
 )
 from galaxy.managers.lddas import LDDAManager
-from galaxy.managers.markdown_util import (
-    ready_galaxy_markdown_for_export,
-    resolve_job_markdown,
-)
+from galaxy.model.base import transaction
 from galaxy.objectstore.badges import BadgeDict
 from galaxy.schema import (
     FilterQueryParams,
@@ -60,10 +60,7 @@ from galaxy.schema.drs import (
     Checksum,
     DrsObject,
 )
-from galaxy.schema.fields import (
-    DecodedDatabaseIdField,
-    EncodedDatabaseIdField,
-)
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     AnyHDA,
     AnyHistoryContentItem,
@@ -73,7 +70,6 @@ from galaxy.schema.schema import (
     DatasetSourceType,
     EncodedDatasetSourceId,
     Model,
-    ToolReportForDataset,
     UpdateDatasetPermissionsPayload,
 )
 from galaxy.schema.tasks import ComputeDatasetHashTaskRequest
@@ -145,42 +141,33 @@ class DatasetStorageDetails(Model):
     dataset_state: str = Field(
         description="The model state of the supplied dataset instance.",
     )
-    hashes: list[dict] = Field(description="The file contents hashes associated with the supplied dataset instance.")
-    sources: list[dict] = Field(description="The file sources associated with the supplied dataset instance.")
+    hashes: List[dict] = Field(description="The file contents hashes associated with the supplied dataset instance.")
+    sources: List[dict] = Field(description="The file sources associated with the supplied dataset instance.")
     shareable: bool = Field(
         description="Is this dataset shareable.",
     )
     quota: ConcreteObjectStoreQuotaSourceDetails = Field(
         description="Information about quota sources around dataset storage."
     )
-    badges: list[BadgeDict] = Field(
+    badges: List[BadgeDict] = Field(
         description="A list of badges describing object store properties for concrete object store dataset is stored in."
     )
     relocatable: bool = Field(
         description="Indicator of whether the objectstore for this dataset can be switched by this user."
     )
-    private: bool = Field(
-        description="Indicator of whether the objectstore is marked as private.",
-    )
 
 
 class DatasetInheritanceChainEntry(Model):
-    id: EncodedDatabaseIdField = Field(
-        description="ID of the referenced dataset",
-    )
     name: str = Field(
         description="Name of the referenced dataset",
     )
     dep: str = Field(
         description="Name of the source of the referenced dataset at this point of the inheritance chain.",
     )
-    user_id: EncodedDatabaseIdField = Field(
-        description="ID of the user who owns the referenced dataset.",
-    )
 
 
 class DatasetInheritanceChain(RootModel):
-    root: list[DatasetInheritanceChainEntry] = Field(
+    root: List[DatasetInheritanceChainEntry] = Field(
         default=[],
         title="Dataset inheritance chain",
     )
@@ -204,7 +191,7 @@ class ExtraFileEntry(Model):
 class DatasetExtraFiles(RootModel):
     """A list of extra files associated with a dataset."""
 
-    root: list[ExtraFileEntry]
+    root: List[ExtraFileEntry]
 
 
 class DatasetTextContentDetails(Model):
@@ -222,7 +209,7 @@ class DatasetTextContentDetails(Model):
 class ConvertedDatasetsMap(RootModel):
     """Map of `file extension` -> `converted dataset encoded id`"""
 
-    root: dict[str, DecodedDatabaseIdField]  # extension -> dataset ID
+    root: Dict[str, DecodedDatabaseIdField]  # extension -> dataset ID
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -238,7 +225,7 @@ class DataMode(str, Enum):
 
 
 class DataResult(Model):
-    data: list[Any]
+    data: List[Any]
     dataset_type: Optional[str] = None
     message: Optional[str] = None
     extra_info: Optional[Any] = None  # Seems to be always None, deprecate?
@@ -250,7 +237,7 @@ class BamDataResult(DataResult):
 
 
 class DeleteDatasetBatchPayload(Model):
-    datasets: list[DatasetSourceId] = Field(
+    datasets: List[DatasetSourceId] = Field(
         description="The list of datasets IDs with their sources to be deleted/purged.",
     )
     purge: Optional[bool] = Field(
@@ -290,7 +277,7 @@ class DeleteDatasetBatchResult(Model):
     success_count: int = Field(
         description="The number of datasets successfully processed.",
     )
-    errors: Optional[list[DatasetErrorMessage]] = Field(
+    errors: Optional[List[DatasetErrorMessage]] = Field(
         default=None,
         description=(
             "A list of dataset IDs and the corresponding error message if something "
@@ -325,11 +312,11 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         self.dataset_manager = dataset_manager
 
     @property
-    def serializer_by_type(self) -> dict[str, ModelSerializer]:
+    def serializer_by_type(self) -> Dict[str, ModelSerializer]:
         return {"dataset": self.hda_serializer, "dataset_collection": self.hdca_serializer}
 
     @property
-    def dataset_manager_by_type(self) -> dict[str, DatasetAssociationManager]:
+    def dataset_manager_by_type(self) -> Dict[str, DatasetAssociationManager]:
         return {"hda": self.hda_manager, "ldda": self.ldda_manager}
 
     def index(
@@ -338,7 +325,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         history_id: Optional[DecodedDatabaseIdField],
         serialization_params: SerializationParams,
         filter_query_params: FilterQueryParams,
-    ) -> tuple[list[AnyHistoryContentItem], int]:
+    ) -> Tuple[List[AnyHistoryContentItem], int]:
         """
         Search datasets or collections using a query system and returns a list
         containing summary of dataset or dataset_collection information.
@@ -414,6 +401,8 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
             rval = self._search_features(trans, dataset, query=extra_params.get("query", None))
         elif data_type == RequestDataType.raw_data:
             rval = self._raw_data(trans, dataset, **extra_params)
+        elif data_type == RequestDataType.track_config:
+            rval = self.get_new_track_config(trans, dataset)
         elif data_type == RequestDataType.genome_data:
             rval = self._get_genome_data(trans, dataset, dbkey=extra_params.get("dbkey", None))
         elif data_type == RequestDataType.in_use_state:
@@ -450,7 +439,6 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         name = object_store.get_concrete_store_name(dataset)
         description = object_store.get_concrete_store_description_markdown(dataset)
         badges = object_store.get_concrete_store_badges(dataset)
-        private = object_store.is_private(dataset)
         # not really working (existing problem)
         try:
             percent_used = object_store.get_store_usage_percent()
@@ -482,7 +470,6 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
             quota=quota,
             badges=badges,
             relocatable=relocatable,
-            private=private,
         )
 
     def show_inheritance_chain(
@@ -498,14 +485,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         inherit_chain = dataset_instance.source_dataset_chain
         result = []
         for dep in inherit_chain:
-            result.append(
-                DatasetInheritanceChainEntry(
-                    id=dep[0].id,
-                    name=dep[0].name,
-                    dep=dep[1],
-                    user_id=dep[0].user.id,
-                )
-            )
+            result.append(DatasetInheritanceChainEntry(name=f"{dep[0].name}", dep=dep[1]))
 
         return DatasetInheritanceChain(root=result)
 
@@ -526,19 +506,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         result = compute_dataset_hash.delay(request=request, task_user_id=getattr(trans.user, "id", None))
         return async_task_summary(result)
 
-    def report(self, trans: ProvidesHistoryContext, dataset_id: DecodedDatabaseIdField) -> ToolReportForDataset:
-        dataset_instance = self.hda_manager.get_accessible(dataset_id, trans.user)
-        self.hda_manager.ensure_dataset_on_disk(trans, dataset_instance)
-        file_path = trans.app.object_store.get_filename(dataset_instance.dataset)
-        raw_content = open(file_path).read(1024 * 10)
-        internal_markdown = resolve_job_markdown(trans, dataset_instance.creating_job, raw_content)
-        content, extra_attributes = ready_galaxy_markdown_for_export(trans, internal_markdown)
-        return ToolReportForDataset(
-            content=content,
-            **extra_attributes,
-        )
-
-    def drs_dataset_instance(self, object_id: str) -> tuple[int, DatasetSourceType]:
+    def drs_dataset_instance(self, object_id: str) -> Tuple[int, DatasetSourceType]:
         if object_id.startswith("hda-"):
             decoded_object_id = self.decode_id(object_id[len("hda-") :], kind="drs")
             hda_ldda = DatasetSourceType.hda
@@ -560,7 +528,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
 
         # TODO: issue warning if not being served on HTTPS @ 443 - required by the spec.
         self_uri = f"drs://drs.{request_url.components.netloc}/{object_id}"
-        checksums: list[Checksum] = []
+        checksums: List[Checksum] = []
         for dataset_hash in dataset_instance.dataset.hashes:
             if dataset_hash.extra_files_path:
                 continue
@@ -569,11 +537,11 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
             checksums.append(Checksum(type=type, checksum=checksum))
 
         if len(checksums) == 0:
-            hash_function = HashFunctionNameEnum.md5
+            hash_funciton = HashFunctionNameEnum.md5
             request = ComputeDatasetHashTaskRequest(
                 dataset_id=dataset_instance.dataset.id,
                 extra_files_path=None,
-                hash_function=hash_function,
+                hash_function=hash_funciton,
                 user=None,
             )
             compute_dataset_hash.delay(request=request, task_user_id=getattr(trans.user, "id", None))
@@ -663,9 +631,6 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
             dataset_manager = self.dataset_manager_by_type[hda_ldda]
             dataset_instance = dataset_manager.get_accessible(dataset_id, trans.user)
             dataset_manager.ensure_dataset_on_disk(trans, dataset_instance)
-            if filename and filename.startswith("/"):
-                # Path needs to relative to extra files path
-                filename = filename.lstrip("/")
             if raw:
                 if filename and filename != "index":
                     object_store = trans.app.object_store
@@ -691,19 +656,15 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         return rval, headers
 
     def get_content_as_text(
-        self, trans: ProvidesHistoryContext, dataset_id: DecodedDatabaseIdField, filename: Optional[str]
+        self,
+        trans: ProvidesHistoryContext,
+        dataset_id: DecodedDatabaseIdField,
     ) -> DatasetTextContentDetails:
         """Returns dataset content as Text."""
         user = trans.user
         hda = self.hda_manager.get_accessible(dataset_id, user)
         hda = self.hda_manager.error_if_uploading(hda)
-        if filename and filename != "index":
-            object_store = trans.app.object_store
-            dir_name = hda.dataset.extra_files_path_name
-            file_path = object_store.get_filename(hda.dataset, extra_dir=dir_name, alt_name=filename)
-            truncated, dataset_data = self.hda_manager.text_data_truncated(file_path, preview=True)
-        else:
-            truncated, dataset_data = self.hda_manager.text_data(hda, preview=True)
+        truncated, dataset_data = self.hda_manager.text_data(hda, preview=True)
         item_url = web.url_for(
             controller="dataset",
             action="display_by_username_and_slug",
@@ -737,9 +698,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         headers = {}
         headers["Content-Type"] = "application/octet-stream"
         headers["Content-Disposition"] = f'attachment; filename="Galaxy{hda.hid}-[{fname}].{file_ext}"'
-        mf = hda.metadata.get(metadata_file)
-        assert mf
-        file_path = mf.get_file_name()
+        file_path = hda.metadata.get(metadata_file).get_file_name()
         if open_file:
             return open(file_path, "rb"), headers
         return file_path, headers
@@ -783,7 +742,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         Warning: only the ownership of the dataset and upload state for HDAs is checked, no other checks or restrictions are made.
         """
         success_count = 0
-        errors: list[DatasetErrorMessage] = []
+        errors: List[DatasetErrorMessage] = []
         for dataset in payload.datasets:
             try:
                 manager = self.dataset_manager_by_type[dataset.src]
@@ -806,7 +765,8 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
                 )
 
         if success_count:
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
         return DeleteDatasetBatchResult.model_construct(success_count=success_count, errors=errors)
 
     def get_structured_content(
@@ -909,7 +869,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         trans,
         dataset: model.DatasetInstance,
         query: Optional[str],
-    ) -> list[list[str]]:
+    ) -> List[List[str]]:
         """
         Returns features, locations in dataset that match query. Format is a
         list of features; each feature is a list itself: [name, location]

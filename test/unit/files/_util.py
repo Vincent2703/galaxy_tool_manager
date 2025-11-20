@@ -10,7 +10,6 @@ from galaxy.files import (
     DictFileSourcesUserContext,
     OptionalUserContext,
 )
-from galaxy.files.models import AnyRemoteEntry
 from galaxy.files.plugins import FileSourcePluginsConfig
 
 TEST_USERNAME = "alice"
@@ -23,15 +22,15 @@ def serialize_and_recover(file_sources_o: ConfiguredFileSources, user_context: O
     return file_sources
 
 
-def find_file_a(dir_list: list[AnyRemoteEntry]) -> Optional[AnyRemoteEntry]:
+def find_file_a(dir_list):
     return find(dir_list, class_="File", name="a")
 
 
-def find(dir_list: list[AnyRemoteEntry], class_=None, name=None) -> Optional[AnyRemoteEntry]:
+def find(dir_list, class_=None, name=None):
     for ent in dir_list:
-        if class_ is not None and ent.class_ != class_:
+        if class_ is not None and ent["class"] != class_:
             continue
-        if name is not None and ent.name == name:
+        if name is not None and ent["name"] == name:
             return ent
 
     return None
@@ -150,12 +149,12 @@ def write_from(
     uri: str,
     content: str,
     user_context: OptionalUserContext = None,
-) -> str:
+):
     file_source_path = file_sources.get_file_source_path(uri)
     with tempfile.NamedTemporaryFile(mode="w") as f:
         f.write(content)
         f.flush()
-        return file_source_path.file_source.write_from(file_source_path.path, f.name, user_context=user_context)
+        file_source_path.file_source.write_from(file_source_path.path, f.name, user_context=user_context)
 
 
 def configured_file_sources(conf_file, file_sources_config: Optional[FileSourcePluginsConfig] = None):
@@ -175,14 +174,14 @@ def assert_can_write_and_read_to_conf(conf: dict):
     file_source_id = conf["id"]
     file_sources = configured_file_sources([conf])
     test_uri = f"gxfiles://{file_source_id}/{test_filename}"
-    actual_uri = write_from(
+    write_from(
         file_sources,
         test_uri,
         test_contents,
     )
     assert_realizes_contains(
         file_sources,
-        actual_uri,
+        test_uri,
         test_contents,
     )
 

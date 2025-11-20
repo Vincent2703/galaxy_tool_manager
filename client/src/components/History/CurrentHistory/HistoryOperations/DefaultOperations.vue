@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCog } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BDropdown, BDropdownItem, BDropdownText, BModal } from "bootstrap-vue";
 import { toRef } from "vue";
 
-import type { HistorySummaryExtended } from "@/api";
+import { type HistorySummaryExtended } from "@/api";
 import {
     deleteAllHiddenContent,
     purgeAllDeletedContent,
@@ -12,6 +13,8 @@ import {
 } from "@/components/History/model/crud";
 import { iframeRedirect } from "@/components/plugins/legacyNavigation";
 import { useHistoryContentStats } from "@/composables/historyContentStats";
+
+library.add(faCog);
 
 interface Props {
     history: HistorySummaryExtended;
@@ -49,12 +52,10 @@ async function runOperation(operation: () => Promise<unknown>) {
 <template>
     <section>
         <BDropdown
-            v-b-tooltip.hover
             no-caret
             size="sm"
             variant="link"
             class="rounded-0"
-            title="Operations"
             toggle-class="text-decoration-none rounded-0"
             data-description="history action menu">
             <template v-slot:button-content>

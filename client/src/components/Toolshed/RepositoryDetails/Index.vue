@@ -26,7 +26,7 @@ const props = defineProps({
 const services = new Services();
 
 const { config } = useConfig(true);
-const { toolSections, fetchToolSections } = useToolStore();
+const { panel, fetchPanel } = useToolStore();
 
 const repositoryWatcher = useResourceWatcher(loadInstalledRepositories, {
     shortPollingInterval: 2000,
@@ -64,7 +64,9 @@ const isActionBusy = computed(() => (item) => {
 
 onMounted(() => {
     load();
-    fetchToolSections("default");
+    if (!panel["default"]) {
+        fetchPanel("default");
+    }
     startWatchingRepository();
 });
 
@@ -266,7 +268,7 @@ function stopWatchingRepository() {
                         :toolshed-url="toolshedUrl"
                         :changeset-revision="selectedChangeset"
                         :requires-panel="selectedRequiresPanel"
-                        :current-panel="toolSections['default']"
+                        :current-panel="panel['default']"
                         :tool-dynamic-configs="config.tool_dynamic_configs"
                         @hide="onHide"
                         @ok="onInstallRepository" />

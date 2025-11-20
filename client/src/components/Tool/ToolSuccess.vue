@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { BAlert } from "bootstrap-vue";
-import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useRouter } from "vue-router/composables";
 
@@ -15,16 +14,16 @@ import ToolEntryPoints from "@/components/ToolEntryPoints/ToolEntryPoints.vue";
 
 const { config } = useConfig(true);
 const jobStore = useJobStore();
-const { latestResponse } = storeToRefs(jobStore);
 const router = useRouter();
 
-const jobDef = computed(() => latestResponse.value?.jobDef);
-const jobResponse = computed(() => latestResponse.value?.jobResponse);
+const jobDef = computed(() => responseVal.value.jobDef);
+const jobResponse = computed(() => responseVal.value.jobResponse);
+const responseVal = computed(() => jobStore.getLatestResponse);
 const showRecommendation = computed(() => config.value.enable_tool_recommendations);
-const toolName = computed(() => latestResponse.value?.toolName);
+const toolName = computed(() => responseVal.value.toolName);
 
 // no data means that no tool was run in this session i.e. no data in the store
-if (!latestResponse.value || Object.keys(latestResponse.value).length === 0) {
+if (Object.keys(responseVal.value).length === 0) {
     router.push(`/`);
 }
 </script>
@@ -38,9 +37,9 @@ if (!latestResponse.value || Object.keys(latestResponse.value).length === 0) {
             <div v-if="jobResponse?.produces_entry_points">
                 <ToolEntryPoints v-for="job in jobResponse.jobs" :key="job.id" :job-id="job.id" />
             </div>
-            <ToolSuccessMessage :job-response="jobResponse" :tool-name="toolName || '...'" />
-            <Webhook v-if="jobDef" type="tool" :tool-id="jobDef.tool_id" />
-            <ToolRecommendation v-if="showRecommendation && jobDef" :tool-id="jobDef.tool_id" />
+            <ToolSuccessMessage :job-response="jobResponse" :tool-name="toolName" />
+            <Webhook type="tool" :tool-id="jobDef.tool_id" />
+            <ToolRecommendation v-if="showRecommendation" :tool-id="jobDef.tool_id" />
         </div>
     </section>
 </template>

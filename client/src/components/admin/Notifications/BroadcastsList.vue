@@ -1,19 +1,20 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCheck, faClock, faHourglassHalf, faRedo } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert, BCol, BRow } from "bootstrap-vue";
+import { BAlert, BButton, BCol, BRow } from "bootstrap-vue";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router/composables";
 
 import { fetchAllBroadcasts, updateBroadcast } from "@/api/notifications.broadcast";
 import { Toast } from "@/composables/toast";
-import type { BroadcastNotification } from "@/stores/broadcastsStore";
+import { type BroadcastNotification } from "@/stores/broadcastsStore";
 
 import BroadcastCard from "./BroadcastCard.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
-import GButtonGroup from "@/components/BaseComponents/GButtonGroup.vue";
 import Heading from "@/components/Common/Heading.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
+
+library.add(faCheck, faClock, faHourglassHalf, faRedo);
 
 const router = useRouter();
 
@@ -101,52 +102,51 @@ loadBroadcastsList();
                 <BCol class="ml-2">
                     <BRow align-h="start" align-v="center">
                         <span class="mx-2"> Filters: </span>
-                        <GButtonGroup>
-                            <GButton
+                        <BButtonGroup>
+                            <BButton
                                 id="show-active-filter-button"
-                                size="small"
-                                :pressed.sync="showActive"
+                                size="sm"
+                                :pressed="showActive"
                                 title="Show active broadcasts"
-                                outline
-                                color="blue">
+                                variant="outline-primary"
+                                @click="showActive = !showActive">
                                 <FontAwesomeIcon :icon="faCheck" />
                                 Active
-                            </GButton>
-                            <GButton
+                            </BButton>
+                            <BButton
                                 id="show-scheduled-filter-button"
-                                size="small"
-                                :pressed.sync="showScheduled"
+                                size="sm"
+                                :pressed="showScheduled"
                                 title="Show scheduled broadcasts"
-                                outline
-                                color="blue">
+                                variant="outline-primary"
+                                @click="showScheduled = !showScheduled">
                                 <FontAwesomeIcon :icon="faClock" />
                                 Scheduled
-                            </GButton>
-                            <GButton
+                            </BButton>
+                            <BButton
                                 id="show-expired-filter-button"
-                                size="small"
-                                :pressed.sync="showExpired"
+                                size="sm"
+                                :pressed="showExpired"
                                 title="Show expired broadcasts"
-                                outline
-                                color="blue">
+                                variant="outline-primary"
+                                @click="showExpired = !showExpired">
                                 <FontAwesomeIcon :icon="faHourglassHalf" />
                                 Expired
-                            </GButton>
-                        </GButtonGroup>
+                            </BButton>
+                        </BButtonGroup>
                     </BRow>
                 </BCol>
                 <BCol>
                     <BRow align-h="end" align-v="center" no-gutters>
-                        <GButton
-                            tooltip
-                            size="small"
+                        <BButton
+                            v-b-tooltip.hover
+                            size="sm"
                             :disabled="loading || overlay"
-                            outline
-                            color="blue"
+                            variant="outline-primary"
                             title="Refresh broadcasts"
-                            @click="() => loadBroadcastsList(false)">
+                            @click="loadBroadcastsList">
                             <FontAwesomeIcon :icon="faRedo" />
-                        </GButton>
+                        </BButton>
                     </BRow>
                 </BCol>
             </BRow>
@@ -174,7 +174,7 @@ loadBroadcastsList();
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "scss/theme/blue.scss";
 
 .list-operations {
     border-radius: 0.5rem;

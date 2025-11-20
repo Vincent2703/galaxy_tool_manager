@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import List
 
 from galaxy import (
     exceptions,
@@ -71,7 +72,7 @@ class LibraryFolderContentsService(ServiceBase, UsesLibraryMixinItems):
         user_permissions = self._retrieve_user_permissions_on_folder(trans, current_user_roles, folder)
         tag_manager = tags.GalaxyTagHandler(trans.sa_session)
 
-        folder_contents: list[AnyLibraryFolderItem] = []
+        folder_contents: List[AnyLibraryFolderItem] = []
         contents, total_rows = self.folder_manager.get_contents(trans, folder, payload)
         for content_item in contents:
             if isinstance(content_item, model.LibraryFolder):
@@ -122,7 +123,7 @@ class LibraryFolderContentsService(ServiceBase, UsesLibraryMixinItems):
                 raise exc
 
     def _retrieve_user_permissions_on_folder(
-        self, trans: ProvidesUserContext, current_user_roles: list[model.Role], folder: model.LibraryFolder
+        self, trans: ProvidesUserContext, current_user_roles: List[model.Role], folder: model.LibraryFolder
     ) -> UserFolderPermissions:
         """Returns the permissions of the user for the given folder.
 
@@ -152,7 +153,7 @@ class LibraryFolderContentsService(ServiceBase, UsesLibraryMixinItems):
     def _serialize_library_dataset(
         self,
         trans: ProvidesUserContext,
-        current_user_roles: list[model.Role],
+        current_user_roles: List[model.Role],
         tag_manager: tags.GalaxyTagHandler,
         library_dataset: model.LibraryDataset,
     ) -> FileLibraryFolderItem:

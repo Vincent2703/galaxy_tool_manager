@@ -1,6 +1,5 @@
+import UploadUtils from "components/Upload/utils";
 import { defineStore } from "pinia";
-
-import UploadUtils from "@/components/Upload/utils";
 
 export const useDbKeyStore = defineStore("dbKeyStore", {
     state: () => ({

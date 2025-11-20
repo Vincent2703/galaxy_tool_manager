@@ -1,4 +1,7 @@
-from typing import Optional
+from typing import (
+    List,
+    Optional,
+)
 
 from pydantic import (
     Field,
@@ -6,6 +9,7 @@ from pydantic import (
 )
 from typing_extensions import Literal
 
+from galaxy.schema import partial_model
 from galaxy.schema.fields import (
     DecodedDatabaseIdField,
     EncodedDatabaseIdField,
@@ -15,7 +19,6 @@ from galaxy.schema.schema import (
     Model,
     WithModelClass,
 )
-from galaxy.util.config_templates import partial_model
 
 GROUP_MODEL_CLASS = Literal["Group"]
 
@@ -49,7 +52,7 @@ class GroupResponse(Model, WithModelClass):
 class GroupListResponse(RootModel):
     """Response schema for listing groups."""
 
-    root: list[GroupResponse]
+    root: List[GroupResponse]
 
 
 class GroupCreatePayload(Model):
@@ -59,11 +62,11 @@ class GroupCreatePayload(Model):
         ...,
         title="name of the group",
     )
-    user_ids: list[DecodedDatabaseIdField] = Field(
+    user_ids: List[DecodedDatabaseIdField] = Field(
         [],
         title="user IDs",
     )
-    role_ids: list[DecodedDatabaseIdField] = Field(
+    role_ids: List[DecodedDatabaseIdField] = Field(
         [],
         title="role IDs",
     )
@@ -77,11 +80,11 @@ class GroupUpdatePayload(Model):
         ...,
         title="name of the group",
     )
-    user_ids: Optional[list[DecodedDatabaseIdField]] = Field(
+    user_ids: Optional[List[DecodedDatabaseIdField]] = Field(
         None,
         title="user IDs",
     )
-    role_ids: Optional[list[DecodedDatabaseIdField]] = Field(
+    role_ids: Optional[List[DecodedDatabaseIdField]] = Field(
         None,
         title="role IDs",
     )

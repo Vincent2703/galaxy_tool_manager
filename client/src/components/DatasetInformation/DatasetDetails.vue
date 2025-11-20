@@ -3,15 +3,14 @@ import { BAlert } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { onMounted, onUnmounted, ref } from "vue";
 
-import { GalaxyApi, type HDADetailed, isAdminUser } from "@/api";
+import { GalaxyApi, type HDADetailed } from "@/api";
 import { fetchDatasetDetails } from "@/api/datasets";
-import type { JobDetails } from "@/api/jobs";
+import { type JobDetails } from "@/api/jobs";
 import { useConfig } from "@/composables/config";
 import { useUserStore } from "@/stores/userStore";
 import { errorMessageAsString } from "@/utils/simple-error";
 import { stateIsTerminal } from "@/utils/utils";
 
-import Heading from "../Common/Heading.vue";
 import DatasetStorage from "@/components/Dataset/DatasetStorage/DatasetStorage.vue";
 import DatasetInformation from "@/components/DatasetInformation/DatasetInformation.vue";
 import InheritanceChain from "@/components/InheritanceChain//InheritanceChain.vue";
@@ -104,11 +103,11 @@ onUnmounted(() => {
 
                 <JobParameters dataset_type="hda" :dataset-id="datasetId" />
 
-                <JobInformation :job-id="dataset.creating_job" />
+                <JobInformation :job_id="dataset.creating_job" />
 
                 <DatasetStorage :dataset-id="datasetId" />
 
-                <InheritanceChain :dataset-id="datasetId" :dataset-name="dataset.name ?? ''" />
+                <InheritanceChain :dataset-id="datasetId" :dataset-name="dataset.name" />
 
                 <JobMetrics
                     v-if="isConfigLoaded"
@@ -119,14 +118,12 @@ onUnmounted(() => {
                     :should-show-aws-estimate="config.aws_estimate"
                     :should-show-carbon-emission-estimates="config.carbon_emission_estimates" />
 
-                <JobDestinationParams v-if="isAdminUser(currentUser)" :job-id="dataset.creating_job" />
+                <JobDestinationParams v-if="currentUser?.is_admin" :job-id="dataset.creating_job" />
 
-                <span v-if="jobDetails && 'dependencies' in jobDetails">
-                    <JobDependencies v-if="jobDetails.dependencies" :dependencies="jobDetails.dependencies" />
-                </span>
+                <JobDependencies v-if="jobDetails?.dependencies" :dependencies="jobDetails.dependencies" />
 
                 <div v-if="dataset.peek">
-                    <Heading id="dataset-peek-heading" h2 separator inline size="md"> Dataset Peek </Heading>
+                    <h2 class="h-md">Dataset Peek</h2>
 
                     <div class="dataset-peek" v-html="dataset.peek" />
                 </div>
@@ -155,8 +152,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    overflow-x: hidden;
-    overflow-y: auto;
+
     .dataset-peek {
         word-break: break-all;
     }

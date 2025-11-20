@@ -1,8 +1,7 @@
 import { shallowMount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { createPinia } from "pinia";
-import { getLocalVue, suppressDebugConsole } from "tests/jest/helpers";
-import { setupMockConfig } from "tests/jest/mockConfig";
+import { getLocalVue } from "tests/jest/helpers";
 
 import { useServerMock } from "@/api/client/__mocks__";
 
@@ -33,7 +32,11 @@ const getDeletedSelection = () => new Map([["FAKE_ID", { deleted: true }]]);
 const getActiveSelection = () => new Map([["FAKE_ID", { deleted: false }]]);
 
 async function mountSelectionOperationsWrapper(config) {
-    setupMockConfig(config);
+    server.use(
+        http.get("/api/configuration", ({ response }) => {
+            return response(200).json(config);
+        })
+    );
 
     const pinia = createPinia();
     const wrapper = shallowMount(SelectionOperations, {
@@ -207,15 +210,20 @@ describe("History Selection Operations", () => {
             });
 
             it("should display collection building options only on active (non-deleted) items", async () => {
-                const buildListOption = '[data-description="auto build list"]';
+                const buildListOption = '[data-description="build list"]';
+                const buildListOfPairsOption = '[data-description="build list of pairs"]';
                 await wrapper.setProps({ filterText: "visible:true deleted:false" });
                 expect(wrapper.find(buildListOption).exists()).toBe(true);
+                expect(wrapper.find(buildListOfPairsOption).exists()).toBe(true);
                 await wrapper.setProps({ filterText: "deleted:true" });
                 expect(wrapper.find(buildListOption).exists()).toBe(false);
+                expect(wrapper.find(buildListOfPairsOption).exists()).toBe(false);
                 await wrapper.setProps({ filterText: "visible:any deleted:false" });
                 expect(wrapper.find(buildListOption).exists()).toBe(true);
+                expect(wrapper.find(buildListOfPairsOption).exists()).toBe(true);
                 await wrapper.setProps({ filterText: "deleted:any" });
                 expect(wrapper.find(buildListOption).exists()).toBe(false);
+                expect(wrapper.find(buildListOfPairsOption).exists()).toBe(false);
             });
 
             it("should display list building option when all are selected", async () => {
@@ -232,7 +240,7 @@ describe("History Selection Operations", () => {
                 server.use(
                     http.put("/api/histories/{history_id}/contents/bulk", ({ response }) => {
                         return response(200).json(BULK_SUCCESS_RESPONSE);
-                    }),
+                    })
                 );
 
                 expect(wrapper.emitted()).not.toHaveProperty("update:show-selection");
@@ -246,7 +254,7 @@ describe("History Selection Operations", () => {
                 server.use(
                     http.put("/api/histories/{history_id}/contents/bulk", ({ response }) => {
                         return response(200).json(BULK_SUCCESS_RESPONSE);
-                    }),
+                    })
                 );
 
                 expect(wrapper.emitted()).not.toHaveProperty("update:operation-running");
@@ -261,11 +269,10 @@ describe("History Selection Operations", () => {
             });
 
             it("should update operation-running state to null when the operation fails", async () => {
-                suppressDebugConsole(); // expected error messages since we're testing errors.
                 server.use(
                     http.put("/api/histories/{history_id}/contents/bulk", ({ response }) => {
                         return response("4XX").json({ err_msg: "Error", err_code: 400 }, { status: 400 });
-                    }),
+                    })
                 );
 
                 expect(wrapper.emitted()).not.toHaveProperty("update:operation-running");
@@ -283,12 +290,10 @@ describe("History Selection Operations", () => {
             });
 
             it("should emit operation error event when the operation fails", async () => {
-                suppressDebugConsole(); // expected error messages since we're testing errors.
-
                 server.use(
                     http.put("/api/histories/{history_id}/contents/bulk", ({ response }) => {
                         return response("4XX").json({ err_msg: "Error", err_code: 400 }, { status: 400 });
-                    }),
+                    })
                 );
 
                 expect(wrapper.emitted()).not.toHaveProperty("operation-error");
@@ -305,7 +310,7 @@ describe("History Selection Operations", () => {
                 server.use(
                     http.put("/api/histories/{history_id}/contents/bulk", ({ response }) => {
                         return response(200).json(BULK_ERROR_RESPONSE);
-                    }),
+                    })
                 );
 
                 expect(wrapper.emitted()).not.toHaveProperty("operation-error");

@@ -22,7 +22,7 @@ VALID_DESTINATION_TYPES = ["library", "library_folder", "hdca", "hdas"]
 ELEMENTS_FROM_TRANSIENT_TYPES = ["archive", "bagit_archive"]
 
 
-def validate_and_normalize_targets(trans, payload, set_internal_fields=True):
+def validate_and_normalize_targets(trans, payload):
     """Validate and normalize all src references in fetch targets.
 
     - Normalize ftp_import and server_dir src entries into simple path entries
@@ -34,9 +34,6 @@ def validate_and_normalize_targets(trans, payload, set_internal_fields=True):
       as needed for each upload.
     """
     targets = payload.get("targets", [])
-    landing_uuid = payload.get("landing_uuid")
-    if landing_uuid:
-        payload["landing_uuid"] = str(landing_uuid)
 
     for target in targets:
         destination = get_required_item(target, "destination", "Each target must specify a 'destination'")
@@ -59,8 +56,7 @@ def validate_and_normalize_targets(trans, payload, set_internal_fields=True):
     run_as_real_user = trans.app.config.external_chown_script is not None  # See comment in upload.py
     purge_ftp_source = getattr(trans.app.config, "ftp_upload_purge", True) and not run_as_real_user
 
-    if set_internal_fields:
-        payload["check_content"] = trans.app.config.check_upload_content
+    payload["check_content"] = trans.app.config.check_upload_content
 
     def check_src(item):
         validate_datatype_extension(datatypes_registry=trans.app.datatypes_registry, ext=item.get("ext"))
@@ -166,11 +162,9 @@ def validate_and_normalize_targets(trans, payload, set_internal_fields=True):
                 raise RequestParameterInvalidException(f"Invalid URL [{url}] found in src definition.")
 
             validate_non_local(url, trans.app.config.fetch_url_allowlist_ips)
-            if set_internal_fields:
-                item["in_place"] = run_as_real_user
+            item["in_place"] = run_as_real_user
         elif src == "files":
-            if set_internal_fields:
-                item["in_place"] = run_as_real_user
+            item["in_place"] = run_as_real_user
             item["purge_source"] = True
 
         # Small disagreement with traditional uploads - we purge less by default since whether purging
@@ -178,8 +172,6 @@ def validate_and_normalize_targets(trans, payload, set_internal_fields=True):
         # https://github.com/galaxyproject/galaxy/issues/5361
         if "purge_source" not in item:
             item["purge_source"] = False
-        if "purge_source" in item and not set_internal_fields:
-            del item["purge_source"]
 
     replace_request_syntax_sugar(targets)
     _for_each_src(check_src, targets)

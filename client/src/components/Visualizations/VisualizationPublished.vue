@@ -1,10 +1,7 @@
 <template>
     <PublishedItem :item="visualization">
         <template v-slot>
-            <VisualizationFrame
-                v-if="visualization && visualization.type"
-                :name="visualization.type"
-                :config="visualization.latest_revision?.config" />
+            <CenterFrame :src="getUrl" />
         </template>
     </PublishedItem>
 </template>
@@ -12,13 +9,13 @@
 <script>
 import { urlData } from "@/utils/url";
 
-import VisualizationFrame from "./VisualizationFrame.vue";
 import PublishedItem from "@/components/Common/PublishedItem.vue";
+import CenterFrame from "@/entry/analysis/modules/CenterFrame.vue";
 
 export default {
     components: {
+        CenterFrame,
         PublishedItem,
-        VisualizationFrame,
     },
     props: {
         id: {
@@ -30,6 +27,11 @@ export default {
         return {
             visualization: {},
         };
+    },
+    computed: {
+        getUrl() {
+            return `/visualization/saved?id=${this.id}`;
+        },
     },
     created() {
         const url = `/api/visualizations/${this.id}`;

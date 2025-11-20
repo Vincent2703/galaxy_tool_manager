@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-from typing import Optional
 
 from galaxy.util import safe_makedirs
 from .cwltool_deps import ref_resolver
@@ -66,7 +65,7 @@ def _possible_uri_to_path(location):
     return path
 
 
-def handle_outputs(job_directory: Optional[str] = None):
+def handle_outputs(job_directory=None):
     # Relocate dynamically collected files to pre-determined locations
     # registered with ToolOutput objects via from_work_dir handling.
     if job_directory is None:

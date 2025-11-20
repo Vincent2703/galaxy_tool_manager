@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faAngleDoubleUp, faQuestion, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BModal, BPopover } from "bootstrap-vue";
+import { BButton, BModal, BPopover } from "bootstrap-vue";
 import { kebabCase } from "lodash";
 import { computed, ref, set } from "vue";
 
 import type Filtering from "@/utils/filtering";
 import { type Alias, type ErrorType, getOperatorForAlias, type ValidFilter } from "@/utils/filtering";
 
-import GButton from "@/components/BaseComponents/GButton.vue";
 import DelayedInput from "@/components/Common/DelayedInput.vue";
 import FilterMenuBoolean from "@/components/Common/FilterMenuBoolean.vue";
 import FilterMenuDropdown from "@/components/Common/FilterMenuDropdown.vue";
@@ -16,6 +16,8 @@ import FilterMenuInput from "@/components/Common/FilterMenuInput.vue";
 import FilterMenuMultiTags from "@/components/Common/FilterMenuMultiTags.vue";
 import FilterMenuObjectStore from "@/components/Common/FilterMenuObjectStore.vue";
 import FilterMenuRanged from "@/components/Common/FilterMenuRanged.vue";
+
+library.add(faAngleDoubleUp, faQuestion, faSearch);
 
 interface BackendFilterError {
     err_msg: string;
@@ -214,20 +216,18 @@ function updateFilterText(newFilterText: string) {
             @change="updateFilterText"
             @onToggle="onToggle" />
 
-        <GButton
+        <BButton
             v-if="props.menuType == 'separate' && props.showAdvanced"
-            tooltip
-            tooltip-placement="bottom"
+            v-b-tooltip.hover.bottom.noninteractive
             class="w-100"
             aria-haspopup="true"
-            size="small"
-            outline
+            size="sm"
             :pressed="props.showAdvanced"
             title="Toggle Advanced Search"
             data-description="wide toggle advanced search"
             @click="onToggle">
             <FontAwesomeIcon fixed-width :icon="faAngleDoubleUp" />
-        </GButton>
+        </BButton>
 
         <component
             :is="props.view !== 'popover' ? 'div' : BPopover"
@@ -324,22 +324,22 @@ function updateFilterText(newFilterText: string) {
 
             <!-- Perform search or cancel out (or open help modal for whole Menu if exists) -->
             <div class="mt-2">
-                <GButton
+                <BButton
                     v-if="props.view !== 'compact'"
                     :id="`${identifier}-advanced-filter-submit`"
                     class="mr-1"
-                    size="small"
-                    color="blue"
+                    size="sm"
+                    variant="primary"
                     data-description="apply filters"
                     @click="onSearch">
                     <FontAwesomeIcon :icon="faSearch" />
 
                     <span v-localize>Search</span>
-                </GButton>
+                </BButton>
 
-                <GButton v-if="props.hasHelp" title="Search Help" size="small" @click="showHelp = true">
+                <BButton v-if="props.hasHelp" title="Search Help" size="sm" @click="showHelp = true">
                     <FontAwesomeIcon :icon="faQuestion" />
-                </GButton>
+                </BButton>
 
                 <BModal v-if="props.hasHelp" v-model="showHelp" :title="`${props.name} Advanced Search Help`" ok-only>
                     <!-- Slot for Menu help section -->

@@ -1,11 +1,9 @@
 import { mount } from "@vue/test-utils";
+import { getAppRoot } from "onload/loadConfig";
 import { getLocalVue } from "tests/jest/helpers";
 
-import { getAppRoot } from "@/onload/loadConfig";
-
 import { Services } from "../services";
-
-import Index from "./Index.vue";
+import Index from "./Index";
 
 jest.mock("app");
 jest.mock("onload/loadConfig");

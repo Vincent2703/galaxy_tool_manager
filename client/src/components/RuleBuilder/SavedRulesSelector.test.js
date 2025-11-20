@@ -1,7 +1,6 @@
 import { mount } from "@vue/test-utils";
+import SavedRulesSelector from "components/RuleBuilder/SavedRulesSelector";
 import { getLocalVue } from "tests/jest/helpers";
-
-import SavedRulesSelector from "@/components/RuleBuilder/SavedRulesSelector.vue";
 
 const localVue = getLocalVue();
 

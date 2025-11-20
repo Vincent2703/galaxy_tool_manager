@@ -20,8 +20,9 @@ from galaxy.tool_util.parser.interface import (
     xml_data_input_to_json,
     XmlTestCollectionDefDict,
 )
-from galaxy.tool_util.parser.util import multiple_select_value_split
-from galaxy.tool_util_models.parameters import (
+from galaxy.util import asbool
+from .factory import input_models_for_tool_source
+from .models import (
     BooleanParameterModel,
     ConditionalParameterModel,
     ConditionalWhen,
@@ -29,15 +30,11 @@ from galaxy.tool_util_models.parameters import (
     DataColumnParameterModel,
     DataParameterModel,
     FloatParameterModel,
-    GenomeBuildParameterModel,
-    GroupTagParameterModel,
     IntegerParameterModel,
     RepeatParameterModel,
     SectionParameterModel,
     ToolParameterT,
 )
-from galaxy.util import asbool
-from .factory import input_models_for_tool_source
 from .state import TestCaseToolState
 from .visitor import (
     flat_state_path,
@@ -90,58 +87,53 @@ def legacy_from_string(parameter: ToolParameterT, value: Optional[Any], warnings
     """
     result_value: Any = value
     if isinstance(value, str):
+        value_str = cast(str, value)
         if isinstance(parameter, (IntegerParameterModel,)):
             if WARN_ON_UNTYPED_XML_STRINGS:
                 warnings.append(
                     f"Implicitly converted {parameter.name} to an integer from a string value, please use 'value_json' to define this test input parameter value instead."
                 )
-            result_value = int(value)
+            result_value = int(value_str)
         elif isinstance(parameter, (FloatParameterModel,)):
             if WARN_ON_UNTYPED_XML_STRINGS:
                 warnings.append(
                     f"Implicitly converted {parameter.name} to a floating point number from a string value, please use 'value_json' to define this test input parameter value instead."
                 )
-            result_value = float(value)
+            result_value = float(value_str)
         elif isinstance(parameter, (BooleanParameterModel,)):
             if WARN_ON_UNTYPED_XML_STRINGS:
                 warnings.append(
                     f"Implicitly converted {parameter.name} to a boolean from a string value, please use 'value_json' to define this test input parameter value instead."
                 )
             try:
-                result_value = asbool(value)
+                result_value = asbool(value_str)
             except ValueError:
                 warnings.append(
                     "Likely using deprected truevalue/falsevalue in tool parameter - switch to 'true' or 'false'"
                 )
-        elif isinstance(parameter, (GroupTagParameterModel,)):
-            if parameter.multiple:
-                result_value = multiple_select_value_split(value)
-        elif isinstance(parameter, (GenomeBuildParameterModel,)):
-            if parameter.multiple:
-                result_value = multiple_select_value_split(value)
         elif isinstance(parameter, (DataColumnParameterModel,)):
             if parameter.multiple:
-                integers_match = INTEGER_STR_PATTERN.match(value)
+                integers_match = INTEGER_STR_PATTERN.match(value_str)
                 if integers_match:
                     if WARN_ON_UNTYPED_XML_STRINGS:
                         warnings.append(
                             f"Implicitly converted {parameter.name} to a column index integer from a string value, please use 'value_json' to define this test input parameter value instead."
                         )
-                    result_value = [int(v.strip()) for v in value.split(",")]
+                    result_value = [int(v.strip()) for v in value_str.split(",")]
             else:
-                integer_match = INTEGER_STR_PATTERN.match(value)
+                integer_match = INTEGER_STR_PATTERN.match(value_str)
                 if integer_match:
                     if WARN_ON_UNTYPED_XML_STRINGS:
                         warnings.append(
                             f"Implicitly converted {parameter.name} to a column index integer from a string value, please use 'value_json' to define this test input parameter value instead."
                         )
-                    result_value = int(value)
+                    result_value = int(value_str)
                 elif Version(profile) < Version("24.2"):
                     # allow this for older tools but new tools will just require the integer index
                     warnings.append(
                         f"Using column names as test case values is deprecated, please adjust {parameter.name} to just use an integer column index."
                     )
-                    column_name_value_match = COLUMN_NAME_STR_PATTERN.match(value)
+                    column_name_value_match = COLUMN_NAME_STR_PATTERN.match(value_str)
                     if column_name_value_match:
                         column_part = column_name_value_match.group(1)
                         result_value = int(column_part)
@@ -149,11 +141,7 @@ def legacy_from_string(parameter: ToolParameterT, value: Optional[Any], warnings
 
 
 def test_case_state(
-    test_dict: ToolSourceTest,
-    tool_parameter_bundle: List[ToolParameterT],
-    profile: str,
-    validate: bool = True,
-    name: Optional[str] = None,
+    test_dict: ToolSourceTest, tool_parameter_bundle: List[ToolParameterT], profile: str, validate: bool = True
 ) -> TestCaseStateAndWarnings:
     warnings: List[str] = []
     inputs: ToolSourceTestInputs = test_dict["inputs"]
@@ -169,7 +157,7 @@ def test_case_state(
 
     tool_state = TestCaseToolState(state)
     if validate:
-        tool_state.validate(tool_parameter_bundle, name=name)
+        tool_state.validate(tool_parameter_bundle)
         for input_name in unhandled_inputs:
             raise Exception(f"Invalid parameter name found {input_name}")
     return TestCaseStateAndWarnings(tool_state, warnings, unhandled_inputs)
@@ -237,8 +225,9 @@ def _merge_into_state(
         if input_name not in state_at_level:
             state_at_level[input_name] = conditional_state
 
-        when: ConditionalWhen = _select_which_when(tool_input, conditional_state, inputs, state_path)
-        test_parameter = tool_input.test_parameter
+        conditional = cast(ConditionalParameterModel, tool_input)
+        when: ConditionalWhen = _select_which_when(conditional, conditional_state, inputs, state_path)
+        test_parameter = conditional.test_parameter
         handled_inputs.update(
             _merge_into_state(test_parameter, inputs, conditional_state, profile, warnings, state_path)
         )
@@ -250,10 +239,8 @@ def _merge_into_state(
         if input_name not in state_at_level:
             state_at_level[input_name] = repeat_state_array
 
+        repeat = cast(RepeatParameterModel, tool_input)
         repeat_instance_inputs = repeat_inputs_to_array(state_path, _inputs_as_dict(inputs))
-        if tool_input.min is not None:
-            while len(repeat_instance_inputs) < tool_input.min:
-                repeat_instance_inputs.append({})
         for i, _ in enumerate(repeat_instance_inputs):
             while len(repeat_state_array) <= i:
                 repeat_state_array.append({})
@@ -261,7 +248,7 @@ def _merge_into_state(
             repeat_instance_prefix = f"{state_path}_{i}"
             handled_inputs.update(
                 _merge_level_into_state(
-                    tool_input.parameters, inputs, repeat_state_array[i], profile, warnings, repeat_instance_prefix
+                    repeat.parameters, inputs, repeat_state_array[i], profile, warnings, repeat_instance_prefix
                 )
             )
     elif isinstance(tool_input, (SectionParameterModel,)):
@@ -269,8 +256,9 @@ def _merge_into_state(
         if input_name not in state_at_level:
             state_at_level[input_name] = section_state
 
+        section = cast(SectionParameterModel, tool_input)
         handled_inputs.update(
-            _merge_level_into_state(tool_input.parameters, inputs, section_state, profile, warnings, state_path)
+            _merge_level_into_state(section.parameters, inputs, section_state, profile, warnings, state_path)
         )
     else:
         test_input = _input_for(state_path, inputs)
@@ -281,7 +269,8 @@ def _merge_into_state(
                     cast(XmlTestCollectionDefDict, test_input.get("attributes", {}).get("collection"))
                 ).test_format_to_dict()
             elif isinstance(tool_input, (DataParameterModel,)):
-                if tool_input.multiple:
+                data_tool_input = cast(DataParameterModel, tool_input)
+                if data_tool_input.multiple:
                     value = test_input["value"]
                     input_value_list = []
                     if value:

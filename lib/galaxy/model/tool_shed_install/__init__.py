@@ -5,7 +5,9 @@ from enum import Enum
 from typing import (
     Any,
     Callable,
+    Dict,
     Optional,
+    TYPE_CHECKING,
 )
 
 from sqlalchemy import (
@@ -18,7 +20,6 @@ from sqlalchemy import (
     TEXT,
 )
 from sqlalchemy.orm import (
-    DeclarativeMeta,
     Mapped,
     mapped_column,
     registry,
@@ -43,6 +44,16 @@ from galaxy.util.tool_shed import common_util
 log = logging.getLogger(__name__)
 
 mapper_registry = registry()
+
+if TYPE_CHECKING:
+    # Workaround for https://github.com/python/mypy/issues/14182
+    from sqlalchemy.orm import DeclarativeMeta as _DeclarativeMeta
+
+    class DeclarativeMeta(_DeclarativeMeta, type):
+        pass
+
+else:
+    from sqlalchemy.orm import DeclarativeMeta
 
 
 class HasToolBox(common_util.HasToolShedRegistry, Protocol):
@@ -181,7 +192,7 @@ class ToolShedRepository(Base):
         self.status = status
         self.error_message = error_message
 
-    def as_dict(self, value_mapper: Optional[dict[str, Callable]] = None) -> dict[str, Any]:
+    def as_dict(self, value_mapper: Optional[Dict[str, Callable]] = None) -> Dict[str, Any]:
         return self.to_dict(view="element", value_mapper=value_mapper)
 
     @property
@@ -524,7 +535,7 @@ class ToolShedRepository(Base):
             return asbool(self.tool_shed_status.get("revision_update", False))
         return False
 
-    def to_dict(self, view="collection", value_mapper: Optional[dict[str, Callable]] = None) -> dict[str, Any]:
+    def to_dict(self, view="collection", value_mapper: Optional[Dict[str, Callable]] = None) -> Dict[str, Any]:
         if value_mapper is None:
             value_mapper = {}
         rval = {}

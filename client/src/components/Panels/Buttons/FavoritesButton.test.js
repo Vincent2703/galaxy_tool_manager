@@ -1,19 +1,15 @@
 import { shallowMount } from "@vue/test-utils";
 import { createPinia } from "pinia";
+import { useUserStore } from "stores/userStore";
 import { getLocalVue } from "tests/jest/helpers";
 
-import { useUserStore } from "@/stores/userStore";
-
-import FavoritesButton from "./FavoritesButton.vue";
+import FavoritesButton from "./FavoritesButton";
 
 const localVue = getLocalVue();
 
 async function createWrapper(component, localVue, userData) {
     const pinia = createPinia();
     const wrapper = shallowMount(component, {
-        propsData: {
-            query: "mock",
-        },
         localVue,
         pinia,
     });

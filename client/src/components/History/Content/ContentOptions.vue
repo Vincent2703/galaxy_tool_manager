@@ -1,23 +1,7 @@
 <script setup lang="ts">
-import {
-    faCopy,
-    faEyeSlash,
-    faFile,
-    faInfoCircle,
-    faPen,
-    faStop,
-    faTrash,
-    faTrashRestore,
-} from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import axios from "axios";
-import { BButton, BDropdown } from "bootstrap-vue";
-//@ts-ignore deprecated package without types (vue 2, remove this comment on vue 3 migration)
-import { ScanEye } from "lucide-vue";
+import { BDropdown } from "bootstrap-vue";
 import { computed, type Ref, ref } from "vue";
 
-import { getAppRoot } from "@/onload/loadConfig";
-import { useEntryPointStore } from "@/stores/entryPointStore";
 import { prependPath } from "@/utils/redirect";
 
 const props = defineProps({
@@ -28,8 +12,6 @@ const props = defineProps({
     isVisible: { type: Boolean, default: true },
     state: { type: String, default: "" },
     itemUrls: { type: Object, required: true },
-    isRunningInteractiveTool: { type: Boolean, default: false },
-    interactiveToolId: { type: String, default: "" },
 });
 
 const emit = defineEmits<{
@@ -41,16 +23,21 @@ const emit = defineEmits<{
     (e: "unhide"): void;
 }>();
 
-const entryPointStore = useEntryPointStore();
-const errorMessage = ref("");
 const deleteCollectionMenu: Ref<BDropdown | null> = ref(null);
 
+const displayButtonTitle = computed(() => (displayDisabled.value ? "This dataset is not yet viewable." : "Display"));
+
+const displayDisabled = computed(() => ["discarded", "new", "upload", "queued"].includes(props.state));
+
 const editButtonTitle = computed(() => (editDisabled.value ? "This dataset is not yet editable." : "Edit attributes"));
+
 const editDisabled = computed(() =>
-    ["discarded", "new", "upload", "queued", "running", "waiting"].includes(props.state),
+    ["discarded", "new", "upload", "queued", "running", "waiting"].includes(props.state)
 );
+
+const displayUrl = computed(() => prependPath(props.itemUrls.display));
+
 const editUrl = computed(() => prependPath(props.itemUrls.edit));
-const displayUrl = computed(() => (props.itemUrls.display ? prependPath(props.itemUrls.display) : undefined));
 
 const isCollection = computed(() => !props.isDataset);
 
@@ -59,29 +46,10 @@ const canShowCollectionDetails = computed(() => props.itemUrls.showDetails);
 const showCollectionDetailsUrl = computed(() => prependPath(props.itemUrls.showDetails));
 
 function onDelete($event: MouseEvent) {
-    if (props.isRunningInteractiveTool) {
-        stopInteractiveTool();
-    } else if (isCollection.value) {
+    if (isCollection.value) {
         deleteCollectionMenu.value?.show();
     } else {
         onDeleteItem();
-    }
-}
-
-async function stopInteractiveTool() {
-    if (!props.interactiveToolId) {
-        console.error("No interactive tool ID provided");
-        return;
-    }
-
-    try {
-        const root = getAppRoot();
-        const url = `${root}api/entry_points/${props.interactiveToolId}`;
-        await axios.delete(url);
-        entryPointStore.removeEntryPoint(props.interactiveToolId);
-    } catch (error) {
-        console.error("Failed to stop interactive tool:", error);
-        errorMessage.value = "Failed to stop interactive tool";
     }
 }
 
@@ -108,33 +76,31 @@ function onDisplay($event: MouseEvent) {
 <template>
     <span class="align-self-start btn-group align-items-baseline">
         <!-- Special case for collections -->
-        <BButton
+        <b-button
             v-if="isCollection && canShowCollectionDetails"
-            v-b-tooltip.hover
             class="collection-job-details-btn px-1"
             title="Show Details"
             size="sm"
             variant="link"
             :href="showCollectionDetailsUrl"
             @click.prevent.stop="emit('showCollectionInfo')">
-            <FontAwesomeIcon :icon="faInfoCircle" />
-        </BButton>
+            <icon icon="info-circle" />
+        </b-button>
         <!-- Common for all content items -->
-        <BButton
+        <b-button
             v-if="isDataset"
-            v-b-tooltip.hover
-            title="View"
+            :disabled="displayDisabled"
+            :title="displayButtonTitle"
             tabindex="0"
             class="display-btn px-1"
             size="sm"
             variant="link"
             :href="displayUrl"
             @click.prevent.stop="onDisplay($event)">
-            <ScanEye absolute-stroke-width :size="16" />
-        </BButton>
-        <BButton
+            <icon icon="eye" />
+        </b-button>
+        <b-button
             v-if="writable && isHistoryItem"
-            v-b-tooltip.hover
             :disabled="editDisabled"
             :title="editButtonTitle"
             tabindex="0"
@@ -143,64 +109,51 @@ function onDisplay($event: MouseEvent) {
             variant="link"
             :href="editUrl"
             @click.prevent.stop="emit('edit')">
-            <FontAwesomeIcon :icon="faPen" />
-        </BButton>
-        <BButton
-            v-if="isRunningInteractiveTool"
-            v-b-tooltip.hover
-            class="delete-btn px-1"
-            title="Stop this Interactive Tool"
-            size="sm"
-            variant="link"
-            @click.stop="onDelete($event)">
-            <FontAwesomeIcon :icon="faStop" />
-        </BButton>
-        <BButton
-            v-else-if="writable && isHistoryItem && !isDeleted"
-            v-b-tooltip.hover
+            <icon icon="pen" />
+        </b-button>
+        <b-button
+            v-if="writable && isHistoryItem && !isDeleted"
             :tabindex="isDataset ? '0' : '-1'"
             class="delete-btn px-1"
             title="Delete"
             size="sm"
             variant="link"
             @click.stop="onDelete($event)">
-            <FontAwesomeIcon v-if="isDataset" :icon="faTrash" />
+            <icon v-if="isDataset" icon="trash" />
             <BDropdown v-else ref="deleteCollectionMenu" size="sm" variant="link" no-caret toggle-class="p-0 m-0">
                 <template v-slot:button-content>
-                    <FontAwesomeIcon :icon="faTrash" />
+                    <icon icon="trash" />
                 </template>
                 <b-dropdown-item title="Delete collection only" @click.prevent.stop="onDeleteItem">
-                    <FontAwesomeIcon :icon="faFile" />
+                    <icon icon="file" />
                     Collection only
                 </b-dropdown-item>
                 <b-dropdown-item title="Delete collection and elements" @click.prevent.stop="onDeleteItemRecursively">
-                    <FontAwesomeIcon :icon="faCopy" />
+                    <icon icon="copy" />
                     Collection and elements
                 </b-dropdown-item>
             </BDropdown>
-        </BButton>
-        <BButton
+        </b-button>
+        <b-button
             v-if="writable && isHistoryItem && isDeleted"
-            v-b-tooltip.hover
             tabindex="0"
             class="undelete-btn px-1"
             title="Undelete"
             size="sm"
             variant="link"
             @click.stop="emit('undelete')">
-            <FontAwesomeIcon :icon="faTrashRestore" />
-        </BButton>
-        <BButton
+            <icon icon="trash-restore" />
+        </b-button>
+        <b-button
             v-if="writable && isHistoryItem && !isVisible"
-            v-b-tooltip.hover
             tabindex="0"
             class="unhide-btn px-1"
             title="Unhide"
             size="sm"
             variant="link"
             @click.stop="emit('unhide')">
-            <FontAwesomeIcon :icon="faEyeSlash" />
-        </BButton>
+            <icon icon="eye-slash" />
+        </b-button>
     </span>
 </template>
 

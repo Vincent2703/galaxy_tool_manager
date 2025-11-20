@@ -10,13 +10,16 @@ import os
 import random
 import re
 import sys
-from collections.abc import Iterator
 from contextlib import contextmanager
 from json import loads
 from typing import (
     Any,
+    Dict,
     IO,
+    Iterator,
+    List,
     Optional,
+    Tuple,
     Union,
 )
 
@@ -54,7 +57,7 @@ IntWebParam = Union[str, int]
 # Can be removed once https://github.com/pysam-developers/pysam/issues/939 is resolved.
 pysam.set_verbosity(0)
 
-PAYLOAD_LIST_TYPE = list[Optional[Union[str, int, float, list[tuple[int, int]]]]]
+PAYLOAD_LIST_TYPE = List[Optional[Union[str, int, float, List[Tuple[int, int]]]]]
 
 
 def float_nan(n):
@@ -174,7 +177,7 @@ class GenomeDataProvider(BaseDataProvider):
     # filters. Key is column name, value is a dict with mandatory key 'index'
     # and optional key 'name'. E.g. this defines column 4:
     # col_name_data_attr_mapping = {4 : { index: 5, name: 'Score' } }
-    col_name_data_attr_mapping: dict[Union[str, int], dict] = {}
+    col_name_data_attr_mapping: Dict[Union[str, int], Dict] = {}
 
     def __init__(
         self,
@@ -256,7 +259,7 @@ class GenomeDataProvider(BaseDataProvider):
             # create a dummy dict if necessary.
             if not chrom_data:
                 chrom_data = {"data": None}
-            chrom_data["region"] = f"{chrom}:{0}-{chrom_len}"
+            chrom_data["region"] = "%s:%i-%i" % (chrom, 0, chrom_len)
             genome_data.append(chrom_data)
 
         return {"data": genome_data, "dataset_type": self.dataset_type}
@@ -358,7 +361,7 @@ class TabixDataProvider(GenomeDataProvider, FilterableMixin):
 
     dataset_type = "tabix"
 
-    col_name_data_attr_mapping: dict[Union[str, int], dict] = {4: {"index": 4, "name": "Score"}}
+    col_name_data_attr_mapping: Dict[Union[str, int], Dict] = {4: {"index": 4, "name": "Score"}}
 
     @contextmanager
     def open_data_file(self):
@@ -622,7 +625,7 @@ class VcfDataProvider(GenomeDataProvider):
 
     """
 
-    col_name_data_attr_mapping: dict[Union[str, int], dict] = {"Qual": {"index": 6, "name": "Qual"}}
+    col_name_data_attr_mapping: Dict[Union[str, int], Dict] = {"Qual": {"index": 6, "name": "Qual"}}
 
     dataset_type = "variant"
 
@@ -700,7 +703,7 @@ class VcfDataProvider(GenomeDataProvider):
 
             if samples_data:
                 # Process and pack samples' genotype and count alleles across samples.
-                alleles_seen: dict[int, bool] = {}
+                alleles_seen: Dict[int, bool] = {}
                 has_alleles = False
 
                 for sample in samples_data:
@@ -760,21 +763,22 @@ class RawVcfDataProvider(VcfDataProvider):
         with open(self.original_dataset.get_file_name()) as f:
             yield f
 
-    def get_iterator(self, data_file, chrom, start, end, **kwargs) -> Iterator[str]:
+    def get_iterator(self, data_file, chrom, start, end, **kwargs):
         # Skip comments.
-        line: Optional[str] = None
+        line = None
         for line in data_file:
             if not line.startswith("#"):
                 break
 
         # If last line is a comment, there are no data lines.
-        if not line or line.startswith("#"):
-            return iter([])
+        if line.startswith("#"):
+            return []
 
         # Match chrom naming format.
-        dataset_chrom = line.split()[0]
-        if not _chrom_naming_matches(chrom, dataset_chrom):
-            chrom = _convert_between_ucsc_and_ensemble_naming(chrom)
+        if line:
+            dataset_chrom = line.split()[0]
+            if not _chrom_naming_matches(chrom, dataset_chrom):
+                chrom = _convert_between_ucsc_and_ensemble_naming(chrom)
 
         def line_in_region(vcf_line, chrom, start, end):
             """Returns true if line is in region."""
@@ -943,7 +947,7 @@ class BamDataProvider(GenomeDataProvider, FilterableMixin):
         # Encode reads as list of lists.
         #
         results = []
-        paired_pending: dict[str, dict[str, Any]] = {}
+        paired_pending: Dict[str, Dict[str, Any]] = {}
         unmapped = 0
         message = None
         count = 0
@@ -974,7 +978,7 @@ class BamDataProvider(GenomeDataProvider, FilterableMixin):
                     pair = paired_pending[qname]
                     results.append(
                         [
-                            hash("{}_{}".format(pair["start"], qname)),
+                            hash("%i_%s" % (pair["start"], qname)),
                             pair["start"],
                             read.pos + read_len,
                             qname,
@@ -1001,7 +1005,7 @@ class BamDataProvider(GenomeDataProvider, FilterableMixin):
             else:
                 results.append(
                     [
-                        hash(f"{read.pos}_{qname}"),
+                        hash("%i_%s" % (read.pos, qname)),
                         read.pos,
                         read.pos + read_len,
                         qname,
@@ -1032,7 +1036,9 @@ class BamDataProvider(GenomeDataProvider, FilterableMixin):
                 r1 = [read["start"], read["end"], read["cigar"], read["strand"], read["seq"]]
                 r2 = [read["mate_start"], read["mate_start"]]
 
-            results.append([hash(f"{read_start}_{qname}"), read_start, read_end, qname, r1, r2, [read["mapq"], 125]])
+            results.append(
+                [hash("%i_%s" % (read_start, qname)), read_start, read_end, qname, r1, r2, [read["mapq"], 125]]
+            )
 
         # Clean up. TODO: is this needed? If so, we'll need a cleanup function after processing the data.
         # bamfile.close()
@@ -1054,7 +1060,7 @@ class BamDataProvider(GenomeDataProvider, FilterableMixin):
             cigar_ops = "MIDNSHP=X"
             read_cigar = ""
             for op_tuple in read[cigar_field]:
-                read_cigar += f"{op_tuple[1]}{cigar_ops[op_tuple[0]]}"
+                read_cigar += "%i%s" % (op_tuple[1], cigar_ops[op_tuple[0]])
             read[cigar_field] = read_cigar
 
         # Choose method for processing reads. Use reference-based compression
@@ -1107,7 +1113,7 @@ class BBIDataProvider(GenomeDataProvider):
     dataset_type = "bigwig"
 
     @abc.abstractmethod
-    def _get_dataset(self) -> tuple[IO[bytes], Union[BigBedFile, BigWigFile]]: ...
+    def _get_dataset(self) -> Tuple[IO[bytes], Union[BigBedFile, BigWigFile]]: ...
 
     def valid_chroms(self):
         # No way to return this info as of now
@@ -1383,12 +1389,12 @@ class GtfTabixDataProvider(TabixDataProvider):
         # TODO: extend this code or use code in gff_util to process GFF/3 as well
         # and then create a generic GFFDataProvider that can be used with both
         # raw and tabix datasets.
-        features: dict[str, list[GFFInterval]] = {}
+        features: Dict[str, List[GFFInterval]] = {}
 
         for line in iterator:
             line_attrs = parse_gff_attributes(line.split("\t")[8])
             transcript_id = line_attrs["transcript_id"]
-            feature_list: list[GFFInterval]
+            feature_list: List[GFFInterval]
             if transcript_id in features:
                 feature_list = features[transcript_id]
             else:
@@ -1629,9 +1635,17 @@ def package_gff_feature(feature, no_detail=False, filter_cols=None) -> PAYLOAD_L
         feature.end,
     ]
 
+    # HACK: ignore interval with name 'transcript' from feature.
+    # Cufflinks puts this interval in each of its transcripts,
+    # and they mess up trackster by covering the feature's blocks.
+    # This interval will always be a feature's first interval,
+    # and the GFF's third column is its feature name.
+    feature_intervals = feature.intervals
+    if feature.intervals[0].fields[2] == "transcript":
+        feature_intervals = feature.intervals[1:]
     # Add blocks.
-    block_sizes = [(interval.end - interval.start) for interval in feature.intervals]
-    block_starts = [(interval.start - feature.start) for interval in feature.intervals]
+    block_sizes = [(interval.end - interval.start) for interval in feature_intervals]
+    block_starts = [(interval.start - feature.start) for interval in feature_intervals]
     blocks = list(zip(block_sizes, block_starts))
     payload.append([(feature.start + block[1], feature.start + block[1] + block[0]) for block in blocks])
 

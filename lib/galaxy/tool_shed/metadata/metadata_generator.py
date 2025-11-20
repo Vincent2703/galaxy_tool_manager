@@ -4,7 +4,10 @@ import tempfile
 from typing import (
     Any,
     cast,
+    Dict,
+    List,
     Optional,
+    Tuple,
     TYPE_CHECKING,
     Union,
 )
@@ -53,8 +56,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-InvalidFileT = tuple[str, str]
-HandleResultT = tuple[list, bool, str]
+InvalidFileT = Tuple[str, str]
+HandleResultT = Tuple[List, bool, str]
 
 NOT_TOOL_CONFIGS = [
     suc.DATATYPES_CONFIG_FILENAME,
@@ -89,24 +92,24 @@ class RepositoryProtocol(Protocol):
 class BaseMetadataGenerator:
     app: Union["BasicSharedApp", InstallationTarget]
     repository: Optional[RepositoryProtocol]
-    invalid_file_tups: list[InvalidFileT]
+    invalid_file_tups: List[InvalidFileT]
     changeset_revision: Optional[str]
     repository_clone_url: Optional[str]
-    shed_config_dict: dict[str, Any]
-    metadata_dict: dict[str, Any]
+    shed_config_dict: Dict[str, Any]
+    metadata_dict: Dict[str, Any]
     relative_install_dir: Optional[str]
     repository_files_dir: Optional[str]
     persist: bool
 
-    def initial_metadata_dict(self) -> dict[str, Any]:
+    def initial_metadata_dict(self) -> Dict[str, Any]:
         raise NotImplementedError()
 
     def handle_repository_elem(self, repository_elem, only_if_compiling_contained_td=False) -> HandleResultT:
         raise NotImplementedError()
 
     def _generate_data_manager_metadata(
-        self, repo_dir, data_manager_config_filename, metadata_dict: dict[str, Any], shed_config_dict=None
-    ) -> dict[str, Any]:
+        self, repo_dir, data_manager_config_filename, metadata_dict: Dict[str, Any], shed_config_dict=None
+    ) -> Dict[str, Any]:
         """
         Update the received metadata_dict with information from the parsed data_manager_config_filename.
         """
@@ -125,8 +128,8 @@ class BaseMetadataGenerator:
         rel_data_manager_config_filename = os.path.join(
             relative_data_manager_dir, os.path.split(data_manager_config_filename)[1]
         )
-        data_managers: dict[str, dict] = {}
-        invalid_data_managers: list[dict] = []
+        data_managers: Dict[str, dict] = {}
+        invalid_data_managers: List[dict] = []
         data_manager_metadata = {
             "config_filename": rel_data_manager_config_filename,
             "data_managers": data_managers,
@@ -506,9 +509,9 @@ class BaseMetadataGenerator:
             root = tree.getroot()
             xml_is_valid = root.tag == "repositories"
         if xml_is_valid:
-            invalid_repository_dependencies_dict: dict[str, Any] = dict(description=root.get("description"))
+            invalid_repository_dependencies_dict: Dict[str, Any] = dict(description=root.get("description"))
             invalid_repository_dependency_tups = []
-            valid_repository_dependencies_dict: dict[str, Any] = dict(description=root.get("description"))
+            valid_repository_dependencies_dict: Dict[str, Any] = dict(description=root.get("description"))
             valid_repository_dependency_tups = []
             for repository_elem in root.findall("repository"):
                 repository_dependency_tup, repository_dependency_is_valid, err_msg = self.handle_repository_elem(
@@ -719,12 +722,13 @@ class BaseMetadataGenerator:
             if original_valid_tool_dependencies_dict:
                 # We're generating metadata on an update pulled to a tool shed repository installed
                 # into a Galaxy instance, so handle changes to tool dependencies appropriately.
-                assert isinstance(self.app, InstallationTarget)
-                irm = self.app.installed_repository_manager
-                assert self.repository
-                gx_repository = cast(ToolShedRepository, self.repository)
-                irm.handle_existing_tool_dependencies_that_changed_in_update(
-                    gx_repository, original_valid_tool_dependencies_dict, rvs.valid_tool_dependencies_dict
+                installation_target = cast(InstallationTarget, self.app)
+                irm = installation_target.installed_repository_manager
+                (
+                    updated_tool_dependency_names,
+                    deleted_tool_dependency_names,
+                ) = irm.handle_existing_tool_dependencies_that_changed_in_update(
+                    self.repository, original_valid_tool_dependencies_dict, rvs.valid_tool_dependencies_dict
                 )
             metadata_dict["tool_dependencies"] = rvs.valid_tool_dependencies_dict
         if rvs.invalid_tool_dependencies_dict:
@@ -836,11 +840,11 @@ class BaseMetadataGenerator:
 
     def _update_repository_dependencies_metadata(
         self,
-        metadata: dict[str, Any],
-        repository_dependency_tups: list[tuple],
+        metadata: Dict[str, Any],
+        repository_dependency_tups: List[tuple],
         is_valid: bool,
         description: Optional[str],
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         if is_valid:
             repository_dependencies_dict = metadata.get("repository_dependencies", None)
         else:
@@ -876,7 +880,7 @@ class GalaxyMetadataGenerator(BaseMetadataGenerator):
         repository=None,
         changeset_revision: Optional[str] = None,
         repository_clone_url: Optional[str] = None,
-        shed_config_dict: Optional[dict[str, Any]] = None,
+        shed_config_dict: Optional[Dict[str, Any]] = None,
         relative_install_dir=None,
         repository_files_dir=None,
         resetting_all_metadata_on_repository=False,
@@ -920,7 +924,7 @@ class GalaxyMetadataGenerator(BaseMetadataGenerator):
         self.persist = persist
         self.invalid_file_tups = []
 
-    def initial_metadata_dict(self) -> dict[str, Any]:
+    def initial_metadata_dict(self) -> Dict[str, Any]:
         # Shed related tool panel configs are only relevant to Galaxy.
         metadata_dict = {"shed_config_filename": self.shed_config_dict.get("config_filename")}
         return metadata_dict
@@ -1029,7 +1033,7 @@ class GalaxyMetadataGenerator(BaseMetadataGenerator):
         return repository_dependency_tup, is_valid, error_message
 
 
-def _get_readme_file_names(repository_name: str) -> list[str]:
+def _get_readme_file_names(repository_name: str) -> List[str]:
     """Return a list of file names that will be categorized as README files for the received repository_name."""
     readme_files = ["readme", "read_me", "install"]
     valid_filenames = [f"{f}.txt" for f in readme_files]

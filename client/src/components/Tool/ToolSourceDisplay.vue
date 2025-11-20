@@ -1,11 +1,17 @@
 <template>
-    <div ref="editorContainer" class="editor-container"></div>
+    <Prism :language="language" :code="code" :plugins="['normalize-whitespace']"></Prism>
 </template>
 
 <script>
-import loader from "@monaco-editor/loader";
+import "prismjs/themes/prism.css";
+import "prismjs/plugins/normalize-whitespace/prism-normalize-whitespace.js";
+
+import Prism from "vue-prismjs";
 
 export default {
+    components: {
+        Prism,
+    },
     props: {
         language: {
             type: String,
@@ -16,52 +22,5 @@ export default {
             required: true,
         },
     },
-    data() {
-        return {
-            editor: null,
-        };
-    },
-    watch: {
-        code(newValue) {
-            if (this.editor) {
-                this.editor.setValue(newValue);
-            }
-        },
-        language(newValue) {
-            if (this.editor) {
-                this.editor.setModelLanguage(this.editor.getModel(), newValue);
-            }
-        },
-    },
-    mounted() {
-        this.initMonaco();
-    },
-    beforeDestroy() {
-        if (this.editor) {
-            this.editor.dispose();
-        }
-    },
-    methods: {
-        initMonaco() {
-            loader.init().then((monaco) => {
-                this.editor = monaco.editor.create(this.$refs.editorContainer, {
-                    value: this.code,
-                    language: this.language,
-                    readOnly: true,
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    theme: "vs",
-                });
-            });
-        },
-    },
 };
 </script>
-
-<style scoped>
-.editor-container {
-    width: 100%;
-    height: 600px;
-}
-</style>

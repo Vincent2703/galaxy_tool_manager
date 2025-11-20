@@ -22,7 +22,7 @@ ARG STAGE1_BASE=python:3.12-slim
 ARG FINAL_STAGE_BASE=$STAGE1_BASE
 ARG GALAXY_USER=galaxy
 ARG GALAXY_PLAYBOOK_REPO=https://github.com/galaxyproject/galaxy-docker-k8s
-ARG GALAXY_PLAYBOOK_BRANCH=v4.2.0
+ARG GALAXY_PLAYBOOK_BRANCH=v4.1.0
 
 ARG GIT_COMMIT=unspecified
 ARG BUILD_DATE=unspecified
@@ -51,14 +51,14 @@ RUN set -xe; \
         libc-dev \
         bzip2 \
         gcc \
-    && pip install --no-cache virtualenv ansible==11.11.0 \
+    && pip install --no-cache virtualenv ansible \
     && apt-get autoremove -y && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/*
 
 # Remove context from previous build; copy current context; run playbook
 WORKDIR /tmp/ansible
 RUN rm -rf *
-
+ENV LC_ALL en_US.UTF-8
 RUN git clone --depth 1 --branch $GALAXY_PLAYBOOK_BRANCH $GALAXY_PLAYBOOK_REPO galaxy-docker
 WORKDIR /tmp/ansible/galaxy-docker
 RUN ansible-galaxy install -r requirements.yml -p roles --force-with-deps
@@ -150,14 +150,12 @@ RUN set -xe; \
         locales \
         vim-tiny \
         nano-tiny \
-        netcat-openbsd \
         curl \
         procps \
         less \
         bzip2 \
         tini \
         nodejs \
-        wget \
     && update-alternatives --install /usr/bin/nano nano /bin/nano-tiny 0 \
     && update-alternatives --install /usr/bin/vim vim /usr/bin/vim.tiny 0 \
     && echo "set nocompatible\nset backspace=indent,eol,start" >> /usr/share/vim/vimrc.tiny \
@@ -170,7 +168,7 @@ RUN set -xe; \
 
 # Create Galaxy user, group, directory; chown
 RUN set -xe; \
-      adduser --system --group --uid 10001 $GALAXY_USER \
+      adduser --system --group --uid 101 $GALAXY_USER \
       && mkdir -p $SERVER_DIR \
       && chown $GALAXY_USER:$GALAXY_USER $ROOT_DIR -R
 
@@ -195,4 +193,4 @@ ENV GALAXY_CONFIG_CONDA_AUTO_INIT=False
 ENTRYPOINT ["tini", "--"]
 
 # [optional] to run:
-CMD ["galaxy"]
+CMD galaxy

@@ -7,6 +7,10 @@ from abc import (
     abstractmethod,
 )
 from enum import Enum
+from typing import (
+    Dict,
+    List,
+)
 
 from typing_extensions import TypeAlias
 
@@ -63,13 +67,13 @@ class BaseJobExec(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def parse_status(self, status: str, job_ids: list[str]) -> dict[str, job_states]:
+    def parse_status(self, status: str, job_ids: List[str]) -> Dict[str, job_states]:
         """
         Parse the statuses of output from get_status command.
         """
 
     @abstractmethod
-    def parse_single_status(self, status: str, job_id: str, shell) -> job_states:
+    def parse_single_status(self, status: str, job_id: str) -> job_states:
         """
         Parse the status of output from get_single_status command.
         """

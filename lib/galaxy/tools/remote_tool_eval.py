@@ -66,14 +66,10 @@ class ToolApp(MinimalToolApp):
         self.datatypes_registry = datatypes_registry
         self.object_store = object_store
         self.genome_builds = GenomeBuilds(self)
-        self._tool_data_tables = tool_data_table_manager
+        self.tool_data_tables = tool_data_table_manager
         self.file_sources = file_sources
         self.biotools_metadata_source = None
         self.security = None  # type: ignore[assignment]
-
-    @property
-    def tool_data_tables(self) -> ToolDataTableManager:
-        return self._tool_data_tables
 
 
 def main(TMPDIR, WORKING_DIRECTORY, IMPORT_STORE_DIRECTORY) -> None:
@@ -84,7 +80,6 @@ def main(TMPDIR, WORKING_DIRECTORY, IMPORT_STORE_DIRECTORY) -> None:
     datatypes_registry = validate_and_load_datatypes_config(datatypes_config)
     object_store = get_object_store(WORKING_DIRECTORY)
     import_store = store.imported_store_for_metadata(IMPORT_STORE_DIRECTORY)
-    assert isinstance(import_store.sa_session, SessionlessContext)
     # TODO: clean up random places from which we read files in the working directory
     job_io = JobIO.from_json(os.path.join(IMPORT_STORE_DIRECTORY, "job_io.json"), sa_session=import_store.sa_session)
     tool_app_config = ToolAppConfig(

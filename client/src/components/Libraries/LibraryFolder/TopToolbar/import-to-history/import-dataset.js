@@ -1,16 +1,13 @@
+import { getGalaxyInstance } from "app";
 import Backbone from "backbone";
+import { Toast } from "composables/toast";
 import $ from "jquery";
+import { getAppRoot } from "onload/loadConfig";
 import _ from "underscore";
-
-import { Toast } from "@/composables/toast";
-import { getAppRoot } from "@/onload/loadConfig";
-import _l from "@/utils/localization";
-import Modal from "@/utils/modal";
+import _l from "utils/localization";
 
 import { updateProgress } from "../delete-selected";
 import mod_library_model from "../library-model";
-
-var modal = new Modal();
 
 var ImportDatasetModal = Backbone.View.extend({
     options: null,
@@ -27,6 +24,7 @@ var ImportDatasetModal = Backbone.View.extend({
         return this.options.selected;
     },
     importToHistoryModal: function () {
+        const Galaxy = getGalaxyInstance();
         var $checkedValues = this.findCheckedItems();
         var template = this.templateImportIntoHistoryModal();
         if ($checkedValues.length === 0) {
@@ -35,7 +33,8 @@ var ImportDatasetModal = Backbone.View.extend({
             var promise = this.fetchUserHistories();
             promise
                 .done(() => {
-                    modal.show({
+                    this.modal = Galaxy.modal;
+                    this.modal.show({
                         closing_events: true,
                         title: _l("Import into History"),
                         body: template({
@@ -46,7 +45,7 @@ var ImportDatasetModal = Backbone.View.extend({
                                 this.importAllIntoHistory();
                             },
                             Close: () => {
-                                modal.hide();
+                                Galaxy.modal.hide();
                             },
                         },
                     });
@@ -70,8 +69,8 @@ var ImportDatasetModal = Backbone.View.extend({
     },
 
     importAllIntoHistory: function () {
-        modal.disableButton("Import");
-        var new_history_name = modal.el.querySelector('input[name="history_name"]').value;
+        this.modal.disableButton("Import");
+        var new_history_name = this.modal.$("input[name=history_name]").val();
         if (new_history_name !== "") {
             this.createNewHistory(new_history_name)
                 .done((new_history) => {
@@ -81,13 +80,13 @@ var ImportDatasetModal = Backbone.View.extend({
                     Toast.error("An error occurred.");
                 })
                 .always(() => {
-                    modal.enableButton("Import");
+                    this.modal.disableButton("Import");
                 });
         } else {
             var history_id = $("select[name=import_to_history] option:selected").val();
             var history_name = $("select[name=import_to_history] option:selected").text();
             this.processImportToHistory(history_id, history_name);
-            modal.enableButton("Import");
+            this.modal.disableButton("Import");
         }
     },
 
@@ -134,8 +133,10 @@ var ImportDatasetModal = Backbone.View.extend({
     initChainCallControlToHistory: function (options) {
         var template;
         template = this.templateImportIntoHistoryProgressBar();
-        modal.$body.innerHTML = template({ history_name: options.history_name });
+        this.modal.$el.find(".modal-body").html(template({ history_name: options.history_name }));
 
+        // var progress_bar_tmpl = this.templateAddingDatasetsProgressBar();
+        // this.modal.$el.find( '.modal-body' ).html( progress_bar_tmpl( { folder_name : this.options.folder_name } ) );
         this.progress = 0;
         this.progressStep = 100 / options.length;
         this.options.chain_call_control.total_number = options.length;
@@ -148,13 +149,14 @@ var ImportDatasetModal = Backbone.View.extend({
      * @param  {str} history_name     name of the history to import to
      */
     chainCallImportingIntoHistory: function (history_item_set, history_name, history_id) {
+        const Galaxy = getGalaxyInstance();
         var popped_item = history_item_set.pop();
         if (typeof popped_item == "undefined") {
             if (this.options.chain_call_control.failed_number === 0) {
                 Toast.success(
                     "Click here to start analyzing it.",
                     "Selected datasets imported into history",
-                    `${getAppRoot()}histories/view?id=${history_id}`,
+                    `${getAppRoot()}histories/view?id=${history_id}`
                 );
             } else if (this.options.chain_call_control.failed_number === this.options.chain_call_control.total_number) {
                 Toast.error("There was an error and no datasets were imported into history.");
@@ -162,17 +164,17 @@ var ImportDatasetModal = Backbone.View.extend({
                 Toast.warning(
                     "Some of the datasets could not be imported into history. Click this to see what was imported.",
                     "",
-                    `${getAppRoot()}histories/view?id=${history_id}`,
+                    `${getAppRoot()}histories/view?id=${history_id}`
                 );
             }
-            modal.hide();
+            Galaxy.modal.hide();
             return true;
         }
         var promise = $.when(
             popped_item.save({
                 content: popped_item.content,
                 source: popped_item.source,
-            }),
+            })
         );
 
         promise
@@ -197,7 +199,7 @@ var ImportDatasetModal = Backbone.View.extend({
                     aria-valuemax="100" style="width: 00%;">
                     <span class="completion_span">0% Complete</span>
                 </div>
-            </div>`,
+            </div>`
         );
     },
     templateDeletingItemsProgressBar: function () {
@@ -209,7 +211,7 @@ var ImportDatasetModal = Backbone.View.extend({
                     aria-valuemax="100" style="width: 00%;">
                     <span class="completion_span">0% Complete</span>
                 </div>
-            </div>`,
+            </div>`
         );
     },
     templateImportIntoHistoryModal: function () {
@@ -230,7 +232,7 @@ var ImportDatasetModal = Backbone.View.extend({
                     <input type="text" name="history_name" value=""
                         placeholder="name of the new history" style="width:50%;" />
                 </div>
-            </div>`,
+            </div>`
         );
     },
 });

@@ -6,6 +6,7 @@ from galaxy import (
     security,
 )
 from galaxy.managers import users
+from galaxy.model.base import transaction
 
 log = logging.getLogger(__name__)
 
@@ -111,7 +112,8 @@ class DatasetRBACPermission(RBACPermission):
             permissions.append(self._create(dataset, role, flush=False))
         if flush:
             session = self.session()
-            session.commit()
+            with transaction(session):
+                session.commit()
         return permissions
 
     def clear(self, dataset, flush=True):
@@ -124,7 +126,8 @@ class DatasetRBACPermission(RBACPermission):
         self.session().add(permission)
         if flush:
             session = self.session()
-            session.commit()
+            with transaction(session):
+                session.commit()
         return permission
 
     def _roles(self, dataset):
@@ -145,7 +148,8 @@ class DatasetRBACPermission(RBACPermission):
                 self.session().delete(permission)
         if flush:
             session = self.session()
-            session.commit()
+            with transaction(session):
+                session.commit()
 
     def _revoke_role(self, dataset, role, flush=True):
         role_permissions = self.by_roles(dataset, [role])

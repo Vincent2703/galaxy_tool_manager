@@ -1,9 +1,5 @@
 import logging
 import os
-from typing import (
-    cast,
-    TYPE_CHECKING,
-)
 
 from testfixtures.logcapture import log_capture
 
@@ -16,56 +12,60 @@ from . import (
     ymltests as yt,
 )
 
-if TYPE_CHECKING:
-    from galaxy.model import Job
-    from galaxy.structured_app import MinimalManagerApp
-    from galaxy.tools import Tool
-
-theApp = cast("MinimalManagerApp", mg.App("cluster_default", "test_spec"))
+theApp = mg.App("cluster_default", "test_spec")
 script_dir = os.path.dirname(__file__)
 
 # ======================Jobs====================================
-zeroJob = cast("Job", mg.Job())
+zeroJob = mg.Job()
 
-emptyJob = cast("Job", mg.Job())
+emptyJob = mg.Job()
 emptyJob.add_input_dataset(mg.InputDataset("input1", mg.Dataset((script_dir + "/data/test.empty"), "txt", 14)))
 
-failJob = cast("Job", mg.Job())
+failJob = mg.Job()
 failJob.add_input_dataset(mg.InputDataset("input1", mg.Dataset((script_dir + "/data/test1.full"), "txt", 15)))
 
-runJob = cast("Job", mg.Job())
+msfileJob = mg.Job()
+msfileJob.add_input_dataset(mg.InputDataset("input1", mg.Dataset((script_dir + "/data/not_here.full"), "txt", 15)))
+
+notfileinpJob = mg.Job()
+msfileJob.add_input_dataset(mg.InputDataset("input1", mg.NotAFile()))
+
+runJob = mg.Job()
 runJob.add_input_dataset(mg.InputDataset("input1", mg.Dataset((script_dir + "/data/test3.full"), "txt", 15)))
 
-mockJob = mg.Job()
-mockJob.set_arg_value("careful", True)
-argJob = cast("Job", mockJob)
+argJob = mg.Job()
 argJob.add_input_dataset(mg.InputDataset("input1", mg.Dataset((script_dir + "/data/test3.full"), "txt", 15)))
+argJob.set_arg_value("careful", True)
 
-mockJob = mg.Job()
-mockJob.set_arg_value("careful", False)
-argNotFoundJob = cast("Job", mockJob)
+argNotFoundJob = mg.Job()
 argNotFoundJob.add_input_dataset(mg.InputDataset("input1", mg.Dataset((script_dir + "/data/test3.full"), "txt", 15)))
+argNotFoundJob.set_arg_value("careful", False)
 
-dbJob = cast("Job", mg.Job())
+dbJob = mg.Job()
 dbJob.add_input_dataset(mg.InputDataset("input1", mg.Dataset((script_dir + "/data/test.fasta"), "fasta", 10)))
 
-dbcountJob = cast("Job", mg.Job())
+dbcountJob = mg.Job()
 dbcountJob.add_input_dataset(mg.InputDataset("input1", mg.Dataset((script_dir + "/data/test.fasta"), "fasta", None)))
 
 # ======================Tools===================================
-vanillaTool = cast("Tool", mg.Tool("test"))
+vanillaTool = mg.Tool("test")
 
-unTool = cast("Tool", mg.Tool("unregistered"))
+unTool = mg.Tool("unregistered")
 
-defaultTool = cast("Tool", mg.Tool("test_tooldefault"))
+overlapTool = mg.Tool("test_overlap")
 
-dbTool = cast("Tool", mg.Tool("test_db"))
+defaultTool = mg.Tool("test_tooldefault")
 
-argTool = cast("Tool", mg.Tool("test_arguments"))
+dbTool = mg.Tool("test_db")
+dbinfTool = mg.Tool("test_db_high")
 
-noVBTool = cast("Tool", mg.Tool("test_no_verbose"))
+argTool = mg.Tool("test_arguments")
 
-usersTool = cast("Tool", mg.Tool("test_users"))
+noVBTool = mg.Tool("test_no_verbose")
+
+usersTool = mg.Tool("test_users")
+
+numinputsTool = mg.Tool("test_num_input_datasets")
 
 # =======================Configuration files================================
 path = script_dir + "/data/tool_destination.yml"

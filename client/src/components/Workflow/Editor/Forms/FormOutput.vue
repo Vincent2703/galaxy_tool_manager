@@ -9,13 +9,14 @@
                 title="Rename dataset"
                 type="text"
                 @input="onInput" />
-            <FormDatatype
+            <FormElement
                 :id="actionNames.ChangeDatatypeAction__newtype"
                 :value="formData[actionNames.ChangeDatatypeAction__newtype]"
-                :datatypes="datatypes"
+                :attributes="{ options: datatypeExtensions }"
                 title="Change datatype"
+                type="select"
                 help="This action will change the datatype of the output to the indicated datatype."
-                @onChange="onDatatype" />
+                @input="onDatatype" />
             <FormElement
                 :id="actionNames.TagDatasetAction__tags"
                 :value="formData[actionNames.TagDatasetAction__tags]"
@@ -76,10 +77,9 @@
 </template>
 
 <script>
-import FormCard from "@/components/Form/FormCard.vue";
-import FormElement from "@/components/Form/FormElement.vue";
-import FormDatatype from "@/components/Workflow/Editor/Forms/FormDatatype.vue";
-import FormOutputLabel from "@/components/Workflow/Editor/Forms/FormOutputLabel.vue";
+import FormCard from "@/components/Form/FormCard";
+import FormElement from "@/components/Form/FormElement";
+import FormOutputLabel from "@/components/Workflow/Editor/Forms/FormOutputLabel";
 
 const actions = [
     "RenameDatasetAction__newname",
@@ -101,7 +101,6 @@ export default {
         FormCard,
         FormElement,
         FormOutputLabel,
-        FormDatatype,
     },
     props: {
         outputName: {
@@ -148,6 +147,26 @@ export default {
                 index[action] = `pja__${this.outputName}__${action}`;
             });
             return index;
+        },
+        datatypeExtensions() {
+            const extensions = [];
+            for (const key in this.datatypes) {
+                extensions.push({ 0: this.datatypes[key], 1: this.datatypes[key] });
+            }
+            extensions.sort((a, b) => (a.label > b.label ? 1 : a.label < b.label ? -1 : 0));
+            extensions.unshift({
+                0: "Sequences",
+                1: "Sequences",
+            });
+            extensions.unshift({
+                0: "Roadmaps",
+                1: "Roadmaps",
+            });
+            extensions.unshift({
+                0: "Leave unchanged",
+                1: "",
+            });
+            return extensions;
         },
         renameHelp() {
             /* TODO: FormElement should provide a slot for custom help templating instead. */

@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import pytest
 
 from galaxy.schema.schema import ModelStoreFormat
@@ -32,7 +34,7 @@ class MockShortTermStorageAllocator(ShortTermStorageAllocator):
         ("test", ModelStoreFormat.BCO_JSON.value, ("test.bco.json", "application/json")),
     ],
 )
-def test_model_store_storage_target(file_name: str, model_store_format: str, expected: tuple[str, str]):
+def test_model_store_storage_target(file_name: str, model_store_format: str, expected: Tuple[str, str]):
     mock_sts_allocator = MockShortTermStorageAllocator(*expected)
     model_store_storage_target(
         short_term_storage_allocator=mock_sts_allocator, file_name=file_name, model_store_format=model_store_format

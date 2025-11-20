@@ -1,7 +1,6 @@
 import { mount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { getLocalVue, wait } from "tests/jest/helpers";
-import VueRouter from "vue-router";
 
 import { useServerMock } from "@/api/client/__mocks__";
 import { waitOnJob } from "@/components/JobStates/wait";
@@ -9,9 +8,6 @@ import { waitOnJob } from "@/components/JobStates/wait";
 import HistoryImport from "./HistoryImport.vue";
 
 const localVue = getLocalVue();
-localVue.use(VueRouter);
-const router = new VueRouter();
-
 const TEST_JOB_ID = "job123789";
 const TEST_SOURCE_URL = "http://galaxy.example/import";
 
@@ -41,20 +37,19 @@ describe("HistoryImport.vue", () => {
                         },
                     },
                 ]);
-            }),
+            })
         );
 
         wrapper = mount(HistoryImport, {
             propsData: {},
             localVue,
-            router,
         });
         await flushPromises();
     });
 
     it("should render a form with submit disabled because inputs empty", async () => {
         expect(wrapper.find(".import-button").exists()).toBeTruthy();
-        expect(wrapper.find(".import-button").attributes("aria-disabled")).toBeTruthy();
+        expect(wrapper.find(".import-button").attributes("disabled")).toBeTruthy();
         expect(wrapper.vm.importReady).toBeFalsy();
     });
 
@@ -83,14 +78,14 @@ describe("HistoryImport.vue", () => {
             http.post("/api/histories", async ({ response, request }) => {
                 formData = await request.formData();
                 return response(200).json({ job_id: TEST_JOB_ID });
-            }),
+            })
         );
 
         let then;
         waitOnJob.mockReturnValue(
             new Promise((then_) => {
                 then = then_;
-            }),
+            })
         );
         wrapper.vm.submit();
         await flushPromises();
@@ -113,7 +108,7 @@ describe("HistoryImport.vue", () => {
         const alert = wrapper.find(".alert");
         expect(alert.classes()).toContain("alert-warning");
         expect(alert.text()).toContain(
-            "It looks like you are trying to import a published history from another galaxy instance",
+            "It looks like you are trying to import a published history from another galaxy instance"
         );
 
         // Link to the GTN

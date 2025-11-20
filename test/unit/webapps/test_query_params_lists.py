@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi.applications import FastAPI
 from fastapi.param_functions import (
     Depends,
@@ -14,7 +16,7 @@ client = TestClient(app)
 
 @app.get("/test/get_value_as_list")
 async def get_value_as_list(
-    values: list[str] = Depends(query_parameter_as_list(Query(alias="value"))),
+    values: List[str] = Depends(query_parameter_as_list(Query(alias="value"))),
 ):
     return values
 

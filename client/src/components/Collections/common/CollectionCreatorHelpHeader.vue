@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { computed, ref } from "vue";
+import { ref } from "vue";
 
 import localize from "@/utils/localization";
-
-interface Props {
-    mode: "wizard" | "modal";
-}
-
-const props = defineProps<Props>();
 
 const isExpanded = ref(false);
 
@@ -17,14 +11,6 @@ function clickForHelp() {
     isExpanded.value = !isExpanded.value;
     return isExpanded.value;
 }
-
-const helpContentClasses = computed(() => {
-    const classes = ["help-content"];
-    if (props.mode == "modal") {
-        classes.push("help-content-nowrap");
-    }
-    return classes;
-});
 </script>
 
 <template>
@@ -46,7 +32,7 @@ const helpContentClasses = computed(() => {
                 </div>
             </a>
 
-            <div :class="helpContentClasses">
+            <div class="help-content">
                 <!-- each collection that extends this will add their own help content -->
                 <slot></slot>
 

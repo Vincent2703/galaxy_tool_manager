@@ -2,8 +2,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
 import { type AnyUser, isAdminUser, isAnonymousUser, isRegisteredUser, type RegisteredUser } from "@/api";
-import { useHashedUserId } from "@/composables/hashedUserId";
-import { useUserLocalStorageFromHashId } from "@/composables/userLocalStorageFromHashedId";
+import { useUserLocalStorage } from "@/composables/userLocalStorage";
 import { useHistoryStore } from "@/stores/historyStore";
 import {
     addFavoriteToolQuery,
@@ -22,24 +21,14 @@ interface Preferences {
     [key: string]: unknown;
 }
 
-export type ListViewMode = "grid" | "list";
-
-type UserListViewPreferences = Record<string, ListViewMode>;
+type ListViewMode = "grid" | "list";
 
 export const useUserStore = defineStore("userStore", () => {
     const currentUser = ref<AnyUser>(null);
     const currentPreferences = ref<Preferences | null>(null);
-    const { hashedUserId } = useHashedUserId(currentUser);
 
-    const currentListViewPreferences = useUserLocalStorageFromHashId<UserListViewPreferences>(
-        "user-store-list-view-preferences",
-        {},
-        hashedUserId,
-    );
-
-    const hasSeenUploadHelp = useUserLocalStorageFromHashId("user-store-seen-upload-help", false, hashedUserId);
-
-    const historyPanelWidth = useUserLocalStorageFromHashId("user-store-history-panel-width", 300, hashedUserId);
+    const preferredListViewMode = useUserLocalStorage("user-store-preferred-list-view-mode", "grid", currentUser);
+    const hasSeenUploadHelp = useUserLocalStorage("user-store-seen-upload-help", false, currentUser);
 
     let loadPromise: Promise<void> | null = null;
 
@@ -144,11 +133,8 @@ export const useUserStore = defineStore("userStore", () => {
         }
     }
 
-    function setListViewPreference(listId: string, view: ListViewMode) {
-        currentListViewPreferences.value = {
-            ...currentListViewPreferences.value,
-            [listId]: view,
-        };
+    function setPreferredListViewMode(view: ListViewMode) {
+        preferredListViewMode.value = view;
     }
 
     function processUserPreferences(user: RegisteredUser): Preferences {
@@ -168,14 +154,13 @@ export const useUserStore = defineStore("userStore", () => {
         isAnonymous,
         currentTheme,
         currentFavorites,
-        currentListViewPreferences,
+        preferredListViewMode,
         hasSeenUploadHelp,
-        historyPanelWidth,
         loadUser,
         matchesCurrentUsername,
         setCurrentUser,
         setCurrentTheme,
-        setListViewPreference,
+        setPreferredListViewMode,
         addFavoriteTool,
         removeFavoriteTool,
         $reset,

@@ -10,6 +10,8 @@ from typing import (
     Any,
     Callable,
     cast,
+    Dict,
+    List,
     Optional,
     Union,
 )
@@ -17,8 +19,6 @@ from typing import (
 from pydantic import BaseModel
 from sqlalchemy import (
     false,
-    func,
-    or_,
     select,
 )
 from sqlalchemy.orm import scoped_session
@@ -32,7 +32,6 @@ from galaxy.exceptions import (
     ObjectNotFound,
     RequestParameterInvalidException,
 )
-from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.tool_shed.util import dependency_display
 from galaxy.util import listify
 from galaxy.util.tool_shed.encoding_util import tool_shed_encode
@@ -57,6 +56,7 @@ from tool_shed.util.repository_util import (
     create_repository as low_level_create_repository,
     get_repo_info_dict,
     get_repositories_by_category,
+    get_repository_by_name_and_owner,
     get_repository_in_tool_shed,
     validate_repository_name,
 )
@@ -67,24 +67,16 @@ from tool_shed.util.shed_util_common import (
 from tool_shed.util.tool_util import generate_message_for_invalid_tools
 from tool_shed.webapp.model import (
     Repository,
-    RepositoryCategoryAssociation,
     RepositoryMetadata,
-    User,
 )
-from tool_shed.webapp.model.db import get_repository_by_name_and_owner
 from tool_shed.webapp.search.repo_search import RepoSearch
 from tool_shed_client.schema import (
     CreateRepositoryRequest,
     DetailedRepository,
     ExtraRepoInfo,
-    IndexSortByType,
     LegacyInstallInfoTuple,
-    PaginatedRepositoryIndexResults,
     Repository as SchemaRepository,
     RepositoryMetadataInstallInfoDict,
-    RepositoryRevisionMetadata,
-    ResetMetadataOnRepositoriesRequest,
-    ResetMetadataOnRepositoriesResponse,
     ResetMetadataOnRepositoryResponse,
 )
 from .categories import get_value_mapper as category_value_mapper
@@ -138,12 +130,8 @@ def search(trans: ProvidesUserContext, q: str, page: int = 1, page_size: int = 1
     )
 
     results = repo_search.search(trans, search_term, page, page_size, boosts)
-    results["hostname"] = deprecated_hostname()
+    results["hostname"] = web.url_for("/", qualified=True)
     return results
-
-
-def deprecated_hostname() -> str:
-    return web.url_for("/", qualified=True)
 
 
 class UpdatesRequest(BaseModel):
@@ -153,13 +141,13 @@ class UpdatesRequest(BaseModel):
     hexlify: bool = True
 
 
-def check_updates(app: ToolShedApp, request: UpdatesRequest) -> Union[str, dict[str, Any]]:
+def check_updates(app: ToolShedApp, request: UpdatesRequest) -> Union[str, Dict[str, Any]]:
     name = request.name
     owner = request.owner
     changeset_revision = request.changeset_revision
     hexlify_this = request.hexlify
     repository = get_repository_by_name_and_owner(
-        app.model.context, name, owner, eagerload_columns=[Repository.downloadable_revisions]
+        app, name, owner, eagerload_columns=[Repository.downloadable_revisions]
     )
     if repository and repository.downloadable_revisions:
         repository_metadata = get_repository_metadata_by_changeset_revision(
@@ -209,13 +197,13 @@ def check_updates(app: ToolShedApp, request: UpdatesRequest) -> Union[str, dict[
     return tool_shed_encode({}) if hexlify_this else json.dumps({})
 
 
-def guid_to_repository(app: ToolShedApp, tool_id: str) -> Repository:
+def guid_to_repository(app: ToolShedApp, tool_id: str) -> "Repository":
     # tool_id = remove_protocol_and_user_from_clone_url(tool_id)
     shed, _, owner, name, rest = tool_id.split("/", 5)
-    return _get_repository_by_name_and_owner(app.model.context, name, owner)
+    return _get_repository_by_name_and_owner(app.model.context, name, owner, app.model.User)
 
 
-def index_tool_ids(app: ToolShedApp, tool_ids: list[str]) -> dict[str, Any]:
+def index_tool_ids(app: ToolShedApp, tool_ids: List[str]) -> Dict[str, Any]:
     repository_found = []
     all_metadata = {}
     for tool_id in tool_ids:
@@ -223,19 +211,19 @@ def index_tool_ids(app: ToolShedApp, tool_ids: list[str]) -> dict[str, Any]:
         owner = repository.user.username
         name = repository.name
         assert name
-        repository = _get_repository_by_name_and_owner(app.model.session, name, owner)
+        repository = _get_repository_by_name_and_owner(app.model.session().current, name, owner, app.model.User)
         if not repository:
             log.warning(f"Repository {owner}/{name} does not exist, skipping")
             continue
         for changeset, changehash in repository.installable_revisions(app):
             metadata = get_current_repository_metadata_for_changeset_revision(app, repository, changehash)
-            tools: Optional[list[dict[str, Any]]] = metadata.metadata.get("tools")
+            tools: Optional[List[Dict[str, Any]]] = metadata.metadata.get("tools")
             if not tools:
                 log.warning(f"Repository {owner}/{name}/{changehash} does not contain valid tools, skipping")
                 continue
             for tool_metadata in tools:
                 if tool_metadata["guid"] in tool_ids:
-                    repository_found.append(f"{int(changeset)}:{changehash}")
+                    repository_found.append("%d:%s" % (int(changeset), changehash))
             metadata = get_current_repository_metadata_for_changeset_revision(app, repository, changehash)
             if metadata is None:
                 continue
@@ -264,40 +252,9 @@ def index_tool_ids(app: ToolShedApp, tool_ids: list[str]) -> dict[str, Any]:
         return {}
 
 
-class IndexRequest(BaseModel):
-    name: Optional[str] = None
-    owner: Optional[str] = None
-    deleted: bool = False
-    filter: Optional[str] = None
-    category_id: Optional[str] = None
-    sort_by: IndexSortByType = "name"
-    sort_desc: bool = False
-
-
-class PaginatedIndexRequest(IndexRequest):
-    page: int
-    page_size: int
-
-
-def index_repositories(app: ToolShedApp, index_request: IndexRequest) -> list[Repository]:
-    session = app.model.context
-    return list(session.scalars(_get_repositories_by_name_and_owner_and_deleted(app.security, index_request)))
-
-
-def index_repositories_paginated(
-    app: ToolShedApp, index_request: PaginatedIndexRequest
-) -> PaginatedRepositoryIndexResults:
-    session = app.model.context
-    stmt = _get_repositories_by_name_and_owner_and_deleted(app.security, index_request)
-    total_results = session.scalar(select(func.count()).select_from(stmt.subquery()))
-    stmt = stmt.limit(index_request.page_size).offset((index_request.page - 1) * index_request.page_size)
-    results = (to_model(app, r) for r in session.scalars(stmt).all())
-    return PaginatedRepositoryIndexResults(
-        total_results=total_results,
-        page=index_request.page,
-        page_size=index_request.page_size,
-        hits=list(results),
-        hostname=deprecated_hostname(),
+def index_repositories(app: ToolShedApp, name: Optional[str], owner: Optional[str], deleted: bool):
+    return list(
+        _get_repositories_by_name_and_owner_and_deleted(app.model.context, name, owner, deleted, app.model.User)
     )
 
 
@@ -332,7 +289,7 @@ def get_install_info(trans: ProvidesRepositoriesContext, name, owner, changeset_
     if name and owner and changeset_revision:
         # Get the repository information.
         repository = get_repository_by_name_and_owner(
-            app.model.context, name, owner, eagerload_columns=[Repository.downloadable_revisions]
+            app, name, owner, eagerload_columns=[Repository.downloadable_revisions]
         )
         if repository is None:
             log.debug(f"Cannot locate repository {name} owned by {owner}")
@@ -388,7 +345,7 @@ def get_install_info(trans: ProvidesRepositoriesContext, name, owner, changeset_
         return {}, {}, {}
 
 
-def get_value_mapper(app: ToolShedApp) -> dict[str, Callable]:
+def get_value_mapper(app: ToolShedApp) -> Dict[str, Callable]:
     value_mapper = {
         "id": app.security.encode_id,
         "repository_id": app.security.encode_id,
@@ -399,13 +356,11 @@ def get_value_mapper(app: ToolShedApp) -> dict[str, Callable]:
 
 def get_ordered_installable_revisions(
     app: ToolShedApp, name: Optional[str], owner: Optional[str], tsr_id: Optional[str]
-) -> list[str]:
+) -> List[str]:
     eagerload_columns = [Repository.downloadable_revisions]
     if None not in [name, owner]:
         # Get the repository information.
-        repository = get_repository_by_name_and_owner(
-            app.model.context, name, owner, eagerload_columns=eagerload_columns
-        )
+        repository = get_repository_by_name_and_owner(app, name, owner, eagerload_columns=eagerload_columns)
         if repository is None:
             raise ObjectNotFound(f"No repository named {name} found with owner {owner}")
     elif tsr_id is not None:
@@ -418,7 +373,7 @@ def get_ordered_installable_revisions(
     return [revision[1] for revision in repository.installable_revisions(app, sort_revisions=True)]
 
 
-def get_repository_metadata_dict(app: ToolShedApp, id: str, recursive: bool, downloadable_only: bool) -> dict[str, Any]:
+def get_repository_metadata_dict(app: ToolShedApp, id: str, recursive: bool, downloadable_only: bool) -> Dict[str, Any]:
     all_metadata = {}
     repository = get_repository_in_tool_shed(app, id, eagerload_columns=[Repository.downloadable_revisions])
     for changeset, changehash in get_metadata_revisions(
@@ -427,35 +382,23 @@ def get_repository_metadata_dict(app: ToolShedApp, id: str, recursive: bool, dow
         metadata = get_current_repository_metadata_for_changeset_revision(app, repository, changehash)
         if metadata is None:
             continue
-        metadata_dict = get_repository_revision_metadata_dict(app, repository, metadata, recursive=recursive)
+        metadata_dict = metadata.to_dict(
+            value_mapper={"id": app.security.encode_id, "repository_id": app.security.encode_id}
+        )
+        metadata_dict["repository"] = repository.to_dict(
+            value_mapper={"id": app.security.encode_id, "user_id": app.security.encode_id}
+        )
+        if metadata.has_repository_dependencies and recursive:
+            metadata_dict["repository_dependencies"] = get_all_dependencies(
+                app, metadata, processed_dependency_links=[]
+            )
+        else:
+            metadata_dict["repository_dependencies"] = []
+        if metadata.includes_tools:
+            metadata_dict["tools"] = metadata.metadata["tools"]
+        metadata_dict["invalid_tools"] = metadata.metadata.get("invalid_tools", [])
         all_metadata[f"{int(changeset)}:{changehash}"] = metadata_dict
     return all_metadata
-
-
-def get_repository_revision_metadata_dict(
-    app: ToolShedApp, repository: Repository, metadata: RepositoryMetadata, recursive: bool = False
-):
-    metadata_dict = metadata.to_dict(
-        value_mapper={"id": app.security.encode_id, "repository_id": app.security.encode_id}
-    )
-    metadata_dict["repository"] = repository.to_dict(
-        value_mapper={"id": app.security.encode_id, "user_id": app.security.encode_id}
-    )
-    if metadata.has_repository_dependencies and recursive:
-        metadata_dict["repository_dependencies"] = get_all_dependencies(app, metadata, processed_dependency_links=[])
-    else:
-        metadata_dict["repository_dependencies"] = []
-    if metadata.includes_tools:
-        metadata_dict["tools"] = metadata.metadata["tools"]
-    metadata_dict["invalid_tools"] = metadata.metadata.get("invalid_tools", [])
-    return metadata_dict
-
-
-def get_repository_revision_metadata_model(
-    app: ToolShedApp, repository: Repository, metadata: RepositoryMetadata, recursive: bool = False
-) -> RepositoryRevisionMetadata:
-    as_dict = get_repository_revision_metadata_dict(app, repository, metadata, recursive=recursive)
-    return RepositoryRevisionMetadata(**as_dict)
 
 
 def readmes(app: ToolShedApp, repository: Repository, changeset_revision: str) -> dict:
@@ -512,82 +455,6 @@ def reset_metadata_on_repository(trans: ProvidesUserContext, repository_id) -> R
     return ResetMetadataOnRepositoryResponse(**results)
 
 
-def reset_metadata_on_repositories(
-    trans: ProvidesRepositoriesContext, request: ResetMetadataOnRepositoriesRequest
-) -> ResetMetadataOnRepositoriesResponse:
-
-    def handle_repository(trans, repository, results):
-        log.debug(f"Resetting metadata on repository {repository.name}")
-        try:
-            rmm = repository_metadata_manager.RepositoryMetadataManager(
-                trans,
-                resetting_all_metadata_on_repository=True,
-                updating_installed_repository=False,
-                repository=repository,
-                persist=False,
-            )
-            rmm.reset_all_metadata_on_repository_in_tool_shed()
-            rmm_invalid_file_tups = rmm.get_invalid_file_tups()
-            if rmm_invalid_file_tups:
-                message = generate_message_for_invalid_tools(
-                    trans.app, rmm_invalid_file_tups, repository, None, as_html=False
-                )
-                results["unsuccessful_count"] += 1
-            else:
-                message = (
-                    f"Successfully reset metadata on repository {repository.name} owned by {repository.user.username}"
-                )
-                results["successful_count"] += 1
-        except Exception as e:
-            message = (
-                f"Error resetting metadata on repository {repository.name} owned by {repository.user.username}: {e}"
-            )
-            results["unsuccessful_count"] += 1
-        status = f"{repository.name} : {message}"
-        results["repository_status"].append(status)
-        return results
-
-    start_time = strftime("%Y-%m-%d %H:%M:%S")
-    results = dict(start_time=start_time, repository_status=[], successful_count=0, unsuccessful_count=0)
-    handled_repository_ids: list[str] = []
-    encoded_ids_to_skip = request.encoded_ids_to_skip or []
-    if trans.user_is_admin:
-        my_writable = request.my_writable
-    else:
-        my_writable = True
-    rmm = repository_metadata_manager.RepositoryMetadataManager(
-        trans,
-        resetting_all_metadata_on_repository=True,
-        updating_installed_repository=False,
-        persist=False,
-    )
-    # First reset metadata on all repositories of type repository_dependency_definition.
-    for repository in rmm.get_repositories_for_setting_metadata(my_writable=my_writable, order=False):
-        encoded_id = trans.security.encode_id(repository.id)
-        if encoded_id in encoded_ids_to_skip:
-            log.debug(
-                "Skipping repository with id %s because it is in encoded_ids_to_skip %s",
-                repository.id,
-                encoded_ids_to_skip,
-            )
-        elif repository.type == rt_util.TOOL_DEPENDENCY_DEFINITION and repository.id not in handled_repository_ids:
-            results = handle_repository(trans, repository, results)
-    # Now reset metadata on all remaining repositories.
-    for repository in rmm.get_repositories_for_setting_metadata(my_writable=my_writable, order=False):
-        encoded_id = trans.security.encode_id(repository.id)
-        if encoded_id in encoded_ids_to_skip:
-            log.debug(
-                "Skipping repository with id %s because it is in encoded_ids_to_skip %s",
-                repository.id,
-                encoded_ids_to_skip,
-            )
-        elif repository.type != rt_util.TOOL_DEPENDENCY_DEFINITION and repository.id not in handled_repository_ids:
-            results = handle_repository(trans, repository, results)
-    stop_time = strftime("%Y-%m-%d %H:%M:%S")
-    results["stop_time"] = stop_time
-    return ResetMetadataOnRepositoriesResponse(**results)
-
-
 def create_repository(trans: ProvidesUserContext, request: CreateRepositoryRequest) -> Repository:
     app: ToolShedApp = trans.app
     user = trans.user
@@ -611,7 +478,7 @@ def create_repository(trans: ProvidesUserContext, request: CreateRepositoryReque
     return repo
 
 
-def to_element_dict(app, repository: Repository, include_categories: bool = False) -> dict[str, Any]:
+def to_element_dict(app, repository: Repository, include_categories: bool = False) -> Dict[str, Any]:
     value_mapper = get_value_mapper(app)
     repository_dict = repository.to_dict(view="element", value_mapper=value_mapper)
     if include_categories:
@@ -628,7 +495,7 @@ def repositories_by_category(
     installable: bool = True,
 ):
     category = get_category(app, category_id)
-    category_dict: dict[str, Any]
+    category_dict: Dict[str, Any]
     if category is None:
         category_dict = dict(message=f"Unable to locate category record for id {str(id)}.", status="error")
         return category_dict
@@ -720,52 +587,27 @@ def ensure_can_manage(trans: ProvidesUserContext, repository: Repository, error_
         raise InsufficientPermissionsException(error_message)
 
 
-def _get_repository_by_name_and_owner(session: scoped_session, name: str, owner: str):
+def _get_repository_by_name_and_owner(session: scoped_session, name: str, owner: str, user_model):
     stmt = (
         select(Repository)
         .where(Repository.deprecated == false())
         .where(Repository.deleted == false())
         .where(Repository.name == name)
-        .where(User.username == owner)
-        .where(Repository.user_id == User.id)
+        .where(user_model.username == owner)
+        .where(Repository.user_id == user_model.id)
         .limit(1)
     )
     return session.scalars(stmt).first()
 
 
-def _get_repositories_by_name_and_owner_and_deleted(security: IdEncodingHelper, index_request: IndexRequest):
-    owner = index_request.owner
-    name = index_request.name
-    deleted = index_request.deleted
-    filter = index_request.filter
+def _get_repositories_by_name_and_owner_and_deleted(
+    session: scoped_session, name: Optional[str], owner: Optional[str], deleted: bool, user_model
+):
     stmt = select(Repository).where(Repository.deprecated == false()).where(Repository.deleted == deleted)
-    if owner is not None or filter:
-        stmt = stmt.join(Repository.user)
     if owner is not None:
-        stmt = stmt.where(User.username == owner)
+        stmt = stmt.where(user_model.username == owner)
+        stmt = stmt.where(Repository.user_id == user_model.id)
     if name is not None:
         stmt = stmt.where(Repository.name == name)
-    if filter:
-        filter_ilike_str = f"%{filter}%"
-        stmt = stmt.where(
-            or_(
-                User.username.ilike(filter_ilike_str),
-                Repository.name.ilike(filter_ilike_str),
-                Repository.description.ilike(filter_ilike_str),
-            )
-        )
-    if index_request.category_id is not None:
-        category_id = security.decode_id(index_request.category_id)
-        stmt = stmt.where(RepositoryCategoryAssociation.category_id == category_id)
-        stmt = stmt.where(RepositoryCategoryAssociation.repository_id == Repository.id)
-    sort_by_str = index_request.sort_by
-    sort_desc = index_request.sort_desc
-    sort_by: Any
-    if sort_by_str == "name":
-        sort_by = Repository.name
-    elif sort_by_str == "create_time":
-        sort_by = Repository.create_time
-    if sort_desc:
-        sort_by = sort_by.desc()
-    stmt = stmt.order_by(sort_by)
-    return stmt
+    stmt = stmt.order_by(Repository.name)
+    return session.scalars(stmt)

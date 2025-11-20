@@ -3,8 +3,7 @@ import { computed } from "vue";
 
 import { useHistoryStore } from "@/stores/historyStore";
 
-import BreadcrumbHeading from "@/components/Common/BreadcrumbHeading.vue";
-import GridInvocation from "@/components/Grid/GridInvocation.vue";
+import GridInvocation from "../Grid/GridInvocation.vue";
 
 interface HistoryInvocationProps {
     historyId: string;
@@ -12,24 +11,14 @@ interface HistoryInvocationProps {
 
 const props = defineProps<HistoryInvocationProps>();
 
-const historyStore = useHistoryStore();
-const historyName = computed(() => historyStore.getHistoryNameById(props.historyId));
-
-const breadcrumbItems = computed(() => [
-    { title: "Histories", to: "/histories/list" },
-    {
-        title: historyName.value,
-        to: `/histories/view?id=${props.historyId}`,
-        superText: historyStore.currentHistoryId === props.historyId ? "current" : undefined,
-    },
-    { title: "Workflow Invocations" },
-]);
+const { getHistoryNameById } = useHistoryStore();
+const historyName = computed(() => getHistoryNameById(props.historyId));
 </script>
-
 <template>
-    <div>
-        <BreadcrumbHeading :items="breadcrumbItems" />
-
-        <GridInvocation hide-heading :filtered-for="{ type: 'History', id: props.historyId, name: historyName }" />
-    </div>
+    <GridInvocation
+        :filtered-for="{
+            type: 'History',
+            id: props.historyId,
+            name: historyName,
+        }" />
 </template>

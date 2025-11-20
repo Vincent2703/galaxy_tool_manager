@@ -10,7 +10,7 @@
     </div>
 </template>
 <script>
-import ToolDisplay from "./ToolDisplay.vue";
+import ToolDisplay from "./ToolDisplay";
 
 export default {
     components: { ToolDisplay },

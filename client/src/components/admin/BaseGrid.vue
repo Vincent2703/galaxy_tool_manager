@@ -46,7 +46,7 @@ export default {
 };
 </script>
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 @import "base.scss";
 
 .card-body {

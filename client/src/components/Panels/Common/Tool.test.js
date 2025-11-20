@@ -1,22 +1,17 @@
-import { createTestingPinia } from "@pinia/testing";
 import { mount } from "@vue/test-utils";
 import { getLocalVue } from "tests/jest/helpers";
 
-import Tool from "./Tool.vue";
+import Tool from "./Tool";
 
 const localVue = getLocalVue();
 
 describe("Tool", () => {
     test("test tool", () => {
-        const pinia = createTestingPinia();
         const wrapper = mount(Tool, {
             propsData: {
-                tool: {
-                    id: "test_tool",
-                },
+                tool: {},
             },
             localVue,
-            pinia,
         });
         const nameElement = wrapper.findAll(".name");
         expect(nameElement.at(0).text()).toBe("");
@@ -30,18 +25,15 @@ describe("Tool", () => {
         expect(wrapper.emitted().onOperation).toBeDefined();
     });
     test("test tool operation", () => {
-        const pinia = createTestingPinia();
         const wrapper = mount(Tool, {
             propsData: {
                 tool: {
-                    id: "test_tool",
                     name: "name",
                 },
                 operationIcon: "operationIconClass",
                 operationTitle: "operationTitle",
             },
             localVue,
-            pinia,
         });
         const nameElement = wrapper.findAll(".name");
         expect(nameElement.at(0).text()).toBe("name");
@@ -51,18 +43,15 @@ describe("Tool", () => {
         expect(title).toBe("operationTitle");
     });
     test("test tool hide name, test description", () => {
-        const pinia = createTestingPinia();
         const wrapper = mount(Tool, {
             propsData: {
                 tool: {
-                    id: "test_tool",
                     name: "name",
                     description: "description",
                 },
                 hideName: true,
             },
             localVue,
-            pinia,
         });
         const nameElement = wrapper.findAll(".name");
         expect(nameElement.length).toBe(0);

@@ -15,9 +15,8 @@
 </template>
 
 <script>
+import LoadingSpan from "components/LoadingSpan";
 import Multiselect from "vue-multiselect";
-
-import LoadingSpan from "@/components/LoadingSpan.vue";
 
 /** A simple item selector that allows searching/filtering of the available items.
  * The items must have {id, text} properties. The `id` will be used for selection

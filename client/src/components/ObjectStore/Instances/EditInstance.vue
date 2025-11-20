@@ -3,7 +3,6 @@ import { BTab, BTabs } from "bootstrap-vue";
 import { computed, ref } from "vue";
 
 import { useConfigurationTemplateEdit } from "@/components/ConfigTemplates/useConfigurationTesting";
-import { useObjectStoreStore } from "@/stores/objectStoreStore";
 
 import { useInstanceAndTemplate } from "./instance";
 import { useInstanceRouting } from "./routing";
@@ -17,12 +16,10 @@ interface Props {
     instanceId: string;
 }
 
-const { addOrUpdateObjectStore } = useObjectStoreStore();
-
 const props = defineProps<Props>();
 const { instance, template } = useInstanceAndTemplate(ref(props.instanceId));
 
-const title = computed(() => `Edit Galaxy Storage ${instance.value?.name} Settings`);
+const title = computed(() => `Edit Storage Location ${instance.value?.name} Settings`);
 const errorDataDescription = "object-store-update-error";
 
 const {
@@ -38,15 +35,7 @@ const {
     testResults,
     showForceActionButton,
     submitTitle,
-} = useConfigurationTemplateEdit(
-    "storage location",
-    instance,
-    template,
-    editTestUrl,
-    editUrl,
-    useInstanceRouting,
-    addOrUpdateObjectStore,
-);
+} = useConfigurationTemplateEdit("storage location", instance, template, editTestUrl, editUrl, useInstanceRouting);
 </script>
 <template>
     <div>

@@ -1,15 +1,18 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCopy } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { useDebounce } from "@vueuse/core";
 import { BButton, BFormCheckbox, BFormInput, BInputGroup, BInputGroupAppend } from "bootstrap-vue";
 import { computed, reactive, ref } from "vue";
 
-import { getFullAppUrl } from "@/app/utils";
 import { copy } from "@/utils/clipboard";
+import { getFullAppUrl } from "@/utils/utils";
 
 import ZoomControl from "@/components/Workflow/Editor/ZoomControl.vue";
 import WorkflowPublished from "@/components/Workflow/Published/WorkflowPublished.vue";
+
+library.add(faCopy);
 
 const props = defineProps<{
     id: string;
@@ -56,7 +59,7 @@ const embedStyle = computed(() => {
     }
 });
 const embed = computed(
-    () => `<iframe title="Galaxy Workflow Embed"${embedStyle.value}src="${embedUrl.value}"></iframe>`,
+    () => `<iframe title="Galaxy Workflow Embed"${embedStyle.value}src="${embedUrl.value}"></iframe>`
 );
 
 // These Embed settings are not reactive, to we have to key them
@@ -138,7 +141,7 @@ const clipboardTitle = computed(() => (copied.value ? "Copied!" : "Copy URL"));
                             variant="primary"
                             @click="onCopy"
                             @blur="onCopyOut">
-                            <FontAwesomeIcon :icon="faCopy" />
+                            <FontAwesomeIcon icon="copy" />
                         </BButton>
                     </BInputGroupAppend>
                 </BInputGroup>
@@ -164,11 +167,11 @@ const clipboardTitle = computed(() => (copied.value ? "Copied!" : "Copy URL"));
 </template>
 
 <style scoped lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .workflow-embed {
     display: flex;
-    gap: 2rem;
+    gap: 0.5rem;
 }
 
 @container (max-width: 1200px) {
@@ -181,25 +184,19 @@ const clipboardTitle = computed(() => (copied.value ? "Copied!" : "Copy URL"));
     .settings {
         flex: 1;
         display: flex;
-        align-items: flex-start;
-        justify-content: flex-start;
+        align-items: start;
+        justify-content: start;
         flex-direction: column;
-        padding: 1rem;
-        background-color: $brand-light;
-        border-radius: 0.5rem;
-        min-width: 250px;
     }
 
     .preview {
         flex: 1;
 
         .published-preview {
-            border: 2px solid $border-color;
+            border: 2px solid $brand-primary;
             border-radius: 4px;
             width: 100%;
-            height: 500px;
-            min-height: 300px;
-            padding: 0.5rem;
+            height: 550px;
         }
 
         .embed-code-input {

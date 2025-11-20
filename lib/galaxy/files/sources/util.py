@@ -1,15 +1,17 @@
 import time
-from typing import Optional
+from typing import (
+    List,
+    Optional,
+    Tuple,
+)
 
 from galaxy import exceptions
 from galaxy.files import (
     ConfiguredFileSources,
     FileSourcesUserContext,
 )
-from galaxy.files.models import (
-    FilesSourceOptions,
-    PartialFilesSourceProperties,
-)
+from galaxy.files.sources import FilesSourceOptions
+from galaxy.files.sources.http import HTTPFilesSourceProperties
 from galaxy.files.uris import stream_url_to_file
 from galaxy.util import (
     DEFAULT_SOCKET_TIMEOUT,
@@ -51,7 +53,7 @@ def retry_and_get(get_url: str, retry_options: RetryOptions, headers: Optional[d
         return response
 
 
-def _get_access_info(obj_url: str, access_method: dict, headers=None) -> tuple[str, dict]:
+def _get_access_info(obj_url: str, access_method: dict, headers=None) -> Tuple[str, dict]:
     try:
         access_url = access_method["access_url"]
     except KeyError:
@@ -79,7 +81,7 @@ def fetch_drs_to_file(
     force_http=False,
     retry_options: Optional[RetryOptions] = None,
     headers: Optional[dict] = None,
-    fetch_url_allowlist: Optional[list[IpAllowedListEntryT]] = None,
+    fetch_url_allowlist: Optional[List[IpAllowedListEntryT]] = None,
 ):
     """Fetch contents of drs:// URI to a target path."""
     if not drs_uri.startswith("drs://"):
@@ -106,12 +108,13 @@ def fetch_drs_to_file(
         access_url, access_headers = _get_access_info(get_url, access_method, headers=headers)
         opts = FilesSourceOptions()
         if access_method["type"] == "https":
-            extra_props = {
+            extra_props: HTTPFilesSourceProperties = {
                 "http_headers": access_headers or {},
                 "fetch_url_allowlist": fetch_url_allowlist or [],
             }
-            opts.extra_props = PartialFilesSourceProperties(**extra_props)
-
+            opts.extra_props = extra_props
+        else:
+            opts.extra_props = {}
         try:
             file_sources = (
                 user_context.file_sources

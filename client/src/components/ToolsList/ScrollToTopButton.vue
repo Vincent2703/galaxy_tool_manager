@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BButton } from "bootstrap-vue";
+
+library.add(faChevronUp);
 
 interface Props {
     offset: number;
@@ -19,7 +22,7 @@ const props = withDefaults(defineProps<Props>(), {
         :title="props.offset > 100 ? 'Scroll To Top' : ''"
         variant="info"
         @click="$emit('click')">
-        <FontAwesomeIcon :icon="faChevronUp" />
+        <FontAwesomeIcon icon="fa-chevron-up" />
     </BButton>
 </template>
 

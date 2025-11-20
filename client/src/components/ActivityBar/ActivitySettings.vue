@@ -2,15 +2,10 @@
 import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons";
 import { faStar, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import { useRouter } from "vue-router/composables";
 
-import { useActivityStore } from "@/stores/activityStore";
-import type { Activity } from "@/stores/activityStoreTypes";
-import { useUnprivilegedToolStore } from "@/stores/unprivilegedToolStore";
-
-import GButton from "@/components/BaseComponents/GButton.vue";
+import { type Activity, useActivityStore } from "@/stores/activityStore";
 
 const props = defineProps<{
     activityBarId: string;
@@ -23,14 +18,7 @@ const emit = defineEmits<{
 
 const activityStore = useActivityStore(props.activityBarId);
 
-const unprivilegedToolStore = useUnprivilegedToolStore();
-const { canUseUnprivilegedTools } = storeToRefs(unprivilegedToolStore);
-
-const optionalActivities = computed(() => {
-    return activityStore.activities.filter(
-        (a) => (a.optional && a.id !== "user-defined-tools") || canUseUnprivilegedTools.value,
-    );
-});
+const optionalActivities = computed(() => activityStore.activities.filter((a) => a.optional));
 
 const filteredActivities = computed(() => {
     if (props.query?.length > 0) {
@@ -98,40 +86,34 @@ function executeActivity(activity: Activity) {
                             }}</span>
                         </span>
                         <div>
-                            <GButton
+                            <BButton
                                 v-if="activity.mutable"
-                                tooltip
+                                v-b-tooltip.hover
                                 data-description="delete activity"
-                                size="small"
-                                transparent
-                                icon-only
-                                color="blue"
+                                size="sm"
                                 title="Delete Activity"
+                                variant="link"
                                 @click.stop="onRemove(activity)">
                                 <FontAwesomeIcon :icon="faTrash" fa-fw />
-                            </GButton>
-                            <GButton
+                            </BButton>
+                            <BButton
                                 v-if="activity.visible"
-                                tooltip
-                                size="small"
-                                transparent
-                                icon-only
-                                color="blue"
+                                v-b-tooltip.hover
+                                size="sm"
                                 title="Hide in Activity Bar"
+                                variant="link"
                                 @click.stop="onFavorite(activity)">
                                 <FontAwesomeIcon :icon="faStar" fa-fw />
-                            </GButton>
-                            <GButton
+                            </BButton>
+                            <BButton
                                 v-else
-                                tooltip
-                                transparent
-                                icon-only
-                                color="blue"
-                                size="small"
+                                v-b-tooltip.hover
+                                size="sm"
                                 title="Show in Activity Bar"
+                                variant="link"
                                 @click.stop="onFavorite(activity)">
                                 <FontAwesomeIcon :icon="faStarRegular" fa-fw />
-                            </GButton>
+                            </BButton>
                         </div>
                     </span>
                 </div>
@@ -147,7 +129,7 @@ function executeActivity(activity: Activity) {
 </template>
 
 <style lang="scss">
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .activity-settings-item {
     background: none;

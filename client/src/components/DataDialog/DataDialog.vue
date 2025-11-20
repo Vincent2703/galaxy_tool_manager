@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { faUpload } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { BButton } from "bootstrap-vue";
 import { onMounted, type Ref, ref, watch } from "vue";
 import Vue from "vue";
 
-import type { SelectionItem } from "@/components/SelectionDialog/selectionTypes";
 import { useGlobalUploadModal } from "@/composables/globalUploadModal";
 import { getAppRoot } from "@/onload/loadConfig";
 import { errorMessageAsString } from "@/utils/simple-error";
@@ -13,10 +12,13 @@ import { Model } from "./model";
 import { Services } from "./services";
 import { UrlTracker } from "./utilities";
 
-import GButton from "@/components/BaseComponents/GButton.vue";
 import SelectionDialog from "@/components/SelectionDialog/SelectionDialog.vue";
 
-type Record = SelectionItem;
+interface Record {
+    id: string;
+    isLeaf: boolean;
+    url: string;
+}
 
 interface Props {
     allowUpload?: boolean;
@@ -45,7 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
     (e: "onCancel"): void;
-    (e: "onOk", results: unknown): void;
+    (e: "onOk", results: Array<Record>): void;
     (e: "onUpload"): void;
 }>();
 
@@ -185,7 +187,7 @@ watch(
     () => {
         urlTracker = new UrlTracker(getHistoryUrl());
         load();
-    },
+    }
 );
 </script>
 
@@ -206,10 +208,10 @@ watch(
         @onOpen="onOpen"
         @onUndo="load()">
         <template v-slot:buttons>
-            <GButton v-if="allowUpload" size="small" @click="onUpload">
-                <FontAwesomeIcon :icon="faUpload" />
+            <BButton v-if="allowUpload" size="sm" @click="onUpload">
+                <Icon :icon="faUpload" />
                 Upload
-            </GButton>
+            </BButton>
         </template>
     </SelectionDialog>
 </template>

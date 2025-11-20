@@ -4,7 +4,7 @@ client:
 	yarn build
 
 dev:
-	yarn dev
+	yarn dev-all
 
 format:
 	yarn format

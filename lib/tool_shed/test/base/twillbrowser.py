@@ -1,4 +1,8 @@
 import tempfile
+from typing import (
+    Dict,
+    List,
+)
 
 import twill.commands as tc
 from twill.browser import FormElement  # type:ignore[attr-defined, unused-ignore]
@@ -14,7 +18,7 @@ tc.options["equiv_refresh_interval"] = 0
 tc.timeout(240)
 
 
-def visit_url(url: str, allowed_codes: list[int]) -> str:
+def visit_url(url: str, allowed_codes: List[int]) -> str:
     tc.go(url)
     return_code = tc.browser.code
     assert return_code in allowed_codes, "Invalid HTTP return code {}, allowed codes: {}".format(
@@ -29,7 +33,7 @@ def page_content() -> str:
 
 
 class TwillShedBrowser(ShedBrowser):
-    def visit_url(self, url: str, allowed_codes: list[int]) -> str:
+    def visit_url(self, url: str, allowed_codes: List[int]) -> str:
         return visit_url(url, allowed_codes=allowed_codes)
 
     def page_content(self) -> str:
@@ -59,11 +63,11 @@ class TwillShedBrowser(ShedBrowser):
         return fh.name
 
     def submit_form_with_name(self, form_name: str, button="runtool_btn", **kwd):
-        forms_by_name: dict[str, FormElement] = {f.get("name"): f for f in self._show_forms()}
+        forms_by_name: Dict[str, FormElement] = {f.get("name"): f for f in self._show_forms()}
         form = forms_by_name[form_name]
         self._submit_form(form, button, **kwd)
 
-    def _show_forms(self) -> list[FormElement]:
+    def _show_forms(self) -> List[FormElement]:
         """Shows form, helpful for debugging new tests"""
         return tc.browser.forms
 
@@ -106,7 +110,7 @@ class TwillShedBrowser(ShedBrowser):
         value = str(value)
         tc.fv(form_name, control_name, value)
 
-    def edit_repository_categories(self, categories_to_add: list[str], categories_to_remove: list[str]) -> None:
+    def edit_repository_categories(self, categories_to_add: List[str], categories_to_remove: List[str]) -> None:
         """Select some new categories and then restore the component."""
         strings_displayed = []
         strings_not_displayed = []
@@ -130,7 +134,7 @@ class TwillShedBrowser(ShedBrowser):
         self.submit_form_with_name("categories", "manage_categories_button")
         self._check_for_strings(strings_displayed, strings_not_displayed)
 
-    def grant_users_access(self, usernames: list[str]):
+    def grant_users_access(self, usernames: List[str]):
         for username in usernames:
             self.fill_form_value("user_access", "allow_push", f"+{username}")
         self.submit_form_with_name("user_access", "user_access_button")
@@ -139,7 +143,7 @@ class TwillShedBrowser(ShedBrowser):
     def is_twill(self) -> bool:
         return True
 
-    def _check_for_strings(self, strings_displayed: list[str], strings_not_displayed: list[str]):
+    def _check_for_strings(self, strings_displayed: List[str], strings_not_displayed: List[str]):
         if strings_displayed:
             for check_str in strings_displayed:
                 self.check_page_for_string(check_str)

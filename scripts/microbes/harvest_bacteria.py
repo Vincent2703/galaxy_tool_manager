@@ -18,7 +18,7 @@ try:
 except ImportError:
     raise Exception("BeautifulSoup4 library not found, please install it, e.g. with 'pip install BeautifulSoup4'")
 
-from util import (
+from util import (  # noqa: I202
     get_bed_from_genbank,
     get_bed_from_GeneMark,
     get_bed_from_GeneMarkHMM,

@@ -1,4 +1,4 @@
-"""This module contains functionality to aid in extracting workflows from
+""" This module contains functionality to aid in extracting workflows from
 histories.
 """
 
@@ -9,7 +9,10 @@ from galaxy import (
     exceptions,
     model,
 )
-from galaxy.model.base import ensure_object_added_to_session
+from galaxy.model.base import (
+    ensure_object_added_to_session,
+    transaction,
+)
 from galaxy.tool_util.parser import ToolOutputCollectionPart
 from galaxy.tools.parameters.basic import (
     DataCollectionToolParameter,
@@ -73,7 +76,8 @@ def extract_workflow(
     stored.latest_workflow = workflow
     trans.sa_session.add(stored)
     ensure_object_added_to_session(workflow, session=trans.sa_session)
-    trans.sa_session.commit()
+    with transaction(trans.sa_session):
+        trans.sa_session.commit()
     return stored
 
 
@@ -391,8 +395,8 @@ class WorkflowSummary:
 
 def step_inputs(trans, job):
     tool = trans.app.toolbox.get_tool(job.tool_id, tool_version=job.tool_version)
-    param_values = tool.get_param_values(
-        job, ignore_errors=True
+    param_values = job.get_param_values(
+        trans.app, ignore_errors=True
     )  # If a tool was updated and e.g. had a text value changed to an integer, we don't want a traceback here
     associations = __cleanup_param_values(tool.inputs, param_values)
     tool_inputs = tool.params_to_strings(param_values, trans.app)
@@ -438,7 +442,7 @@ def __cleanup_param_values(inputs, values):
                     group_values = values[key]
                     for i, rep_values in enumerate(group_values):
                         rep_index = rep_values["__index__"]
-                        cleanup(f"{prefix}{key}_{rep_index}|", input.inputs, group_values[i])
+                        cleanup("%s%s_%d|" % (prefix, key, rep_index), input.inputs, group_values[i])
             elif isinstance(input, Conditional):
                 # Scrub dynamic resource related parameters from workflows,
                 # they cause problems and the workflow probably should include

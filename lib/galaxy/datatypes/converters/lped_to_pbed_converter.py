@@ -85,7 +85,7 @@ def main():
     """
     nparm = 4
     if len(sys.argv) < nparm:
-        sys.exit(f"## {prog} called with {sys.argv} - needs {nparm} parameters \n")
+        sys.exit("## %s called with %s - needs %d parameters \n" % (prog, sys.argv, nparm))
     inpedfilepath = sys.argv[1]
     outhtmlname = sys.argv[2]
     outfilepath = sys.argv[3]

@@ -4,6 +4,7 @@ import logging
 import uuid
 from typing import (
     Any,
+    Dict,
 )
 
 from galaxy.util import (
@@ -42,7 +43,7 @@ class SlackPlugin(BaseGitPlugin):
         error_report_id = str(uuid.uuid4())[0:13]
         title = self._generate_error_title(job)
 
-        blocks: dict[str, Any] = {
+        blocks: Dict[str, Any] = {
             "blocks": [
                 {
                     "type": "section",

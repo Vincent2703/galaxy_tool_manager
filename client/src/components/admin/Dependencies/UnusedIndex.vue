@@ -12,19 +12,17 @@
         </template>
         <template v-slot:actions>
             <div>
-                <GButton @click="deleteSelected"> Delete Selected Environments </GButton>
+                <b-button @click="deleteSelected"> Delete Selected Environments </b-button>
             </div>
         </template>
     </DependencyIndexWrapper>
 </template>
 <script>
 import { deletedUnusedPaths, getDependencyUnusedPaths } from "../AdminServices";
-
-import DependencyIndexWrapper from "./DependencyIndexWrapper.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
+import DependencyIndexWrapper from "./DependencyIndexWrapper";
 
 export default {
-    components: { DependencyIndexWrapper, GButton },
+    components: { DependencyIndexWrapper },
     data() {
         return {
             error: null,

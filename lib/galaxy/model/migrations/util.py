@@ -3,11 +3,12 @@ from abc import (
     ABC,
     abstractmethod,
 )
-from collections.abc import Sequence
 from contextlib import contextmanager
 from typing import (
     Any,
+    List,
     Optional,
+    Sequence,
 )
 
 import sqlalchemy as sa
@@ -225,8 +226,8 @@ class CreateForeignKey(DDLAlterOperation):
         foreign_key_name: str,
         table_name: str,
         referent_table: str,
-        local_cols: list[str],
-        remote_cols: list[str],
+        local_cols: List[str],
+        remote_cols: List[str],
         **kw: Any,
     ) -> None:
         super().__init__(table_name)
@@ -257,7 +258,7 @@ class CreateForeignKey(DDLAlterOperation):
 class CreateUniqueConstraint(DDLAlterOperation):
     """Wraps alembic's create_unique_constraint directive."""
 
-    def __init__(self, constraint_name: str, table_name: str, columns: list[str]) -> None:
+    def __init__(self, constraint_name: str, table_name: str, columns: List[str]) -> None:
         super().__init__(table_name)
         self.constraint_name = constraint_name
         self.columns = columns
@@ -329,14 +330,14 @@ def create_foreign_key(
     foreign_key_name: str,
     table_name: str,
     referent_table: str,
-    local_cols: list[str],
-    remote_cols: list[str],
+    local_cols: List[str],
+    remote_cols: List[str],
     **kw: Any,
 ) -> None:
     CreateForeignKey(foreign_key_name, table_name, referent_table, local_cols, remote_cols, **kw).run()
 
 
-def create_unique_constraint(constraint_name: str, table_name: str, columns: list[str]) -> None:
+def create_unique_constraint(constraint_name: str, table_name: str, columns: List[str]) -> None:
     CreateUniqueConstraint(constraint_name, table_name, columns).run()
 
 

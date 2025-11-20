@@ -75,7 +75,7 @@ inputs:
       name: nestinput
 - name: p1
   type: conditional
-  test_parameter:
+  test:
     type: boolean
     name: p1use
   when:

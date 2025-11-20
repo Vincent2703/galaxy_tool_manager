@@ -1,56 +1,54 @@
-<script setup lang="ts">
-import { computed, onMounted } from "vue";
+<script lang="ts" setup>
+import { BAlert } from "bootstrap-vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router/composables";
 
-import { FileSourcesValidFilters, templateTypes } from "@/api/fileSources";
-import { Toast } from "@/composables/toast";
 import { useFileSourceTemplatesStore } from "@/stores/fileSourceTemplatesStore";
-import { useUserStore } from "@/stores/userStore";
 
-import SourceOptionsList from "@/components/ConfigTemplates/SourceOptionsList.vue";
+import SelectTemplate from "./SelectTemplate.vue";
+import CreateInstance from "@/components/ConfigTemplates/CreateInstance.vue";
 
-const breadcrumbItems = [
-    { title: "User Preferences", to: "/user" },
-    { title: "My Repositories", to: "/file_source_instances/index" },
-    { title: "Create New" },
-];
+const loadingTemplatesInfoMessage = "Loading file source templates";
 
-const userStore = useUserStore();
-const router = useRouter();
 const fileSourceTemplatesStore = useFileSourceTemplatesStore();
+fileSourceTemplatesStore.ensureTemplates();
 
-const currentListView = computed(() => userStore.currentListViewPreferences.fileSourceOptions || "grid");
 const templates = computed(() => fileSourceTemplatesStore.latestTemplates);
+const loading = computed(() => fileSourceTemplatesStore.loading);
+
+const router = useRouter();
+
+const errorMessage = ref("");
+
+function chooseTemplate(selectTemplateId: string) {
+    router.push({
+        path: `/file_source_templates/${selectTemplateId}/new`,
+    });
+}
 
 function handleOAuth2Redirect() {
-    const { error } = router.currentRoute.query;
+    if (router.currentRoute.query.error === "access_denied") {
+        errorMessage.value = "You must authorize Galaxy to access this resource. Please try again.";
+    } else if (router.currentRoute.query.error) {
+        const error = router.currentRoute.query.error;
 
-    if (error) {
-        if (error === "access_denied") {
-            Toast.error("You must authorize Galaxy to access this resource. Please try again.");
+        if (Array.isArray(error)) {
+            errorMessage.value = error[0] || "There was an error creating the file source.";
         } else {
-            const errorMessage = Array.isArray(error) ? error[0] : error;
-
-            Toast.error(errorMessage || "There was an error creating the file source.");
+            errorMessage.value = error;
         }
     }
 }
 
-onMounted(() => {
-    fileSourceTemplatesStore.ensureTemplates();
-    handleOAuth2Redirect();
-});
+handleOAuth2Redirect();
 </script>
 
 <template>
-    <SourceOptionsList
-        title="file source option"
-        list-id="fileSourceOptions"
-        :loading="fileSourceTemplatesStore.loading"
-        :grid-view="currentListView === 'grid'"
-        route-path="file_source_templates"
-        :breadcrumb-items="breadcrumbItems"
-        :option-types="templateTypes"
-        :valid-filters="FileSourcesValidFilters"
-        :templates="templates" />
+    <CreateInstance :loading-message="loadingTemplatesInfoMessage" :loading="loading" prefix="file-source">
+        <BAlert v-if="errorMessage" variant="danger" show dismissible>
+            {{ errorMessage }}
+        </BAlert>
+
+        <SelectTemplate :templates="templates" @onSubmit="chooseTemplate" />
+    </CreateInstance>
 </template>

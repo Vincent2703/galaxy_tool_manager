@@ -22,10 +22,7 @@ export const useConfigStore = defineStore("configurationStore", () => {
                 }
 
                 config.value = data;
-                if (process.env.NODE_ENV != "test") {
-                    // an important debug message at runtime but not needed in testing
-                    console.debug("Galaxy configuration loaded", config.value);
-                }
+                console.debug("Galaxy configuration loaded", config.value);
             } finally {
                 isLoading.value = false;
             }

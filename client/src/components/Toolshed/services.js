@@ -1,8 +1,7 @@
+import { getGalaxyInstance } from "app";
 import axios from "axios";
-
-import { getGalaxyInstance } from "@/app";
-import { getAppRoot } from "@/onload/loadConfig";
-import { rethrowSimple } from "@/utils/simple-error";
+import { getAppRoot } from "onload/loadConfig";
+import { rethrowSimple } from "utils/simple-error";
 
 /** Request repositories, categories etc from toolshed server **/
 export class Services {
@@ -48,7 +47,7 @@ export class Services {
                 if (Array.isArray(x.tools)) {
                     x.profile = x.tools.reduce(
                         (value, current) => (current.profile > value ? current.profile : value),
-                        null,
+                        null
                     );
                 }
             });

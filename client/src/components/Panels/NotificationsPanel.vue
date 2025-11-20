@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCheckDouble } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BAlert, BButton, BButtonGroup } from "bootstrap-vue";
@@ -11,6 +12,8 @@ import { useNotificationsStore } from "@/stores/notificationsStore";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 import NotificationCard from "@/components/Notifications/NotificationCard.vue";
 import ActivityPanel from "@/components/Panels/ActivityPanel.vue";
+
+library.add(faCheckDouble);
 
 const { confirm } = useConfirmDialog();
 
@@ -66,16 +69,19 @@ async function onMarkAllAsRead() {
         </BAlert>
 
         <TransitionGroup class="notifications-box-list" name="notifications-box-list" tag="div">
-            <NotificationCard
-                v-for="notification in unreadNotifications"
-                :key="notification.id"
-                :notification="notification" />
+            <div v-for="notification in unreadNotifications" :key="notification.id" class="notifications-box-card">
+                <NotificationCard :notification="notification" />
+            </div>
         </TransitionGroup>
     </ActivityPanel>
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
+
+.notifications-box-card {
+    background-color: $body-bg;
+}
 
 .notifications-box-list {
     overflow-y: scroll;

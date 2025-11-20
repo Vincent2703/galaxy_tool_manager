@@ -23,7 +23,7 @@
     </span>
 </template>
 <script>
-import DisplayRaw from "./DisplayRaw.vue";
+import DisplayRaw from "./DisplayRaw";
 
 export default {
     components: { DisplayRaw },

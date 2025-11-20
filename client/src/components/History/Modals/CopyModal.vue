@@ -6,7 +6,7 @@ import {
     BFormGroup,
     BFormInput,
     BFormInvalidFeedback,
-    BFormRadioGroup,
+    BFormRadio,
     BModal,
     BSpinner,
 } from "bootstrap-vue";
@@ -41,11 +41,6 @@ const copyAll = ref(false);
 const loading = ref(false);
 const localShowModal = ref(props.showModal);
 
-const datasetCopyOptions = [
-    { text: "Copy only the active, non-deleted datasets.", value: false },
-    { text: "Copy all datasets including deleted ones.", value: true },
-];
-
 const title = computed(() => {
     return `Copying History: ${props.history.name}`;
 });
@@ -72,13 +67,13 @@ watch(
     () => props.showModal,
     (newVal) => {
         localShowModal.value = newVal;
-    },
+    }
 );
 watch(
     () => localShowModal.value,
     (newVal) => {
         emit("update:show-modal", newVal);
-    },
+    }
 );
 watch(
     () => props.history,
@@ -87,7 +82,7 @@ watch(
     },
     {
         immediate: true,
-    },
+    }
 );
 
 async function copy(close: () => void) {
@@ -124,11 +119,11 @@ async function copy(close: () => void) {
                 </BFormGroup>
 
                 <BFormGroup label="Choose which datasets from the original history to include.">
-                    <BFormRadioGroup
-                        v-model="copyAll"
-                        :options="datasetCopyOptions"
-                        name="copy-datasets-options"
-                        stacked />
+                    <BFormRadio v-model="copyAll" :value="false">
+                        Copy only the active, non-deleted datasets.
+                    </BFormRadio>
+
+                    <BFormRadio v-model="copyAll" :value="true"> Copy all datasets including deleted ones. </BFormRadio>
                 </BFormGroup>
             </BForm>
         </transition>
@@ -144,5 +139,5 @@ async function copy(close: () => void) {
 </template>
 
 <style lang="scss">
-@import "@/style/scss/transitions.scss";
+@import "scss/transitions.scss";
 </style>

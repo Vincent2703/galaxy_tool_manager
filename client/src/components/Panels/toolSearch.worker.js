@@ -2,14 +2,14 @@
  * A Web Worker that isolates the Tool Search into its own thread
  */
 
-import { searchTools } from "./utilities";
+import { searchToolsByKeys } from "./utilities";
 
 // listen for messages from the main thread
 self.addEventListener("message", (event) => {
     const { type, payload } = event.data;
-    if (type === "searchTools") {
-        const { tools, query, currentPanel } = payload;
-        const { results, resultPanel, closestTerm } = searchTools(tools, query, currentPanel);
+    if (type === "searchToolsByKeys") {
+        const { tools, keys, query, panelView, currentPanel } = payload;
+        const { results, resultPanel, closestTerm } = searchToolsByKeys(tools, keys, query, panelView, currentPanel);
         // send the result back to the main thread
         self.postMessage({
             type: "searchToolsByKeysResult",

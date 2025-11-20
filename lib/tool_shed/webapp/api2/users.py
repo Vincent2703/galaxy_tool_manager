@@ -1,12 +1,11 @@
 import logging
-import os
 from typing import (
+    List,
     Optional,
 )
 
 from fastapi import (
     Body,
-    Request,
     Response,
     status,
 )
@@ -25,6 +24,7 @@ from galaxy.exceptions import (
 )
 from galaxy.managers.api_keys import ApiKeyManager
 from galaxy.managers.users import UserManager
+from galaxy.model.base import transaction
 from galaxy.webapps.base.webapp import create_new_session
 from tool_shed.context import SessionRequestContext
 from tool_shed.managers.users import (
@@ -33,7 +33,6 @@ from tool_shed.managers.users import (
     index,
 )
 from tool_shed.structured_app import ToolShedApp
-from tool_shed.webapp.fast_app import limiter
 from tool_shed.webapp.model import (
     GalaxySession,
     User as SaUser,
@@ -54,9 +53,6 @@ from . import (
 router = Router(tags=["users"])
 
 log = logging.getLogger(__name__)
-
-TOOL_SHED_SENSITIVE_API_REQUEST_LIMIT: Optional[str] = os.environ.get("TOOL_SHED_SENSITIVE_API_REQUEST_LIMIT", None)
-SENSITIVE_API_REQUEST_LIMIT = TOOL_SHED_SENSITIVE_API_REQUEST_LIMIT or "10/minute"
 
 
 class UiRegisterRequest(BaseModel):
@@ -113,7 +109,7 @@ class FastAPIUsers:
         description="index users",
         operation_id="users__index",
     )
-    def index(self, trans: SessionRequestContext = DependsOnTrans) -> list[User]:
+    def index(self, trans: SessionRequestContext = DependsOnTrans) -> List[User]:
         deleted = False
         return index(trans.app, deleted)
 
@@ -155,9 +151,8 @@ class FastAPIUsers:
         summary="Return the user's API key",
         operation_id="users__get_or_create_api_key",
     )
-    @limiter.limit(SENSITIVE_API_REQUEST_LIMIT)
     def get_or_create_api_key(
-        self, request: Request, trans: SessionRequestContext = DependsOnTrans, encoded_user_id: str = UserIdPathParam
+        self, trans: SessionRequestContext = DependsOnTrans, encoded_user_id: str = UserIdPathParam
     ) -> str:
         user = self._get_user(trans, encoded_user_id)
         return self.api_key_manager.get_or_create_api_key(user)
@@ -167,9 +162,8 @@ class FastAPIUsers:
         summary="Creates a new API key for the user",
         operation_id="users__create_api_key",
     )
-    @limiter.limit(SENSITIVE_API_REQUEST_LIMIT)
     def create_api_key(
-        self, request: Request, trans: SessionRequestContext = DependsOnTrans, encoded_user_id: str = UserIdPathParam
+        self, trans: SessionRequestContext = DependsOnTrans, encoded_user_id: str = UserIdPathParam
     ) -> str:
         user = self._get_user(trans, encoded_user_id)
         return self.api_key_manager.create_api_key(user).key
@@ -180,10 +174,8 @@ class FastAPIUsers:
         status_code=status.HTTP_204_NO_CONTENT,
         operation_id="users__delete_api_key",
     )
-    @limiter.limit(SENSITIVE_API_REQUEST_LIMIT)
     def delete_api_key(
         self,
-        request: Request,
         trans: SessionRequestContext = DependsOnTrans,
         encoded_user_id: str = UserIdPathParam,
     ):
@@ -207,35 +199,31 @@ class FastAPIUsers:
         description="register a user",
         operation_id="users__internal_register",
     )
-    @limiter.limit(SENSITIVE_API_REQUEST_LIMIT)
     def register(
-        self,
-        request: Request,
-        trans: SessionRequestContext = DependsOnTrans,
-        register_request: UiRegisterRequest = Body(...),
+        self, trans: SessionRequestContext = DependsOnTrans, request: UiRegisterRequest = Body(...)
     ) -> UiRegisterResponse:
-        honeypot_field = register_request.bear_field
+        honeypot_field = request.bear_field
         if honeypot_field != "":
             message = "You've been flagged as a possible bot. If you are not, please try registering again and fill the form out carefully."
             raise RequestParameterInvalidException(message)
 
-        username = register_request.username
+        username = request.username
         if username == "repos":
             raise RequestParameterInvalidException("Cannot create a user with the username 'repos'")
-        self.user_manager.create(email=register_request.email, username=username, password=register_request.password)
+        self.user_manager.create(email=request.email, username=username, password=request.password)
         if self.app.config.user_activation_on:
-            is_activation_sent = self.user_manager.send_activation_email(trans, register_request.email, username)
+            is_activation_sent = self.user_manager.send_activation_email(trans, request.email, username)
             if is_activation_sent:
-                return UiRegisterResponse(email=register_request.email, activation_sent=True)
+                return UiRegisterResponse(email=request.email, activation_sent=True)
             else:
                 return UiRegisterResponse(
-                    email=register_request.email,
+                    email=request.email,
                     activation_sent=False,
                     activation_error=True,
                     contact_email=self.app.config.error_email_to,
                 )
         else:
-            return UiRegisterResponse(email=register_request.email)
+            return UiRegisterResponse(email=request.email)
 
     @router.put(
         "/api_internal/change_password",
@@ -243,15 +231,11 @@ class FastAPIUsers:
         operation_id="users__internal_change_password",
         status_code=status.HTTP_204_NO_CONTENT,
     )
-    @limiter.limit(SENSITIVE_API_REQUEST_LIMIT)
     def change_password(
-        self,
-        request: Request,
-        trans: SessionRequestContext = DependsOnTrans,
-        change_request: UiChangePasswordRequest = Body(...),
+        self, trans: SessionRequestContext = DependsOnTrans, request: UiChangePasswordRequest = Body(...)
     ):
-        password = change_request.password
-        current = change_request.current
+        password = request.password
+        current = request.current
         if trans.user is None:
             raise InsufficientPermissionsException("Must be logged into use this functionality")
         user_id = trans.user.id
@@ -268,14 +252,13 @@ class FastAPIUsers:
         description="login to web UI",
         operation_id="users__internal_login",
     )
-    @limiter.limit(SENSITIVE_API_REQUEST_LIMIT)
     def internal_login(
-        self, request: Request, trans: SessionRequestContext = DependsOnTrans, login_request: UiLoginRequest = Body(...)
+        self, trans: SessionRequestContext = DependsOnTrans, request: UiLoginRequest = Body(...)
     ) -> UiLoginResponse:
         log.info(f"top of internal_login {trans.session_csrf_token}")
-        ensure_csrf_token(trans, login_request)
-        login = login_request.login
-        password = login_request.password
+        ensure_csrf_token(trans, request)
+        login = request.login
+        password = request.password
         user = self.user_manager.get_user_by_identity(login)
         if user is None:
             raise InsufficientPermissionsException(INVALID_LOGIN_OR_PASSWORD)
@@ -297,15 +280,11 @@ class FastAPIUsers:
         description="logout of web UI",
         operation_id="users__internal_logout",
     )
-    @limiter.limit(SENSITIVE_API_REQUEST_LIMIT)
     def internal_logout(
-        self,
-        request: Request,
-        trans: SessionRequestContext = DependsOnTrans,
-        logout_request: UiLogoutRequest = Body(...),
+        self, trans: SessionRequestContext = DependsOnTrans, request: UiLogoutRequest = Body(...)
     ) -> UiLogoutResponse:
-        ensure_csrf_token(trans, logout_request)
-        handle_user_logout(trans, logout_all=logout_request.logout_all)
+        ensure_csrf_token(trans, request)
+        handle_user_logout(trans, logout_all=request.logout_all)
         return UiLogoutResponse()
 
 
@@ -350,7 +329,8 @@ def replace_previous_session(trans, user):
     new_session = create_new_session(trans, prev_galaxy_session, user)
     trans.set_galaxy_session(new_session)
     trans.sa_session.add_all((prev_galaxy_session, new_session))
-    trans.sa_session.commit()
+    with transaction(trans.sa_session):
+        trans.sa_session.commit()
     set_auth_cookie(trans, new_session)
 
 
@@ -362,4 +342,5 @@ def invalidate_user_sessions(session, user_id):
         .where(GalaxySession.is_valid == true())
     )
     session.execute(stmt)
-    session.commit()
+    with transaction(session):
+        session.commit()

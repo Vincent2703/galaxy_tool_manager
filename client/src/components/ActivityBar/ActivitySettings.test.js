@@ -4,7 +4,6 @@ import { PiniaVuePlugin } from "pinia";
 import { getLocalVue } from "tests/jest/helpers";
 import { nextTick } from "vue";
 
-import { useServerMock } from "@/api/client/__mocks__";
 import { defaultActivities } from "@/stores/activitySetup";
 import { useActivityStore } from "@/stores/activityStore";
 
@@ -13,7 +12,6 @@ import mountTarget from "./ActivitySettings.vue";
 const localVue = getLocalVue();
 localVue.use(PiniaVuePlugin);
 
-const { server, http } = useServerMock();
 const activityItemSelector = ".activity-settings-item";
 
 function testActivity(id, newOptions = {}) {
@@ -43,12 +41,6 @@ describe("ActivitySettings", () => {
 
     beforeEach(async () => {
         const pinia = createTestingPinia({ stubActions: false });
-        // Mock the response of the API call
-        server.use(
-            http.get("/api/unprivileged_tools", ({ params, query, response }) => {
-                return response("4XX").json({ err_code: 400, err_msg: "permission problem" }, { status: 403 });
-            }),
-        );
         activityStore = useActivityStore(undefined);
         wrapper = mount(mountTarget, {
             localVue,
@@ -66,7 +58,7 @@ describe("ActivitySettings", () => {
 
     it("availability of built-in activities", async () => {
         const items = wrapper.findAll(activityItemSelector);
-        const nOptional = defaultActivities.filter((x) => x.optional).length - 1; // 403 for unprivileged_tools excludes user-defined-tools activity
+        const nOptional = defaultActivities.filter((x) => x.optional).length;
         expect(items.length).toBe(nOptional);
     });
 
@@ -75,7 +67,7 @@ describe("ActivitySettings", () => {
         await nextTick();
         const items = wrapper.findAll(activityItemSelector);
         expect(items.length).toBe(1);
-        const checkbox = items.at(0).find("[data-title='Hide in Activity Bar']");
+        const checkbox = items.at(0).find("[title='Hide in Activity Bar']");
         expect(checkbox.exists()).toBeTruthy();
         const icon = wrapper.find("[icon='activity-test-icon'");
         expect(icon.exists()).toBeTruthy();
@@ -95,12 +87,12 @@ describe("ActivitySettings", () => {
         await wrapper.vm.$nextTick();
         const items = wrapper.findAll(activityItemSelector);
         expect(items.length).toBe(1);
-        const checkbox = items.at(0).find("[data-title='Show in Activity Bar']");
+        const checkbox = items.at(0).find("[title='Show in Activity Bar']");
         expect(checkbox.exists()).toBeTruthy();
         expect(activityStore.getAll()[0].visible).toBeFalsy();
         checkbox.trigger("click");
         await wrapper.vm.$nextTick();
-        const visibleCheckbox = items.at(0).find("[data-title='Hide in Activity Bar']");
+        const visibleCheckbox = items.at(0).find("[title='Hide in Activity Bar']");
         expect(visibleCheckbox.exists()).toBeTruthy();
         expect(activityStore.getAll()[0].visible).toBeTruthy();
     });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import { type IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { faCaretDown, faCaretRight, faFile, faFolder } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BFormCheckbox, BFormRadio } from "bootstrap-vue";
@@ -8,7 +8,6 @@ import { computed, type ComputedRef, onMounted, ref } from "vue";
 import { getAllValues, type Option } from "./utilities";
 
 import FormDrilldownList from "./FormDrilldownList.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
 
 interface Props {
     currentValue: string[];
@@ -67,10 +66,10 @@ onMounted(() => {
 
 <template>
     <div>
-        <GButton v-if="hasOptions" color="blue" transparent class="p-0" @click="toggleChildren">
+        <b-button v-if="hasOptions" variant="link" class="btn p-0" @click="toggleChildren">
             <FontAwesomeIcon v-if="showChildren" :icon="faCaretDown" class="align-checkbox" />
             <FontAwesomeIcon v-else :icon="faCaretRight" class="align-checkbox" />
-        </GButton>
+        </b-button>
         <span v-if="!hasOptions" class="align-indent"></span>
         <component
             :is="isComponent"
@@ -96,7 +95,7 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 .ui-drilldown {
     $ui-drilldown-padding: 1rem;
     $ui-drilldown-border: 0.5px solid $gray-500;

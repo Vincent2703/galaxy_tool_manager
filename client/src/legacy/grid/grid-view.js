@@ -7,10 +7,11 @@ import Backbone from "backbone";
 jQuery.ajaxSettings.traditional = true;
 
 // dependencies
-import GridModel from "@/legacy/grid/grid-model";
-import Templates from "@/legacy/grid/grid-template";
+import Utils from "utils/utils";
+import GridModel from "legacy/grid/grid-model";
+import Templates from "legacy/grid/grid-template";
 import PopupMenu from "./popup-menu";
-import { setWindowTitle } from "./utils";
+import { init_refresh_on_change } from "onload/globalInits/init_refresh_on_change";
 
 var $ = jQuery;
 
@@ -75,6 +76,17 @@ export default Backbone.View.extend({
         }
     },
 
+    // refresh frames
+    handle_refresh: function (refresh_frames) {
+        if (refresh_frames) {
+            if ($.inArray("history", refresh_frames) > -1) {
+                if (window.top.Galaxy && window.top.Galaxy.currHistoryPanel) {
+                    window.top.Galaxy.currHistoryPanel.loadCurrentHistory();
+                }
+            }
+        }
+    },
+
     // Initialize
     init_grid: function (grid_config) {
         this.grid.set(grid_config);
@@ -83,8 +95,10 @@ export default Backbone.View.extend({
         var options = this.grid.attributes;
 
         if (this.allow_title_display && options.title) {
-            setWindowTitle(options.title);
+            Utils.setWindowTitle(options.title);
         }
+        // handle refresh requests
+        this.handle_refresh(options.refresh_frames);
 
         // strip protocol and domain
         var url = this.grid.get("url_base");
@@ -113,6 +127,10 @@ export default Backbone.View.extend({
         // configure elements
         this.init_grid_elements();
         this.init_grid_controls();
+
+        // attach global event handler
+        // TODO: redundant (the onload/standard page handlers do this) - but needed because these are constructed after page ready
+        init_refresh_on_change();
     },
 
     // Initialize grid controls

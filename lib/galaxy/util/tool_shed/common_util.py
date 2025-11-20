@@ -266,7 +266,10 @@ def remove_protocol_and_user_from_clone_url(repository_clone_url: str) -> str:
     return tmp_url.rstrip("/")
 
 
-remove_protocol_from_tool_shed_url = util.remove_protocol_from_url
+def remove_protocol_from_tool_shed_url(tool_shed_url: str) -> str:
+    """Return a partial Tool Shed URL, eliminating the protocol if it exists."""
+    return util.remove_protocol_from_url(tool_shed_url)
+
 
 __all__ = (
     "accumulate_tool_dependencies",

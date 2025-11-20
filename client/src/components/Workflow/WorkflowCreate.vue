@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCheck } from "@fortawesome/free-solid-svg-icons";
-import type { AxiosError } from "axios";
+import { type AxiosError } from "axios";
 import { BFormInput } from "bootstrap-vue";
 import { ref } from "vue";
 import { useRouter } from "vue-router/composables";
@@ -10,6 +11,8 @@ import { Toast } from "@/composables/toast";
 
 import AsyncButton from "@/components/Common/AsyncButton.vue";
 import Heading from "@/components/Common/Heading.vue";
+
+library.add(faCheck);
 
 interface Pros {
     showHeading: boolean;
@@ -40,7 +43,7 @@ async function onCreate() {
 
 <template>
     <div>
-        <Heading v-if="!showHeading" h1 separator size="lg">Create workflow</Heading>
+        <Heading v-if="!showHeading" h1 separator size="xl">Create workflow</Heading>
 
         <label for="workflow-name-input" class="font-weight-bold"> Workflow name </label>
         <BFormInput
@@ -64,7 +67,7 @@ async function onCreate() {
 
         <div class="float-right">
             <AsyncButton
-                color="blue"
+                variant="primary"
                 :icon="faCheck"
                 title="Create workflow"
                 :disabled="workflowName.length === 0"

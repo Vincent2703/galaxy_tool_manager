@@ -7,9 +7,8 @@ import { errorMessageAsString } from "@/utils/simple-error";
 interface ClaimState {
     workflowId: string | null;
     instance: boolean;
-    requestState: { [key: string]: unknown } | null;
+    requestState: Record<string, never> | null;
     errorMessage: string | null;
-    landingUuid: string | null;
 }
 
 export const useWorkflowLandingStore = defineStore("workflowLanding", () => {
@@ -18,7 +17,6 @@ export const useWorkflowLandingStore = defineStore("workflowLanding", () => {
         instance: false,
         requestState: null,
         errorMessage: null,
-        landingUuid: null,
     });
 
     async function claimWorkflow(uuid: string, isPublic: boolean, secret?: string) {
@@ -52,7 +50,6 @@ export const useWorkflowLandingStore = defineStore("workflowLanding", () => {
                 instance: claim.workflow_target_type === "workflow",
                 requestState: claim.request_state,
                 errorMessage: null,
-                landingUuid: uuid,
             };
         } else {
             claimState.value = {
@@ -60,7 +57,6 @@ export const useWorkflowLandingStore = defineStore("workflowLanding", () => {
                 instance: false,
                 requestState: null,
                 errorMessage: errorMessageAsString(claimError),
-                landingUuid: null,
             };
         }
     }

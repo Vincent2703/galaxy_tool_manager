@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from sqlalchemy import (
     literal,
     union,
@@ -11,15 +9,13 @@ from sqlalchemy.sql import (
 
 from galaxy import model
 from galaxy.managers.base import get_class
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import scoped_session
+from galaxy.model.scoped_session import galaxy_scoped_session
 
 
 class JobConnectionsManager:
     """Get connections graph of inputs and outputs for given item"""
 
-    def __init__(self, sa_session: "scoped_session"):
+    def __init__(self, sa_session: galaxy_scoped_session):
         self.sa_session = sa_session
 
     def get_connections_graph(self, id: int, src: str):

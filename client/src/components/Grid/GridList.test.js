@@ -1,18 +1,26 @@
-import { faCog, faCopy, faFilter, faFolder } from "@fortawesome/free-solid-svg-icons";
 import { createTestingPinia } from "@pinia/testing";
 import { mount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { PiniaVuePlugin } from "pinia";
 import { getLocalVue } from "tests/jest/helpers";
-import { setupMockConfig } from "tests/jest/mockConfig";
 
+import { useConfig } from "@/composables/config";
 import Filtering from "@/utils/filtering";
 
 import MountTarget from "./GridList.vue";
 
 jest.useFakeTimers();
 
-setupMockConfig({ disabled: false, enabled: true });
+jest.mock("composables/config");
+useConfig.mockReturnValue({
+    config: {
+        value: {
+            disabled: false,
+            enabled: true,
+        },
+    },
+    isConfigLoaded: true,
+});
 
 jest.mock("vue-router/composables");
 
@@ -23,7 +31,7 @@ const testGrid = {
     actions: [
         {
             title: "test",
-            icon: faCopy,
+            icon: "test-icon",
             handler: jest.fn(),
         },
     ],
@@ -46,19 +54,19 @@ const testGrid = {
             operations: [
                 {
                     title: "operation-title-1",
-                    icon: faCog,
+                    icon: "operation-icon-1",
                     condition: (_, config) => config.value.enabled,
                     handler: jest.fn(),
                 },
                 {
                     title: "operation-title-2",
-                    icon: faFilter,
+                    icon: "operation-icon-2",
                     condition: (_, config) => config.value.disabled,
                     handler: jest.fn(),
                 },
                 {
                     title: "operation-title-3",
-                    icon: faFolder,
+                    icon: "operation-icon-3",
                     condition: (_, config) => config.value.enabled,
                     handler: () => ({
                         status: "success",
@@ -93,6 +101,9 @@ function createTarget(propsData) {
         localVue,
         propsData,
         pinia,
+        stubs: {
+            Icon: true,
+        },
     });
 }
 
@@ -110,7 +121,7 @@ describe("GridList", () => {
         expect(testGrid.actions[0].handler).toHaveBeenCalledTimes(1);
         expect(testGrid.getData).toHaveBeenCalledTimes(1);
         expect(testGrid.getData.mock.calls[0]).toEqual([0, 25, "", "id", true]);
-        expect(findAction.find("svg").exists()).toBeTruthy();
+        expect(findAction.find("[icon='test-icon']").exists()).toBeTruthy();
         await wrapper.vm.$nextTick();
         expect(wrapper.find("[data-description='grid title']").text()).toBe("Test");
         expect(wrapper.find("[data-description='grid cell 0-0']").text()).toBe("id-1");
@@ -133,7 +144,7 @@ describe("GridList", () => {
         const wrapper = createTarget({
             gridConfig: testGrid,
         });
-        await flushPromises();
+        await wrapper.vm.$nextTick();
         for (const [fieldIndex, field] of Object.entries(testGrid.fields)) {
             expect(wrapper.find(`[data-description='grid header ${fieldIndex}']`).text()).toBe(field.title);
         }
@@ -143,7 +154,7 @@ describe("GridList", () => {
         const wrapper = createTarget({
             gridConfig: testGrid,
         });
-        await flushPromises();
+        await wrapper.vm.$nextTick();
         const dropdown = wrapper.find("[data-description='grid cell 0-2']");
         const dropdownItems = dropdown.findAll(".dropdown-item");
         expect(dropdownItems.at(0).text()).toBe("operation-title-1");
@@ -179,7 +190,7 @@ describe("GridList", () => {
             gridConfig: testGrid,
             limit: 2,
         });
-        await flushPromises();
+        await wrapper.vm.$nextTick();
         const pageLinks = wrapper.findAll(".page-link");
         await pageLinks.at(4).trigger("click");
         expect(wrapper.find("[data-description='grid cell 0-0']").text()).toBe("id-5");

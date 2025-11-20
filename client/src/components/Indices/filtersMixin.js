@@ -1,4 +1,4 @@
-import IndexFilter from "@/components/Indices/IndexFilter.vue";
+import IndexFilter from "components/Indices/IndexFilter";
 
 export default {
     components: {

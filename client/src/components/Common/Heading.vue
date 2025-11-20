@@ -1,11 +1,10 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faAngleDoubleDown, faAngleDoubleUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed } from "vue";
 
-import type { IconLike } from "@/components/icons/galaxyIcons";
-
-import GButton from "@/components/BaseComponents/GButton.vue";
+library.add(faAngleDoubleDown, faAngleDoubleUp);
 
 interface Props {
     h1?: boolean;
@@ -18,14 +17,14 @@ interface Props {
     separator?: boolean;
     inline?: boolean;
     size?: "xl" | "lg" | "md" | "sm" | "text";
-    icon?: IconLike;
+    icon?: string | [string, string];
     truncate?: boolean;
     collapse?: "open" | "closed" | "none";
 }
 
 const props = withDefaults(defineProps<Props>(), {
     collapse: "none",
-    icon: undefined,
+    icon: "",
     size: "lg",
 });
 
@@ -54,11 +53,11 @@ const element = computed(() => {
 </script>
 
 <template>
-    <div v-if="props.separator" class="separator heading word-wrap-break">
-        <GButton v-if="collapsible" transparent size="small" icon-only inline @click="$emit('click')">
+    <div v-if="props.separator" class="separator heading">
+        <b-button v-if="collapsible" variant="link" size="sm" @click="$emit('click')">
             <FontAwesomeIcon v-if="collapsed" fixed-width :icon="faAngleDoubleDown" />
             <FontAwesomeIcon v-else fixed-width :icon="faAngleDoubleUp" />
-        </GButton>
+        </b-button>
         <div v-else class="stripe"></div>
         <component
             :is="element"
@@ -76,7 +75,7 @@ const element = computed(() => {
     <component
         :is="element"
         v-else
-        class="heading word-wrap-break"
+        class="heading"
         :class="[
             sizeClass,
             props.bold ? 'font-weight-bold' : '',
@@ -85,17 +84,25 @@ const element = computed(() => {
             props.truncate ? 'truncate' : '',
         ]"
         @click="$emit('click')">
-        <GButton v-if="collapsible" transparent size="small" icon-only inline>
-            <FontAwesomeIcon v-if="collapsed" fixed-width :icon="faAngleDoubleDown" />
-            <FontAwesomeIcon v-else fixed-width :icon="faAngleDoubleUp" />
-        </GButton>
+        <b-button v-if="collapsible" variant="link" size="sm">
+            <icon v-if="collapsed" fixed-width icon="angle-double-down" />
+            <icon v-else fixed-width icon="angle-double-up" />
+        </b-button>
         <FontAwesomeIcon v-if="props.icon" :icon="props.icon" />
         <slot />
     </component>
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "scss/theme/blue.scss";
+
+.heading {
+    word-break: break-all;
+}
+
+.heading:deep(svg) {
+    font-size: 0.75em;
+}
 
 // prettier-ignore
 h1, h2, h3, h4, h5, h6 {

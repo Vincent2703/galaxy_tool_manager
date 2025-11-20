@@ -9,6 +9,7 @@ from galaxy.files import (
 from galaxy.files.plugins import FileSourcePluginsConfig
 from galaxy.job_execution.setup import JobIO
 from galaxy.model import Job
+from galaxy.model.base import transaction
 from galaxy.model.unittest_utils import GalaxyDataTestApp
 
 WORKING_DIRECTORY = "/tmp"
@@ -41,9 +42,10 @@ def app() -> FileSourcesMockApp:
 @pytest.fixture
 def job(app: FileSourcesMockApp) -> Job:
     job = Job()
+    app.model.session.add(job)
     session = app.model.session
-    session.add(job)
-    session.commit()
+    with transaction(session):
+        session.commit()
     return job
 
 

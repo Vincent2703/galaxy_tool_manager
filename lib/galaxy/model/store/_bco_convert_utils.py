@@ -1,4 +1,8 @@
 import urllib.parse
+from typing import (
+    List,
+    Set,
+)
 
 from galaxy.model import (
     Workflow,
@@ -11,8 +15,8 @@ from galaxy.schema.bco import (
 
 
 class SoftwarePrerequisiteTracker:
-    _recorded_tools: set[str] = set()
-    _software_prerequisites: list[SoftwarePrerequisite] = []
+    _recorded_tools: Set[str] = set()
+    _software_prerequisites: List[SoftwarePrerequisite] = []
 
     def register_step(self, step: WorkflowStep) -> None:
         if step.type != "tool":
@@ -41,7 +45,7 @@ class SoftwarePrerequisiteTracker:
         self._software_prerequisites.append(software_prerequisite)
 
     @property
-    def software_prerequisites(self) -> list[SoftwarePrerequisite]:
+    def software_prerequisites(self) -> List[SoftwarePrerequisite]:
         return self._software_prerequisites
 
 

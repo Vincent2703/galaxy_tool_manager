@@ -1,27 +1,30 @@
 <script setup lang="ts">
-import type { ObjectStoreBadgeType } from "@/api/objectStores.templates";
+import { type components } from "@/api/schema";
 
-import ObjectStoreBadge from "@/components/ObjectStore/ObjectStoreBadge.vue";
+import ObjectStoreBadge from "./ObjectStoreBadge.vue";
 
-interface Props {
-    badges: ObjectStoreBadgeType[];
+type BadgeType = components["schemas"]["BadgeDict"];
+
+interface ObjectStoreBadgesProps {
+    badges: Array<BadgeType>;
     size?: string;
+    moreOnHover?: boolean;
 }
 
-defineProps<Props>();
+withDefaults(defineProps<ObjectStoreBadgesProps>(), {
+    size: "3x",
+    moreOnHover: true,
+});
 </script>
 
 <template>
     <div class="object-store-badges">
-        <ObjectStoreBadge v-for="(badge, idx) in badges" :key="idx" :badge="badge" :size="size" />
+        <ObjectStoreBadge
+            v-for="(badge, idx) in badges"
+            :key="idx"
+            :badge="badge"
+            :size="size"
+            :more-on-hover="moreOnHover">
+        </ObjectStoreBadge>
     </div>
 </template>
-
-<style scoped>
-.object-store-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.2rem;
-    justify-content: right;
-}
-</style>

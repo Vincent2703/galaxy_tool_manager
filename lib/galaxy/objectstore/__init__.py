@@ -403,7 +403,7 @@ class ObjectStore(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_quota_source_map(self) -> "QuotaSourceMap":
+    def get_quota_source_map(self):
         """Return QuotaSourceMap describing mapping of object store IDs to quota sources."""
 
     @abc.abstractmethod
@@ -715,7 +715,7 @@ class BaseObjectStore(ObjectStore):
             badges.append({"type": type, "message": message})
         return badges
 
-    def get_quota_source_map(self) -> "QuotaSourceMap":
+    def get_quota_source_map(self):
         # I'd rather keep this abstract... but register_singleton wants it to be instantiable...
         raise NotImplementedError()
 
@@ -756,7 +756,6 @@ class ConcreteObjectStore(BaseObjectStore):
         self.description = config_dict.get("description", None)
         # Annotate this as true to prevent sharing of data.
         self.private = config_dict.get("private", DEFAULT_PRIVATE)
-        self.object_expires_after_days = config_dict.get("object_expires_after_days", None)
         # short label describing the quota source or null to use default
         # quota source right on user object.
         quota_config = config_dict.get("quota", {})
@@ -777,7 +776,6 @@ class ConcreteObjectStore(BaseObjectStore):
         }
         rval["badges"] = self._get_concrete_store_badges(None)
         rval["device"] = self.device_id
-        rval["object_expires_after_days"] = self.object_expires_after_days
         return rval
 
     def to_model(self, object_store_id: str) -> "ConcreteObjectStoreModel":
@@ -789,7 +787,6 @@ class ConcreteObjectStore(BaseObjectStore):
             quota=QuotaModel(source=self.quota_source, enabled=self.quota_enabled),
             badges=self._get_concrete_store_badges(None),
             device=self.device_id,
-            object_expires_after_days=self.object_expires_after_days,
         )
 
     def _get_concrete_store_badges(self, obj) -> List[BadgeDict]:
@@ -946,6 +943,8 @@ class DiskObjectStore(ConcreteObjectStore):
             obj_dir=obj_dir,
         )
 
+    # TODO: rename to _disk_path or something like that to avoid conflicts with
+    # children that'll use the local_extra_dirs decorator, e.g. S3
     def _construct_path(
         self,
         obj,
@@ -1613,11 +1612,7 @@ class DistributedObjectStore(NestedObjectStore):
                     log.warning(
                         f"{obj.__class__.__name__} object with ID {obj.id} found in backend object store with ID {id}"
                     )
-                    try:
-                        obj.object_store_id = id
-                    except AttributeError:
-                        # obj is likely a namedtuple (/scripts/cleanup_datasets/pgcleanup.py::RemovesDatasets)
-                        log.info("Unable to set object_store_id on a readonly dataset object: %s", obj)
+                    obj.object_store_id = id
                     return id
         return None
 
@@ -1781,7 +1776,6 @@ class ConcreteObjectStoreModel(BaseModel):
     quota: QuotaModel
     badges: List[BadgeDict]
     device: Optional[str] = None
-    object_expires_after_days: Optional[int] = None
 
 
 def type_to_object_store_class(
@@ -1969,6 +1963,24 @@ def concrete_object_store(
         config_dict=object_store_configuration.model_dump(),
         **objectstore_constructor_kwds,
     )
+
+
+def local_extra_dirs(func):
+    """Non-local plugin decorator using local directories for the extra_dirs (job_work and temp)."""
+
+    def wraps(self, *args, **kwargs):
+        if kwargs.get("base_dir", None) is None:
+            return func(self, *args, **kwargs)
+        else:
+            for c in self.__class__.__mro__:
+                if c.__name__ == "DiskObjectStore":
+                    return getattr(c, func.__name__)(self, *args, **kwargs)
+            raise Exception(
+                f"Could not call DiskObjectStore's {func.__name__} method, does your "
+                "Object Store plugin inherit from DiskObjectStore?"
+            )
+
+    return wraps
 
 
 def config_to_dict(config):

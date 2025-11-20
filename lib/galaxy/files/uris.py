@@ -3,7 +3,11 @@ import logging
 import os
 import socket
 import tempfile
-from typing import Optional
+from typing import (
+    List,
+    Optional,
+    Tuple,
+)
 from urllib.parse import urlparse
 
 from galaxy.exceptions import (
@@ -15,7 +19,7 @@ from galaxy.files import (
     ConfiguredFileSources,
     NoMatchingFileSource,
 )
-from galaxy.files.models import FilesSourceOptions
+from galaxy.files.sources import FilesSourceOptions
 from galaxy.util import (
     stream_to_open_named_file,
     unicodify,
@@ -69,7 +73,7 @@ def stream_to_file(stream, suffix="", prefix="", dir=None, text=False, **kwd):
     return stream_to_open_named_file(stream, fd, temp_name, **kwd)
 
 
-def validate_uri_access(uri: str, is_admin: bool, ip_allowlist: list[IpAllowedListEntryT]) -> None:
+def validate_uri_access(uri: str, is_admin: bool, ip_allowlist: List[IpAllowedListEntryT]) -> None:
     """Perform uniform checks on supplied URIs.
 
     - Prevent access to local IPs not found in ip_allowlist.
@@ -80,7 +84,7 @@ def validate_uri_access(uri: str, is_admin: bool, ip_allowlist: list[IpAllowedLi
         raise AdminRequiredException()
 
 
-def split_port(parsed_url: str, url: str) -> tuple[str, int]:
+def split_port(parsed_url: str, url: str) -> Tuple[str, int]:
     try:
         idx = parsed_url.rindex(":")
         # We parse as an int and let this fail ungracefully if parsing
@@ -92,7 +96,7 @@ def split_port(parsed_url: str, url: str) -> tuple[str, int]:
         raise RequestParameterInvalidException(f"Could not verify url '{url}'.")
 
 
-def validate_non_local(uri: str, ip_allowlist: list[IpAllowedListEntryT]) -> str:
+def validate_non_local(uri: str, ip_allowlist: List[IpAllowedListEntryT]) -> str:
     # If it doesn't look like a URL, ignore it.
     if not (uri.lstrip().startswith("http://") or uri.lstrip().startswith("https://")):
         return uri

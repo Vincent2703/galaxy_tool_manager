@@ -6,13 +6,13 @@ interface Props {
     title: string;
     goToAllTitle?: string;
     href?: string;
-    goToAllDataDescription?: string;
+    /** Show GoTo button when on `href`? */
+    goToOnHref?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     goToAllTitle: undefined,
     href: undefined,
-    goToAllDataDescription: undefined,
 });
 
 const emit = defineEmits(["goToAll"]);
@@ -24,11 +24,7 @@ const hasGoToAll = computed(() => props.goToAllTitle && props.href);
     <div class="activity-panel" :data-description="props.title" aria-labelledby="activity-panel-heading">
         <div class="activity-panel-header">
             <nav unselectable="on" class="activity-panel-header-top">
-                <slot name="activity-panel-header-top">
-                    <h2 id="activity-panel-heading" v-localize class="activity-panel-heading h-sm">
-                        {{ props.title }}
-                    </h2>
-                </slot>
+                <h2 id="activity-panel-heading" v-localize class="activity-panel-heading h-sm">{{ props.title }}</h2>
 
                 <BButtonGroup>
                     <slot name="header-buttons" />
@@ -40,7 +36,7 @@ const hasGoToAll = computed(() => props.goToAllTitle && props.href);
                 v-if="hasGoToAll"
                 class="activity-panel-footer"
                 variant="primary"
-                :data-description="goToAllDataDescription"
+                :data-description="`props.mainButtonText button`"
                 :to="props.href"
                 size="sm"
                 @click="emit('goToAll')">
@@ -55,7 +51,7 @@ const hasGoToAll = computed(() => props.goToAllTitle && props.href);
 </template>
 
 <style lang="scss" scoped>
-@import "@/style/scss/theme/blue.scss";
+@import "theme/blue.scss";
 
 .activity-panel {
     height: 100%;

@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { faCaretDown, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faCaretDown } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 import type { Operation, RowData } from "@/components/Grid/configs/types";
 import { useConfig } from "@/composables/config";
 import type { GalaxyConfiguration } from "@/stores/configurationStore";
+
+library.add(faCaretDown);
 
 const { config, isConfigLoaded } = useConfig();
 
@@ -26,10 +29,6 @@ const emit = defineEmits<{
 function hasCondition(conditionHandler: (rowData: RowData, config: GalaxyConfiguration) => Boolean) {
     return conditionHandler ? conditionHandler(props.rowData, config) : true;
 }
-
-function isLoading(loadingHandler?: (rowData: RowData, config: GalaxyConfiguration) => boolean) {
-    return loadingHandler ? loadingHandler(props.rowData, config) : false;
-}
 </script>
 
 <template>
@@ -40,7 +39,7 @@ function isLoading(loadingHandler?: (rowData: RowData, config: GalaxyConfigurati
             aria-haspopup="true"
             aria-expanded="false"
             class="ui-link font-weight-bold text-nowrap">
-            <FontAwesomeIcon :icon="faCaretDown" class="fa-lg" />
+            <FontAwesomeIcon icon="caret-down" class="fa-lg" />
             <span class="font-weight-bold">{{ title }}</span>
         </button>
         <div class="dropdown-menu" aria-labelledby="grid-operations">
@@ -48,12 +47,9 @@ function isLoading(loadingHandler?: (rowData: RowData, config: GalaxyConfigurati
                 <button
                     v-if="operation && (!operation.condition || hasCondition(operation.condition))"
                     class="dropdown-item"
-                    :disabled="isLoading(operation.loading)"
                     :data-description="`grid operation ${operation.title.toLowerCase()}`"
                     @click.prevent="emit('execute', operation)">
-                    <FontAwesomeIcon
-                        :icon="isLoading(operation.loading) ? faSpinner : operation.icon"
-                        :spin="isLoading(operation.loading)" />
+                    <icon :icon="operation.icon" />
                     <span v-localize>{{ operation.title }}</span>
                 </button>
             </span>

@@ -16,6 +16,8 @@ import time
 from pathlib import Path
 from typing import (
     Any,
+    Dict,
+    List,
     Optional,
 )
 from urllib.parse import urlparse
@@ -64,7 +66,6 @@ FRAMEWORK_DATATYPES_CONF = os.path.join(FRAMEWORK_TOOLS_DIR, "sample_datatypes_c
 MIGRATED_TOOL_PANEL_CONFIG = "config/migrated_tools_conf.xml"
 INSTALLED_TOOL_PANEL_CONFIGS = [os.environ.get("GALAXY_TEST_SHED_TOOL_CONF", "config/shed_tool_conf.xml")]
 DEFAULT_LOCALES = "en"
-DEFAULT_TOOL_TEST_WAIT: int = int(os.environ.get("GALAXY_TEST_DEFAULT_WAIT", 60))
 
 log = logging.getLogger("test_driver")
 
@@ -197,7 +198,7 @@ def setup_galaxy_config(
         admin_users="test@bx.psu.edu",
         allow_library_path_paste=True,
         allow_path_paste=allow_path_paste,
-        allow_local_account_creation=True,
+        allow_user_creation=True,
         allow_user_deletion=True,
         api_allow_run_as="test@bx.psu.edu",
         auto_configure_logging=logging_config_file is None,
@@ -210,7 +211,6 @@ def setup_galaxy_config(
         data_dir=tmpdir,
         data_manager_config_file=data_manager_config_file,
         enable_beta_tool_formats=True,
-        enable_tool_generated_tours=True,
         expose_dataset_path=True,
         ftp_upload_purge=False,
         galaxy_data_manager_data_path=galaxy_data_manager_data_path,
@@ -797,8 +797,8 @@ class TestDriver:
 
     def __init__(self):
         """Setup tracked resources."""
-        self.server_wrappers: list[ServerWrapper] = []
-        self.temp_directories: list[str] = []
+        self.server_wrappers: List[ServerWrapper] = []
+        self.temp_directories: List[str] = []
 
     def setup(self) -> None:
         """Called before tests are built."""
@@ -862,7 +862,6 @@ class GalaxyTestDriver(TestDriver):
         self.allow_tool_conf_override = allow_tool_conf_override
         self.default_tool_conf = default_tool_conf
         self.datatypes_conf_override = datatypes_conf_override
-        self.maxseconds = getattr(config_object, "maxseconds", DEFAULT_TOOL_TEST_WAIT)
 
     def setup(self, config_object=None):
         """Setup a Galaxy server for functional test (if needed).
@@ -950,7 +949,7 @@ class GalaxyTestDriver(TestDriver):
         return config_object
 
     def run_tool_test(
-        self, tool_id: str, index: int = 0, resource_parameters: Optional[dict[str, Any]] = None, **kwd
+        self, tool_id: str, index: int = 0, resource_parameters: Optional[Dict[str, Any]] = None, **kwd
     ) -> None:
         if resource_parameters is None:
             resource_parameters = {}
@@ -962,17 +961,12 @@ class GalaxyTestDriver(TestDriver):
             "keep_outputs_dir": None,
         }
         galaxy_interactor = GalaxyInteractorApi(**galaxy_interactor_kwds)
-        # Cut down default timeout to 60 seconds within tests run via
-        # GalaxyTestDriver. Does not affect tests run via galaxy-tool-util,
-        # which use a much longer timeout.
-        maxseconds = kwd.pop("maxseconds", self.maxseconds)
         verify_tool(
             tool_id=tool_id,
             test_index=index,
             galaxy_interactor=galaxy_interactor,
             resource_parameters=resource_parameters,
             test_data_resolver=TestDataResolver(),
-            maxseconds=maxseconds,
             **kwd,
         )
 

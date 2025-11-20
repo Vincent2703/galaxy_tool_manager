@@ -1,5 +1,4 @@
 import logging
-from typing import TYPE_CHECKING
 
 from tool_shed.util import (
     hg_util,
@@ -7,14 +6,11 @@ from tool_shed.util import (
     repository_util,
 )
 
-if TYPE_CHECKING:
-    from tool_shed.structured_app import ToolShedApp
-
 log = logging.getLogger(__name__)
 
 
 class ToolVersionManager:
-    def __init__(self, app: "ToolShedApp"):
+    def __init__(self, app):
         self.app = app
 
     def get_version_lineage_for_tool(self, repository_id, repository_metadata, guid):

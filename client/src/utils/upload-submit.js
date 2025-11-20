@@ -3,30 +3,16 @@
 */
 
 import axios from "axios";
+import { getAppRoot } from "onload/loadConfig";
 import * as tus from "tus-js-client";
 
-import { getAppRoot } from "@/onload/loadConfig";
-
-/**
- * Builds a fingerprint for the file upload.
- * This fingerprint is used to identify the file upload and resume it if necessary.
- * In case of a ReadableStream reader, the fingerprint is built from the `metadata` object
- * since the stream reader does not have this information.
- */
-function buildFingerprint(cnf, metadata) {
+function buildFingerprint(cnf) {
     return async (file) => {
-        return [
-            "tus-br",
-            file.name ?? metadata?.name,
-            file.type ?? metadata?.type,
-            file.size ?? metadata?.size,
-            file.lastModified ?? metadata?.lastModified,
-            cnf.data.history_id,
-        ].join("-");
+        return ["tus-br", file.name, file.type, file.size, file.lastModified, cnf.data.history_id].join("-");
     };
 }
 
-export function sendPayload(payload, cnf = {}) {
+export function sendPayload(payload, cnf) {
     axios
         .post(`${getAppRoot()}api/tools/fetch`, payload)
         .then((response) => {
@@ -48,13 +34,11 @@ function tusUpload(uploadables, index, data, tusEndpoint, cnf) {
         return sendPayload(data, cnf);
     }
     console.debug(`Starting chunked upload for ${uploadable.name} [chunkSize=${chunkSize}].`);
-    const uploadInput = uploadable.isStream ? uploadable.stream.getReader() : uploadable;
-    const upload = new tus.Upload(uploadInput, {
+    const upload = new tus.Upload(uploadable, {
         endpoint: tusEndpoint,
         retryDelays: [0, 3000, 10000],
-        fingerprint: buildFingerprint(cnf, uploadable),
+        fingerprint: buildFingerprint(cnf),
         chunkSize: chunkSize,
-        uploadSize: uploadable.size,
         storeFingerprintForResuming: false,
         onError: function (err) {
             const status = err.originalResponse?.getStatus();
@@ -74,7 +58,7 @@ function tusUpload(uploadables, index, data, tusEndpoint, cnf) {
         },
         onSuccess: function () {
             console.log(
-                `Upload of ${uploadable.name} to ${upload.url} took ${(performance.now() - startTime) / 1000} seconds`,
+                `Upload of ${uploadable.name} to ${upload.url} took ${(performance.now() - startTime) / 1000} seconds`
             );
             data[`files_${index}|file_data`] = {
                 session_id: upload.url.split("/").at(-1),

@@ -1,7 +1,5 @@
 import json
 import logging
-from collections.abc import Iterable
-from dataclasses import dataclass
 from datetime import (
     date,
     datetime,
@@ -10,9 +8,9 @@ from pathlib import Path
 from typing import (
     Any,
     cast,
+    Dict,
+    List,
     Optional,
-    Tuple,
-    TYPE_CHECKING,
     Union,
 )
 
@@ -24,7 +22,6 @@ from pydantic import (
 )
 from sqlalchemy import (
     and_,
-    exists,
     false,
     func,
     null,
@@ -38,7 +35,6 @@ from typing_extensions import TypedDict
 from galaxy import model
 from galaxy.exceptions import (
     ConfigDoesNotAllowException,
-    InconsistentDatabase,
     ItemAccessibilityException,
     ObjectNotFound,
     RequestParameterInvalidException,
@@ -49,22 +45,19 @@ from galaxy.job_metrics import (
     Safety,
 )
 from galaxy.managers.collections import DatasetCollectionManager
-from galaxy.managers.context import ProvidesUserContext
-from galaxy.managers.datasets import DatasetManager
-from galaxy.managers.hdas import (
-    dereference_input,
-    HDAManager,
+from galaxy.managers.context import (
+    ProvidesHistoryContext,
+    ProvidesUserContext,
 )
-from galaxy.managers.histories import HistoryManager
+from galaxy.managers.datasets import DatasetManager
+from galaxy.managers.hdas import HDAManager
 from galaxy.managers.lddas import LDDAManager
-from galaxy.managers.users import UserManager
 from galaxy.model import (
     ImplicitCollectionJobs,
     ImplicitCollectionJobsJobAssociation,
     Job,
     JobMetricNumeric,
     JobParameter,
-    ToolRequest,
     User,
     Workflow,
     WorkflowInvocation,
@@ -72,6 +65,7 @@ from galaxy.model import (
     WorkflowStep,
     YIELD_PER_ROWS,
 )
+from galaxy.model.base import transaction
 from galaxy.model.index_filter_util import (
     raw_text_column_filter,
     text_column_filter,
@@ -81,25 +75,8 @@ from galaxy.schema.schema import (
     JobIndexQueryPayload,
     JobIndexSortByEnum,
 )
-from galaxy.schema.tasks import (
-    MaterializeDatasetInstanceTaskRequest,
-    QueueJobs,
-)
 from galaxy.security.idencoding import IdEncodingHelper
-from galaxy.structured_app import (
-    MinimalManagerApp,
-    StructuredApp,
-)
-from galaxy.tool_util.parameters import (
-    DataRequestCollectionUri,
-    DataRequestInternalHda,
-    DataRequestInternalHdca,
-    DataRequestUri,
-    dereference,
-    RequestInternalDereferencedToolState,
-    RequestInternalToolState,
-)
-from galaxy.tools import Tool
+from galaxy.structured_app import StructuredApp
 from galaxy.tools._types import (
     ToolStateDumpedToJsonInternalT,
     ToolStateJobInstancePopulatedT,
@@ -115,15 +92,11 @@ from galaxy.util.search import (
     parse_filters_structured,
     RawTextTerm,
 )
-from galaxy.work.context import WorkRequestContext
-
-if TYPE_CHECKING:
-    from sqlalchemy.sql.expression import Select
 
 log = logging.getLogger(__name__)
 
 JobStateT = str
-JobStatesT = Union[JobStateT, Iterable[JobStateT]]
+JobStatesT = Union[JobStateT, List[JobStateT]]
 
 
 STDOUT_LOCATION = "outputs/tool_stdout"
@@ -153,17 +126,6 @@ def get_path_key(path_tuple):
     return path_key
 
 
-def safe_label_or_none(label: str) -> Optional[str]:
-    if label and len(label) > 63:
-        return None
-    return label
-
-
-def safe_aliased(model_class, name=None):
-    """Create an aliased model class with a unique name."""
-    return aliased(model_class, name=safe_label_or_none(name))
-
-
 class JobManager:
     def __init__(self, app: StructuredApp):
         self.app = app
@@ -182,8 +144,6 @@ class JobManager:
         workflow_id = payload.workflow_id
         invocation_id = payload.invocation_id
         implicit_collection_jobs_id = payload.implicit_collection_jobs_id
-        tool_request_id = payload.tool_request_id
-
         search = payload.search
         order_by = payload.order_by
 
@@ -200,7 +160,6 @@ class JobManager:
 
         def add_workflow_jobs():
             wfi_step = select(WorkflowInvocationStep)
-
             if workflow_id is not None:
                 wfi_step = (
                     wfi_step.join(WorkflowInvocation).join(Workflow).where(Workflow.stored_workflow_id == workflow_id)
@@ -215,7 +174,6 @@ class JobManager:
                 ImplicitCollectionJobsJobAssociation.implicit_collection_jobs_id
                 == wfi_step_sq.c.implicit_collection_jobs_id,
             )
-
             # Ensure the result is models, not tuples
             sq = stmt1.union(stmt2).subquery()
             # SQLite won't recognize Job.foo as a valid column for the ORDER BY clause due to the UNION clause, so we'll use the subquery `columns` collection (`sq.c`).
@@ -258,7 +216,7 @@ class JobManager:
                     elif key == "runner":
                         stmt = stmt.where(text_column_filter(Job.job_runner_name, term))
                 elif isinstance(term, RawTextTerm):
-                    columns: list = [Job.tool_id]
+                    columns: List = [Job.tool_id]
                     if user_details:
                         columns.append(User.email)
                     if is_admin:
@@ -292,9 +250,6 @@ class JobManager:
 
         if history_id is not None:
             stmt = stmt.where(Job.history_id == history_id)
-
-        if tool_request_id is not None:
-            stmt = stmt.filter(model.Job.tool_request_id == tool_request_id)
 
         order_by_columns = Job
         if workflow_id or invocation_id:
@@ -393,7 +348,8 @@ class JobManager:
         if not job.finished:
             job.mark_deleted(self.app.config.track_jobs_in_database, message)
             session = self.app.model.session
-            session.commit()
+            with transaction(session):
+                session.commit()
             self.app.job_manager.stop(job, message=message)
             return True
         else:
@@ -402,8 +358,6 @@ class JobManager:
 
 class JobSearch:
     """Search for jobs using tool inputs or other jobs"""
-
-    IGNORED_NON_JOB_PARAMETERS = ("__use_cached_job__", "__workflow_invocation_uuid__", "__when_value__", "__input_ext")
 
     def __init__(
         self,
@@ -414,41 +368,22 @@ class JobSearch:
         id_encoding_helper: IdEncodingHelper,
     ):
         self.sa_session = sa_session
-        self.dialect_name = sa_session.get_bind().dialect.name
-        self.use_materialized_hint = self.supports_materialized_hint()
         self.hda_manager = hda_manager
         self.dataset_collection_manager = dataset_collection_manager
         self.ldda_manager = ldda_manager
         self.decode_id = id_encoding_helper.decode_id
 
-    def supports_materialized_hint(self) -> bool:
-        """
-        Checks if the connected PostgreSQL database version supports the MATERIALIZED hint.
-        (PostgreSQL 12 and higher support it).
-        """
-        # session.bind refers to the Engine or Connection the session is bound to
-        # dialect provides information about the database being used
-        # server_version_info returns a tuple (major, minor, micro, ...)
-        # e.g., (12, 5) for PostgreSQL 12.5, (13, 2) for PostgreSQL 13.2
-        if self.dialect_name == "postgresql":
-            bind = self.sa_session.get_bind()
-            server_version_info = bind.dialect and bind.dialect.server_version_info
-            if server_version_info:
-                return server_version_info[0] >= 12
-        return False
-
     def by_tool_input(
         self,
-        user: User,
+        trans: ProvidesHistoryContext,
         tool_id: str,
         tool_version: Optional[str],
         param: ToolStateJobInstancePopulatedT,
         param_dump: ToolStateDumpedToJsonInternalT,
-        job_state: Optional[JobStatesT] = (Job.states.OK,),
-        history_id: Union[int, None] = None,
-        require_name_match: bool = True,
+        job_state: Optional[JobStatesT] = "ok",
     ):
         """Search for jobs producing same results using the 'inputs' part of a tool POST."""
+        user = trans.user
         input_data = defaultdict(list)
 
         def populate_input_data_input_id(path, key, value):
@@ -490,8 +425,6 @@ class JobSearch:
             job_state=job_state,
             param_dump=param_dump,
             wildcard_param_dump=wildcard_param_dump,
-            history_id=history_id,
-            require_name_match=require_name_match,
         )
 
     def __search(
@@ -503,8 +436,6 @@ class JobSearch:
         job_state: Optional[JobStatesT],
         param_dump: ToolStateDumpedToJsonInternalT,
         wildcard_param_dump=None,
-        history_id: Union[int, None] = None,
-        require_name_match: bool = True,
     ):
         search_timer = ExecutionTimer()
 
@@ -514,18 +445,16 @@ class JobSearch:
                 current_case = param_dump
                 for p in path:
                     current_case = current_case[p]
-                src = current_case.get("src")
-                if src is None:
-                    # just a parameter named id.
-                    # same workaround as in populate_input_data_input_id
-                    return key, value
+                src = current_case["src"]
                 value = job_input_ids[src][value]
                 return key, value
             return key, value
 
-        stmt = select(model.Job.id.label("job_id"))
+        stmt_sq = self._build_job_subquery(tool_id, user.id, tool_version, job_state, wildcard_param_dump)
 
-        data_conditions: list = []
+        stmt = select(Job.id).select_from(Job.table.join(stmt_sq, stmt_sq.c.id == Job.id))
+
+        data_conditions: List = []
 
         # We now build the stmt filters that relate to the input datasets
         # that this job uses. We keep track of the requested dataset id in `requested_ids`,
@@ -533,44 +462,29 @@ class JobSearch:
         # and the ids that have been used in the job that has already been run in `used_ids`.
         requested_ids = []
         data_types = []
-        used_ids: list = []
+        used_ids: List = []
         for k, input_list in input_data.items():
-            # k will be matched against the JobParameter.name column. This can be prefixed depending on whether
+            # k will be matched against the JobParameter.name column. This can be prefixed depending on whethter
             # the input is in a repeat, or not (section and conditional)
-            for value_index, type_values in enumerate(input_list):
+            k = {k, k.split("|")[-1]}
+            for type_values in input_list:
                 t = type_values["src"]
                 v = type_values["id"]
                 requested_ids.append(v)
                 data_types.append(t)
                 identifier = type_values["identifier"]
                 if t == "hda":
-                    stmt = self._build_stmt_for_hda(
-                        stmt,
-                        data_conditions,
-                        used_ids,
-                        k,
-                        v,
-                        identifier,
-                        require_name_match=require_name_match,
-                        value_index=value_index,
-                    )
+                    stmt = self._build_stmt_for_hda(stmt, data_conditions, used_ids, k, v, identifier)
                 elif t == "ldda":
-                    stmt = self._build_stmt_for_ldda(stmt, data_conditions, used_ids, k, v, value_index=value_index)
+                    stmt = self._build_stmt_for_ldda(stmt, data_conditions, used_ids, k, v)
                 elif t == "hdca":
-                    stmt = self._build_stmt_for_hdca(
-                        stmt, data_conditions, used_ids, k, v, user.id, value_index=value_index
-                    )
+                    stmt = self._build_stmt_for_hdca(stmt, data_conditions, used_ids, k, v)
                 elif t == "dce":
-                    stmt = self._build_stmt_for_dce(
-                        stmt, data_conditions, used_ids, k, v, user.id, value_index=value_index
-                    )
+                    stmt = self._build_stmt_for_dce(stmt, data_conditions, used_ids, k, v)
                 else:
-                    log.error("Unknown input data type %s", t)
-                    return None
+                    return []
 
-        stmt = stmt.where(*data_conditions).group_by(model.Job.id, *used_ids)
-        stmt = self._filter_jobs(stmt, tool_id, user.id, tool_version, job_state, wildcard_param_dump, history_id)
-        stmt = self._exclude_jobs_with_deleted_outputs(stmt)
+        stmt = stmt.where(*data_conditions).group_by(model.Job.id, *used_ids).order_by(model.Job.id.desc())
 
         for job in self.sa_session.execute(stmt):
             # We found a job that is equal in terms of tool_id, user, state and input datasets,
@@ -599,15 +513,9 @@ class JobSearch:
                         continue
                     elif k == "chromInfo" and "?.len" in v:
                         continue
-                    elif k in self.IGNORED_NON_JOB_PARAMETERS:
-                        continue
                     a = aliased(model.JobParameter)
                     job_parameter_conditions.append(
-                        and_(
-                            model.Job.id == a.job_id,
-                            a.name == k,
-                            a.value == (None if v is None else json.dumps(v, sort_keys=True)),
-                        )
+                        and_(model.Job.id == a.job_id, a.name == k, a.value == json.dumps(v, sort_keys=True))
                     )
             else:
                 job_parameter_conditions = [model.Job.id == job[0]]
@@ -636,22 +544,12 @@ class JobSearch:
         log.info("No equivalent jobs found %s", search_timer)
         return None
 
-    def _filter_jobs(
-        self,
-        stmt: "Select[tuple[int]]",
-        tool_id: str,
-        user_id: int,
-        tool_version: Optional[str],
-        job_state: Union[JobStatesT, None],
-        wildcard_param_dump,
-        history_id: Union[int, None],
-    ) -> "Select[tuple[int]]":
+    def _build_job_subquery(
+        self, tool_id: str, user_id: int, tool_version: Optional[str], job_state, wildcard_param_dump
+    ):
         """Build subquery that selects a job with correct job parameters."""
-        job_ids_materialized_cte = stmt.cte("job_ids_cte")
-        outer_select_columns = [job_ids_materialized_cte.c[col.name] for col in stmt.selected_columns]
-        stmt = select(*outer_select_columns).select_from(job_ids_materialized_cte)
         stmt = (
-            stmt.join(model.Job, model.Job.id == job_ids_materialized_cte.c.job_id)
+            select(model.Job.id)
             .join(model.History, model.Job.history_id == model.History.id)
             .where(
                 and_(
@@ -667,25 +565,25 @@ class JobSearch:
         if tool_version:
             stmt = stmt.where(Job.tool_version == str(tool_version))
 
-        if history_id is not None:
-            stmt = stmt.where(Job.history_id == history_id)
-
         if job_state is None:
-            job_states: set[str] = {
-                Job.states.NEW,
-                Job.states.QUEUED,
-                Job.states.WAITING,
-                Job.states.RUNNING,
-                Job.states.OK,
-            }
+            stmt = stmt.where(
+                Job.state.in_(
+                    [Job.states.NEW, Job.states.QUEUED, Job.states.WAITING, Job.states.RUNNING, Job.states.OK]
+                )
+            )
         else:
             if isinstance(job_state, str):
-                job_states = {job_state}
-            else:
-                job_states = {*job_state}
-        if wildcard_param_dump.get("__when_value__") is False:
-            job_states = {Job.states.SKIPPED}
-        stmt = stmt.where(Job.state.in_(job_states))
+                stmt = stmt.where(Job.state == job_state)
+            elif isinstance(job_state, list):
+                stmt = stmt.where(or_(*[Job.state == s for s in job_state]))
+
+        # exclude jobs with deleted outputs
+        stmt = stmt.where(
+            and_(
+                model.Job.any_output_dataset_collection_instances_deleted == false(),
+                model.Job.any_output_dataset_deleted == false(),
+            )
+        )
 
         for k, v in wildcard_param_dump.items():
             if v == {"__class__": "RuntimeValue"}:
@@ -696,14 +594,10 @@ class JobSearch:
                 continue
             elif k == "chromInfo" and "?.len" in v:
                 continue
-            elif k in self.IGNORED_NON_JOB_PARAMETERS:
-                # TODO: really need to separate this.
-                continue
-            value_dump = None if v is None else json.dumps(v, sort_keys=True)
-            wildcard_value = value_dump.replace('"id": "__id_wildcard__"', '"id": %') if value_dump else None
+            value_dump = json.dumps(v, sort_keys=True)
+            wildcard_value = value_dump.replace('"id": "__id_wildcard__"', '"id": %')
             a = aliased(JobParameter)
             if value_dump == wildcard_value:
-                # No wildcard needed, use exact match
                 stmt = stmt.join(a).where(
                     and_(
                         Job.id == a.job_id,
@@ -720,95 +614,48 @@ class JobSearch:
                     )
                 )
 
-        return stmt
+        return stmt.subquery()
 
-    def _exclude_jobs_with_deleted_outputs(self, stmt):
-        subquery_alias = stmt.subquery("filtered_jobs_subquery")
-        outer_select_columns = [subquery_alias.c[col.name] for col in stmt.selected_columns]
-        outer_stmt = select(*outer_select_columns).select_from(subquery_alias)
-        job_id_from_subquery = subquery_alias.c.job_id
-        deleted_collection_exists = exists().where(
-            and_(
-                model.JobToOutputDatasetCollectionAssociation.job_id == job_id_from_subquery,
-                model.JobToOutputDatasetCollectionAssociation.dataset_collection_id
-                == model.HistoryDatasetCollectionAssociation.id,
-                model.HistoryDatasetCollectionAssociation.deleted == true(),
-            )
-        )
-
-        # Subquery for deleted output datasets
-        deleted_dataset_exists = exists().where(
-            and_(
-                model.JobToOutputDatasetAssociation.job_id == job_id_from_subquery,
-                model.JobToOutputDatasetAssociation.dataset_id == model.HistoryDatasetAssociation.id,
-                model.HistoryDatasetAssociation.deleted == true(),
-            )
-        )
-
-        # Exclude jobs where a deleted collection OR a deleted dataset exists
-        outer_stmt = outer_stmt.where(
-            and_(
-                ~deleted_collection_exists,  # NOT EXISTS deleted collection
-                ~deleted_dataset_exists,  # NOT EXISTS deleted dataset
-            )
-        )
-        unordered_results_cte = outer_stmt.cte("unordered_results")
-        if self.use_materialized_hint:
-            # This can be considerable faster with large job tables,
-            # but is only available on postgresql >= 12.
-            unordered_results_cte = unordered_results_cte.prefix_with("MATERIALIZED")
-        final_ordered_stmt = (
-            select(*unordered_results_cte.c)
-            .select_from(unordered_results_cte)
-            .order_by(unordered_results_cte.c.job_id.desc())
-        )
-        return final_ordered_stmt
-
-    def _build_stmt_for_hda(
-        self,
-        stmt: "Select[tuple[int]]",
-        data_conditions: list,
-        used_ids: list,
-        k,
-        v,
-        identifier,
-        value_index: int,
-        require_name_match: bool = True,
-    ):
+    def _build_stmt_for_hda(self, stmt, data_conditions, used_ids, k, v, identifier):
         a = aliased(model.JobToInputDatasetAssociation)
         b = aliased(model.HistoryDatasetAssociation)
         c = aliased(model.HistoryDatasetAssociation)
         d = aliased(model.JobParameter)
         e = aliased(model.HistoryDatasetAssociationHistory)
-        labeled_col = a.dataset_id.label(f"{k}_{value_index}")
-        stmt = stmt.add_columns(labeled_col)
-        used_ids.append(labeled_col)
+        stmt = stmt.add_columns(a.dataset_id)
+        used_ids.append(a.dataset_id)
         stmt = stmt.join(a, a.job_id == model.Job.id)
+        hda_stmt = select(model.HistoryDatasetAssociation.id).where(
+            model.HistoryDatasetAssociation.id == e.history_dataset_association_id
+        )
         # b is the HDA used for the job
-        stmt = stmt.join(b, a.dataset_id == b.id).join(c, c.dataset_id == b.dataset_id)
+        stmt = stmt.join(b, a.dataset_id == b.id).join(c, c.dataset_id == b.dataset_id)  # type:ignore[attr-defined]
         name_condition = []
-        hda_history_join_conditions = [
-            e.history_dataset_association_id == b.id,
-            e.extension == c.extension,
-            e._metadata == c._metadata,
-            e.version == a.dataset_version,
-        ]
         if identifier:
             stmt = stmt.join(d)
             data_conditions.append(
                 and_(
-                    d.name == f"{k}|__identifier__",
+                    d.name.in_({f"{_}|__identifier__" for _ in k}),
                     d.value == json.dumps(identifier),
                 )
             )
-        elif require_name_match:
-            hda_history_join_conditions.append(e.name == c.name)
+        else:
+            hda_stmt = hda_stmt.where(e.name == c.name)
             name_condition.append(b.name == c.name)
-
-        stmt = stmt.outerjoin(e, and_(*hda_history_join_conditions))
+        hda_stmt = (
+            hda_stmt.where(
+                e.extension == c.extension,
+            )
+            .where(
+                a.dataset_version == e.version,
+            )
+            .where(
+                e._metadata == c._metadata,
+            )
+        )
         data_conditions.append(
             and_(
-                a.name == k,
+                a.name.in_(k),
                 c.id == v,  # c is the requested job input HDA
                 # We need to make sure that the job we are looking for has been run with identical inputs.
                 # Here we deal with 3 requirements:
@@ -819,630 +666,88 @@ class JobSearch:
                     and_(
                         or_(a.dataset_version.in_([0, b.version]), b.update_time < model.Job.create_time),
                         b.extension == c.extension,
-                        b.metadata == c.metadata,  # type: ignore[arg-type]
+                        b.metadata == c.metadata,
                         *name_condition,
                     ),
-                    e.history_dataset_association_id.isnot(None),
+                    b.id.in_(hda_stmt),
                 ),
                 or_(b.deleted == false(), c.deleted == false()),
             )
         )
         return stmt
 
-    def _build_stmt_for_ldda(self, stmt, data_conditions, used_ids, k, v, value_index):
+    def _build_stmt_for_ldda(self, stmt, data_conditions, used_ids, k, v):
         a = aliased(model.JobToInputLibraryDatasetAssociation)
-        label = safe_label_or_none(f"{k}_{value_index}")
-        labeled_col = a.ldda_id.label(label)
-        stmt = stmt.add_columns(labeled_col)
+        stmt = stmt.add_columns(a.ldda_id)
         stmt = stmt.join(a, a.job_id == model.Job.id)
-        data_conditions.append(and_(a.name == k, a.ldda_id == v))
-        used_ids.append(labeled_col)
+        data_conditions.append(and_(a.name.in_(k), a.ldda_id == v))
+        used_ids.append(a.ldda_id)
         return stmt
 
-    def agg_expression(self, column):
-        if self.dialect_name == "sqlite":
-            return func.group_concat(column)
-        else:
-            return func.array_agg(column, order_by=column)
-
-    def _build_stmt_for_hdca(
-        self, stmt, data_conditions, used_ids, k, v, user_id, value_index, require_name_match=True
-    ):
-        # Strategy for efficiently finding equivalent HDCAs:
-        # 1. Determine the structural depth of the target HDCA by its collection_type.
-        # 2. For the target HDCA (identified by 'v'):
-        #    a. Dynamically construct Common Table Expressions (CTEs) to traverse its (potentially nested) structure down to individual datasets.
-        #    b. Generate a "path signature string" for each dataset element, uniquely identifying its path within the collection.
-        #    c. Aggregate these path strings into a canonical, sorted array (the "reference full signature") using array_agg with explicit ordering.
-        # 3. For all candidate HDCAs:
-        #    a. Perform a similar dynamic traversal and path signature string generation.
-        #    b. Aggregate these into sorted "full signature" arrays for each candidate HDCA.
-        # 4. Finally, identify equivalent HDCAs by comparing their full signature array directly against the reference full signature array.
-        #
-        # This approach is performant because:
-        # - It translates the complex problem of structural collection comparison into efficient array equality checks directly within the database.
-        # - It leverages the power of SQL CTEs and set-based operations, allowing the database query optimizer to find an efficient execution plan.
-        # - Joins required to traverse collection structures are built dynamically based on the actual depth, avoiding unnecessary complexity.
-        # - Signatures are computed and compared entirely on the database side, minimizing data transfer to the application.
-        #
-        # Note: CTEs are uniquely named using 'k' and 'v' to allow this logic to be embedded
-        # within larger queries or loops processing multiple target HDCAs. Aliases are used
-        # extensively to manage dynamic joins based on collection depth.
-        collection_type = self.sa_session.scalar(
-            select(model.DatasetCollection.collection_type)
-            .select_from(model.HistoryDatasetCollectionAssociation)
-            .join(model.DatasetCollection)
-            .where(model.HistoryDatasetCollectionAssociation.id == v)
-        )
-        depth = collection_type.count(":") if collection_type else 0
-
-        a = safe_aliased(model.JobToInputDatasetCollectionAssociation, name=f"jtidc_1_{k}_{value_index}")
-        hdca_input = safe_aliased(
-            model.HistoryDatasetCollectionAssociation,
-            name=f"hdca_1_{k}_{value_index}",
-        )
-
-        _hdca_target_cte_ref = aliased(model.HistoryDatasetCollectionAssociation, name="_hdca_target_cte_ref")
-        _target_collection_cte_ref = aliased(model.DatasetCollection, name="_target_collection_cte_ref")
-        _dce_cte_ref_list = [
-            aliased(model.DatasetCollectionElement, name=f"_dce_cte_ref_{i}") for i in range(depth + 1)
-        ]
-        _hda_cte_ref = aliased(model.HistoryDatasetAssociation, name="_hda_cte_ref")
-
-        # --- NEW CTE: reference_hdca_all_dataset_ids_cte ---
-        # This CTE identifies all distinct dataset IDs that are part of the *reference*
-        # History Dataset Collection Association (HDCA). This is used for an initial,
-        # fast pre-filtering of candidate HDCAs.
-        reference_all_dataset_ids_select = (
-            select(_hda_cte_ref.dataset_id.label("ref_dataset_id_for_overlap"))
-            .select_from(_hdca_target_cte_ref)
-            .join(_target_collection_cte_ref, _target_collection_cte_ref.id == _hdca_target_cte_ref.collection_id)
-            .join(_dce_cte_ref_list[0], _dce_cte_ref_list[0].dataset_collection_id == _target_collection_cte_ref.id)
-        )
-
-        for i in range(1, depth + 1):
-            reference_all_dataset_ids_select = reference_all_dataset_ids_select.join(
-                _dce_cte_ref_list[i],
-                _dce_cte_ref_list[i].dataset_collection_id == _dce_cte_ref_list[i - 1].child_collection_id,
-            )
-
-        _leaf_cte_ref = _dce_cte_ref_list[-1]
-        reference_all_dataset_ids_select = (
-            reference_all_dataset_ids_select.join(_hda_cte_ref, _hda_cte_ref.id == _leaf_cte_ref.hda_id)
-            .where(_hdca_target_cte_ref.id == v)
-            .distinct()
-        )
-        reference_all_dataset_ids_cte = reference_all_dataset_ids_select.cte(
-            safe_label_or_none(f"ref_all_ds_ids_{k}_{value_index}")
-        )
-        # --- END NEW CTE ---
-
-        # CTE 1: signature_elements_cte (for the reference HDCA)
-        # This CTE generates a unique "path signature string" for each dataset element
-        # within the reference HDCA. This string identifies the element's position
-        # and content within the nested collection structure.
-        signature_elements_select = (
-            select(
-                func.concat_ws(
-                    ";",
-                    *[_dce_cte_ref_list[i].element_identifier for i in range(depth + 1)],
-                    _hda_cte_ref.dataset_id.cast(sqlalchemy.Text),
-                ).label("path_signature_string")
-            )
-            .select_from(_hdca_target_cte_ref)
-            .join(_target_collection_cte_ref, _target_collection_cte_ref.id == _hdca_target_cte_ref.collection_id)
-            .join(_dce_cte_ref_list[0], _dce_cte_ref_list[0].dataset_collection_id == _target_collection_cte_ref.id)
-        )
-
-        for i in range(1, depth + 1):
-            signature_elements_select = signature_elements_select.join(
-                _dce_cte_ref_list[i],
-                _dce_cte_ref_list[i].dataset_collection_id == _dce_cte_ref_list[i - 1].child_collection_id,
-            )
-
-        _leaf_cte_ref = _dce_cte_ref_list[-1]
-        signature_elements_select = signature_elements_select.join(
-            _hda_cte_ref, _hda_cte_ref.id == _leaf_cte_ref.hda_id
-        )
-        signature_elements_select = signature_elements_select.where(_hdca_target_cte_ref.id == v)
-        signature_elements_cte = signature_elements_select.cte(
-            safe_label_or_none(f"signature_elements_{k}_{value_index}")
-        )
-
-        # CTE 2: reference_full_signature_cte
-        # This CTE aggregates the path signature strings of the reference HDCA into a
-        # canonical, sorted array. This array represents the complete "signature" of the collection.
-        reference_full_signature_cte = (
-            select(self.agg_expression(signature_elements_cte.c.path_signature_string).label("signature_array"))
-            .select_from(signature_elements_cte)
-            .cte(safe_label_or_none(f"reference_full_signature_{k}_{value_index}"))
-        )
-
-        candidate_hdca = aliased(model.HistoryDatasetCollectionAssociation, name="candidate_hdca")
-        candidate_hdca_history = aliased(model.History, name="candidate_hdca_history")
-        candidate_root_collection = aliased(model.DatasetCollection, name="candidate_root_collection")
-        candidate_dce_list = [
-            aliased(model.DatasetCollectionElement, name=f"candidate_dce_{i}") for i in range(depth + 1)
-        ]
-        candidate_hda = aliased(model.HistoryDatasetAssociation, name="candidate_hda")
-
-        # --- NEW CTE: candidate_hdca_pre_filter_ids_cte (First Pass Candidate Filtering) ---
-        # This CTE performs a quick initial filter on candidate HDCAs.
-        # It checks for:
-        # 1. User permissions (published or owned by the current user).
-        # 2. Whether the candidate HDCA contains any dataset IDs that are also present
-        #    in the reference HDCA (an overlap check). This is a broad filter to
-        #    reduce the number of candidates before more expensive signature generation.
-        candidate_hdca_pre_filter_ids_select = (
-            select(candidate_hdca.id.label("candidate_hdca_id"))
-            .distinct()
-            .select_from(candidate_hdca)
-            .join(candidate_hdca_history, candidate_hdca_history.id == candidate_hdca.history_id)
-            .join(candidate_root_collection, candidate_root_collection.id == candidate_hdca.collection_id)
-            .join(candidate_dce_list[0], candidate_dce_list[0].dataset_collection_id == candidate_root_collection.id)
-        )
-
-        for i in range(1, depth + 1):
-            candidate_hdca_pre_filter_ids_select = candidate_hdca_pre_filter_ids_select.join(
-                candidate_dce_list[i],
-                candidate_dce_list[i].dataset_collection_id == candidate_dce_list[i - 1].child_collection_id,
-            )
-
-        _leaf_candidate_dce_pre = candidate_dce_list[-1]
-        candidate_hdca_pre_filter_ids_select = (
-            candidate_hdca_pre_filter_ids_select.join(candidate_hda, candidate_hda.id == _leaf_candidate_dce_pre.hda_id)
-            .where(or_(candidate_hdca_history.user_id == user_id, candidate_hdca_history.published == true()))
-            .where(candidate_hda.dataset_id.in_(select(reference_all_dataset_ids_cte.c.ref_dataset_id_for_overlap)))
-        )
-        candidate_hdca_pre_filter_ids_cte = candidate_hdca_pre_filter_ids_select.cte(
-            safe_label_or_none(f"cand_hdca_pre_filter_ids_{k}_{value_index}")
-        )
-        # --- END NEW CTE ---
-
-        # CTE 3: candidate_signature_elements_cte
-        # This CTE generates the path signature string for each element of the
-        # *pre-filtered candidate* HDCAs.
-        candidate_signature_elements_select = (
-            select(
-                candidate_hdca.id.label("candidate_hdca_id"),
-                func.concat_ws(
-                    ";",
-                    *[candidate_dce_list[i].element_identifier for i in range(depth + 1)],
-                    candidate_hda.dataset_id.cast(sqlalchemy.Text),
-                ).label("path_signature_string"),
-            )
-            .select_from(candidate_hdca)
-            # Apply the pre-filter here to limit the candidates for full signature generation
-            .where(candidate_hdca.id.in_(select(candidate_hdca_pre_filter_ids_cte.c.candidate_hdca_id)))
-            .join(candidate_hdca_history, candidate_hdca_history.id == candidate_hdca.history_id)
-            .join(candidate_root_collection, candidate_root_collection.id == candidate_hdca.collection_id)
-            .join(candidate_dce_list[0], candidate_dce_list[0].dataset_collection_id == candidate_root_collection.id)
-            .where(or_(candidate_hdca_history.user_id == user_id, candidate_hdca_history.published == true()))
-        )
-
-        for i in range(1, depth + 1):
-            candidate_signature_elements_select = candidate_signature_elements_select.join(
-                candidate_dce_list[i],
-                candidate_dce_list[i].dataset_collection_id == candidate_dce_list[i - 1].child_collection_id,
-            )
-
-        _leaf_candidate_dce = candidate_dce_list[-1]
-        candidate_signature_elements_select = candidate_signature_elements_select.join(
-            candidate_hda, candidate_hda.id == _leaf_candidate_dce.hda_id
-        )
-        candidate_signature_elements_cte = candidate_signature_elements_select.cte(
-            safe_label_or_none(f"candidate_signature_elements_{k}_{value_index}")
-        )
-
-        # CTE 4: candidate_full_signatures_cte
-        # This CTE aggregates the path signature strings for the candidate HDCAs into
-        # ordered arrays, similar to the reference's full signature.
-        candidate_full_signatures_cte = (
-            select(
-                candidate_signature_elements_cte.c.candidate_hdca_id,
-                self.agg_expression(candidate_signature_elements_cte.c.path_signature_string).label(
-                    "full_signature_array"
-                ),
-            )
-            .select_from(candidate_signature_elements_cte)
-            .group_by(candidate_signature_elements_cte.c.candidate_hdca_id)
-            .cte(safe_label_or_none(f"candidate_full_signatures_{k}_{value_index}"))
-        )
-
-        # CTE 5: equivalent_hdca_ids_cte
-        # This final CTE identifies the HDCAs that are truly "equivalent" by
-        # comparing their full signature array to the reference HDCA's full signature array.
-        equivalent_hdca_ids_cte = (
-            select(candidate_full_signatures_cte.c.candidate_hdca_id.label("equivalent_id"))
-            .where(
-                candidate_full_signatures_cte.c.full_signature_array
-                == select(reference_full_signature_cte.c.signature_array).scalar_subquery()
-            )
-            .cte(safe_label_or_none(f"equivalent_hdca_ids_{k}_{value_index}"))
-        )
-
-        # Main query `stmt` construction
-        # This section joins the base job statement with the associations and then filters
-        # by the HDCAs identified as equivalent in the CTEs.
-        labeled_col = a.dataset_collection_id.label(f"{k}_{value_index}")
-        stmt = stmt.add_columns(labeled_col)
-        stmt = stmt.join(a, a.job_id == model.Job.id)
-
-        stmt = stmt.join(
-            hdca_input,
+    def _build_stmt_for_hdca(self, stmt, data_conditions, used_ids, k, v):
+        a = aliased(model.JobToInputDatasetCollectionAssociation)
+        b = aliased(model.HistoryDatasetCollectionAssociation)
+        c = aliased(model.HistoryDatasetCollectionAssociation)
+        stmt = stmt.add_columns(a.dataset_collection_id)
+        stmt = stmt.join(a, a.job_id == model.Job.id).join(b, b.id == a.dataset_collection_id).join(c, b.name == c.name)
+        data_conditions.append(
             and_(
-                hdca_input.id == a.dataset_collection_id,
-                # Filter the main query to only include HDCAs found in the
-                # 'equivalent_hdca_ids_cte'.
-                hdca_input.id.in_(select(equivalent_hdca_ids_cte.c.equivalent_id)),
-            ),
-        )
-
-        used_ids.append(labeled_col)
-        data_conditions.append(a.name == k)
-        return stmt
-
-    def _build_stmt_for_dce(self, stmt, data_conditions, used_ids, k, v, user_id, value_index):
-        dce_root_target = self.sa_session.get_one(model.DatasetCollectionElement, v)
-
-        # Determine if the target DCE points to an HDA or a child collection
-        if dce_root_target.child_collection_id:
-            # This DCE represents a collection, apply the signature comparison approach
-            target_collection_id = dce_root_target.child_collection_id
-            collection_type = self.sa_session.scalar(
-                select(model.DatasetCollection.collection_type).where(
-                    model.DatasetCollection.id == target_collection_id
-                )
-            )
-            depth = collection_type.count(":") if collection_type else 0
-
-            # Aliases for the target DCE's collection structure
-            _dce_target_root_ref = safe_aliased(
-                model.DatasetCollectionElement, name=f"_dce_target_root_ref_{k}_{value_index}"
-            )
-            _dce_target_child_collection_ref = safe_aliased(
-                model.DatasetCollection, name=f"_dce_target_child_collection_ref_{k}_{value_index}"
-            )
-            # List of aliases for each potential nested level of DatasetCollectionElements
-            _dce_target_level_list = [
-                safe_aliased(model.DatasetCollectionElement, name=f"_dce_target_level_{k}_{value_index}_{i}")
-                for i in range(depth + 1)
-            ]
-            _hda_target_ref = safe_aliased(model.HistoryDatasetAssociation, name=f"_hda_target_ref_{k}_{value_index}")
-
-            # --- CTE: reference_dce_all_dataset_ids_cte ---
-            # This CTE (Common Table Expression) identifies all distinct dataset IDs
-            # that are part of the *reference* dataset collection (the one we're searching for).
-            # This helps in the initial filtering of candidate collections.
-            reference_all_dataset_ids_select = (
-                select(_hda_target_ref.dataset_id.label("ref_dataset_id_for_overlap"))
-                .select_from(_dce_target_root_ref)
-                .join(
-                    _dce_target_child_collection_ref,
-                    _dce_target_child_collection_ref.id == _dce_target_root_ref.child_collection_id,
-                )
-                .join(
-                    _dce_target_level_list[0],
-                    _dce_target_level_list[0].dataset_collection_id == _dce_target_child_collection_ref.id,
-                )
-            )
-            # Dynamically add joins for each nested level of the collection
-            for i in range(1, depth + 1):
-                reference_all_dataset_ids_select = reference_all_dataset_ids_select.join(
-                    _dce_target_level_list[i],
-                    _dce_target_level_list[i].dataset_collection_id
-                    == _dce_target_level_list[i - 1].child_collection_id,
-                )
-            _leaf_target_dce_ref = _dce_target_level_list[-1]
-            reference_all_dataset_ids_select = (
-                reference_all_dataset_ids_select.join(
-                    _hda_target_ref, _hda_target_ref.id == _leaf_target_dce_ref.hda_id
-                )
-                .where(_dce_target_root_ref.id == v)
-                .distinct()
-            )
-            reference_all_dataset_ids_cte = reference_all_dataset_ids_select.cte(
-                safe_label_or_none(f"ref_all_ds_ids_{k}_{value_index}")
-            )
-
-            # --- CTE: reference_dce_signature_elements_cte ---
-            # This CTE generates a "path signature string" for each individual element
-            # within the *reference* collection. This signature combines identifiers
-            # from all levels of the collection and the dataset ID, providing a unique
-            # identifier for each dataset's position within the collection structure.
-            path_components = [
-                _dce_target_root_ref.element_identifier,
-                *[_dce_target_level_list[i].element_identifier for i in range(depth + 1)],
-                _hda_target_ref.dataset_id.cast(sqlalchemy.Text),  # Ensure type for concat_ws
-            ]
-
-            reference_dce_signature_elements_select = (
-                select(
-                    func.concat_ws(";", *path_components).label("path_signature_string"),
-                    _hda_target_ref.dataset_id.label("raw_dataset_id_for_ordering"),  # Keep original type for ordering
-                )
-                .select_from(_dce_target_root_ref)
-                .join(
-                    _dce_target_child_collection_ref,
-                    _dce_target_child_collection_ref.id == _dce_target_root_ref.child_collection_id,
-                )
-                .join(
-                    _dce_target_level_list[0],
-                    _dce_target_level_list[0].dataset_collection_id == _dce_target_child_collection_ref.id,
-                )
-            )
-
-            for i in range(1, depth + 1):
-                reference_dce_signature_elements_select = reference_dce_signature_elements_select.join(
-                    _dce_target_level_list[i],
-                    _dce_target_level_list[i].dataset_collection_id
-                    == _dce_target_level_list[i - 1].child_collection_id,
-                )
-
-            _leaf_target_dce_ref = _dce_target_level_list[-1]
-            reference_dce_signature_elements_select = reference_dce_signature_elements_select.join(
-                _hda_target_ref, _hda_target_ref.id == _leaf_target_dce_ref.hda_id
-            ).where(_dce_target_root_ref.id == v)
-            reference_dce_signature_elements_cte = reference_dce_signature_elements_select.cte(
-                safe_label_or_none(f"ref_dce_sig_els_{k}_{value_index}")
-            )
-
-            # --- CTE: reference_full_signature_cte ---
-            # This CTE aggregates the path signatures and dataset IDs of the *reference*
-            # collection into ordered arrays. These arrays form the "full signature"
-            # used for direct comparison with candidate collections.
-            reference_full_signature_cte = (
-                select(
-                    self.agg_expression(reference_dce_signature_elements_cte.c.path_signature_string).label(
-                        "signature_array"
-                    ),
-                    self.agg_expression(reference_dce_signature_elements_cte.c.raw_dataset_id_for_ordering).label(
-                        "ordered_dataset_id_array"
-                    ),
-                    func.count(reference_dce_signature_elements_cte.c.path_signature_string).label(
-                        "element_count"
-                    ),  # Count elements based on path_signature_string
-                )
-                .select_from(reference_dce_signature_elements_cte)
-                .cte(safe_label_or_none(f"ref_dce_full_sig_{k}_{value_index}"))
-            )
-
-            # --- Aliases for Candidate Dataset Collection Structure ---
-            # These aliases are used to represent potential matching dataset collections
-            # in the database, which will be compared against the reference.
-            candidate_dce_root = safe_aliased(model.DatasetCollectionElement, name=f"candidate_dce_root_{k}_{v}")
-            candidate_dce_child_collection = safe_aliased(
-                model.DatasetCollection, name=f"candidate_dce_child_collection_{k}_{value_index}"
-            )
-            candidate_dce_level_list = [
-                safe_aliased(model.DatasetCollectionElement, name=f"candidate_dce_level_{k}_{value_index}_{i}")
-                for i in range(depth + 1)
-            ]
-            candidate_hda = safe_aliased(model.HistoryDatasetAssociation, name=f"candidate_hda_{k}_{value_index}")
-            candidate_history = safe_aliased(model.History, name=f"candidate_history_{k}_{value_index}")
-
-            # --- CTE: candidate_dce_pre_filter_ids_cte (Initial Candidate Filtering) ---
-            # This CTE performs a first pass to quickly narrow down potential candidate
-            # dataset collections. It checks for:
-            # 1. Existence of a child collection (ensuring it's a collection, not a single HDA).
-            # 2. User permissions (published or owned by the current user).
-            # 3. Overlap in *any* dataset IDs with the reference collection.
-            candidate_dce_pre_filter_ids_select = (
-                select(candidate_dce_root.id.label("candidate_dce_id"))
-                .distinct()
-                .select_from(candidate_dce_root)
-                .where(candidate_dce_root.child_collection_id.isnot(None))
-                .join(
-                    candidate_dce_child_collection,
-                    candidate_dce_child_collection.id == candidate_dce_root.child_collection_id,
-                )
-                .join(
-                    candidate_dce_level_list[0],
-                    candidate_dce_level_list[0].dataset_collection_id == candidate_dce_child_collection.id,
-                )
-            )
-            for i in range(1, depth + 1):
-                candidate_dce_pre_filter_ids_select = candidate_dce_pre_filter_ids_select.join(
-                    candidate_dce_level_list[i],
-                    candidate_dce_level_list[i].dataset_collection_id
-                    == candidate_dce_level_list[i - 1].child_collection_id,
-                )
-            _leaf_candidate_dce_pre = candidate_dce_level_list[-1]
-            candidate_dce_pre_filter_ids_select = (
-                candidate_dce_pre_filter_ids_select.join(
-                    candidate_hda, candidate_hda.id == _leaf_candidate_dce_pre.hda_id
-                )
-                .join(candidate_history, candidate_history.id == candidate_hda.history_id)
-                .where(or_(candidate_history.published == true(), candidate_history.user_id == user_id))
-                .where(candidate_hda.dataset_id.in_(select(reference_all_dataset_ids_cte.c.ref_dataset_id_for_overlap)))
-            )
-            candidate_dce_pre_filter_ids_cte = candidate_dce_pre_filter_ids_select.cte(
-                safe_label_or_none(f"cand_dce_pre_filter_ids_{k}_{value_index}")
-            )
-
-            # --- CTE: candidate_dce_signature_elements_cte ---
-            # This CTE calculates the path signature string and raw dataset ID for each
-            # element within the *pre-filtered candidate* collections. This is similar
-            # to the reference signature elements CTE but for the candidates.
-            candidate_path_components_fixed = [
-                candidate_dce_root.element_identifier,
-                *[candidate_dce_level_list[i].element_identifier for i in range(depth + 1)],
-                candidate_hda.dataset_id.cast(sqlalchemy.Text),  # Ensure type for concat_ws
-            ]
-
-            candidate_dce_signature_elements_select = (
-                select(
-                    candidate_dce_root.id.label("candidate_dce_id"),
-                    func.concat_ws(";", *candidate_path_components_fixed).label("path_signature_string"),
-                    candidate_hda.dataset_id.label("dataset_id_for_ordered_array"),  # This is now Integer
-                )
-                .select_from(candidate_dce_root)
-                # Apply the initial filter here!
-                .where(candidate_dce_root.id.in_(select(candidate_dce_pre_filter_ids_cte.c.candidate_dce_id)))
-                .where(candidate_dce_root.child_collection_id.isnot(None))
-                .join(
-                    candidate_dce_child_collection,
-                    candidate_dce_child_collection.id == candidate_dce_root.child_collection_id,
-                )
-                .join(
-                    candidate_dce_level_list[0],
-                    candidate_dce_level_list[0].dataset_collection_id == candidate_dce_child_collection.id,
-                )
-            )
-            # Add dynamic joins for nested levels
-            for i in range(1, depth + 1):
-                candidate_dce_signature_elements_select = candidate_dce_signature_elements_select.join(
-                    candidate_dce_level_list[i],
-                    candidate_dce_level_list[i].dataset_collection_id
-                    == candidate_dce_level_list[i - 1].child_collection_id,
-                )
-
-            _leaf_candidate_dce = candidate_dce_level_list[-1]
-            candidate_dce_signature_elements_select = (
-                candidate_dce_signature_elements_select.join(
-                    candidate_hda, candidate_hda.id == _leaf_candidate_dce.hda_id
-                )
-                .join(candidate_history, candidate_history.id == candidate_hda.history_id)
-                .where(or_(candidate_history.published == true(), candidate_history.user_id == user_id))
-            )
-            candidate_dce_signature_elements_cte = candidate_dce_signature_elements_select.cte(
-                safe_label_or_none(f"cand_dce_sig_els_{k}_{value_index}")
-            )
-
-            # --- CTE: candidate_pre_signatures_cte (Candidate Aggregation for Comparison) ---
-            # This CTE aggregates the dataset IDs from the candidate collections into
-            # ordered arrays, similar to `reference_full_signature_cte`. It also
-            # counts the elements to ensure size consistency.
-            candidate_pre_signatures_cte = (
-                select(
-                    candidate_dce_signature_elements_cte.c.candidate_dce_id,
-                    # Corrected array_agg syntax: pass column directly, use order_by keyword
-                    self.agg_expression(candidate_dce_signature_elements_cte.c.dataset_id_for_ordered_array).label(
-                        "candidate_ordered_dataset_ids_array"
-                    ),
-                    func.count(candidate_dce_signature_elements_cte.c.candidate_dce_id).label(
-                        "candidate_element_count"
-                    ),
-                )
-                .select_from(candidate_dce_signature_elements_cte)
-                .group_by(candidate_dce_signature_elements_cte.c.candidate_dce_id)
-                .cte(safe_label_or_none(f"cand_dce_pre_sig_{k}_{value_index}"))
-            )
-
-            # --- CTE: filtered_cand_dce_by_dataset_ids_cte (Filtering by Element Count and Dataset ID Array) ---
-            # This crucial CTE filters the candidate collections further by comparing:
-            # 1. Their total element count with the reference collection's element count.
-            # 2. Their ordered array of dataset IDs with the reference's ordered array.
-            # This step ensures that candidate collections have the same number of elements
-            # and contain the exact same datasets, in the same logical order (based on path).
-            filtered_cand_dce_by_dataset_ids_cte = (
-                select(candidate_pre_signatures_cte.c.candidate_dce_id)
-                .select_from(candidate_pre_signatures_cte, reference_full_signature_cte)
-                .where(
+                a.name.in_(k),
+                c.id == v,
+                or_(
+                    and_(b.deleted == false(), b.id == v),
                     and_(
-                        candidate_pre_signatures_cte.c.candidate_element_count
-                        == reference_full_signature_cte.c.element_count,
-                        candidate_pre_signatures_cte.c.candidate_ordered_dataset_ids_array
-                        == reference_full_signature_cte.c.ordered_dataset_id_array,
-                    )
-                )
-                .cte(safe_label_or_none(f"filtered_cand_dce_{k}_{value_index}"))
-            )
-
-            # --- CTE: final_candidate_signatures_cte (Final Full Signature Calculation for Matched Candidates) ---
-            # For the candidates that passed the previous filtering, this CTE calculates
-            # their full path signature array. This signature represents the complete
-            # structural and content identity of the collection.
-            final_candidate_signatures_cte = (
-                select(
-                    candidate_dce_signature_elements_cte.c.candidate_dce_id,
-                    self.agg_expression(candidate_dce_signature_elements_cte.c.path_signature_string).label(
-                        "full_signature_array"
-                    ),
-                )
-                .select_from(candidate_dce_signature_elements_cte)
-                .where(
-                    candidate_dce_signature_elements_cte.c.candidate_dce_id.in_(
-                        select(filtered_cand_dce_by_dataset_ids_cte.c.candidate_dce_id)
-                    )
-                )
-                .group_by(candidate_dce_signature_elements_cte.c.candidate_dce_id)
-                .cte(safe_label_or_none(f"final_cand_dce_full_sig_{k}_{value_index}"))
-            )
-
-            # --- Main Query Construction for Dataset Collection Elements ---
-            # This section joins the main `stmt` (representing jobs) with the CTEs
-            # to filter jobs whose input DCE matches the reference DCE's full signature.
-            a = safe_aliased(
-                model.JobToInputDatasetCollectionElementAssociation,
-                name=f"job_to_input_dce_association_{k}_{value_index}",
-            )
-            labeled_col = a.dataset_collection_element_id.label(f"{k}_{value_index}")
-            stmt = stmt.add_columns(labeled_col)
-            stmt = stmt.join(a, a.job_id == model.Job.id)
-
-            input_dce = aliased(model.DatasetCollectionElement)
-
-            stmt = stmt.join(
-                input_dce,
-                and_(
-                    input_dce.id == a.dataset_collection_element_id,
-                    # The final filter: ensure the input DCE's ID is among those candidates
-                    # whose full signature array *exactly matches* the reference's signature array.
-                    input_dce.id.in_(
-                        select(final_candidate_signatures_cte.c.candidate_dce_id).where(
-                            final_candidate_signatures_cte.c.full_signature_array
-                            == select(reference_full_signature_cte.c.signature_array).scalar_subquery()
-                        )
+                        or_(
+                            c.copied_from_history_dataset_collection_association_id == b.id,
+                            b.copied_from_history_dataset_collection_association_id == c.id,
+                        ),
+                        c.deleted == false(),
                     ),
                 ),
             )
+        )
+        used_ids.append(a.dataset_collection_id)
+        return stmt
 
-            data_conditions.append(a.name == k)
-            used_ids.append(labeled_col)
-            return stmt
-
-        else:  # DCE points directly to an HDA (dce_root_target.hda_id is not None and child_collection_id is None)
-            # For this simple case, the full signature array comparison for nested collections doesn't apply.
-            # We can use a direct comparison of the HDA and element_identifier.
-            # This logic needs to align with how this type of DCE was previously matched.
-
-            # Aliases for the "left" side (job to input DCE path)
-            a = safe_aliased(
-                model.JobToInputDatasetCollectionElementAssociation,
-                name=f"job_to_input_dce_association_{k}_{value_index}",
-            )
-            dce_left = safe_aliased(model.DatasetCollectionElement, name=f"dce_left_{k}_{value_index}")
-            hda_left = safe_aliased(model.HistoryDatasetAssociation, name=f"hda_left_{k}_{value_index}")
-
-            # Aliases for the "right" side (target DCE path in the main query)
-            dce_right = safe_aliased(model.DatasetCollectionElement, name=f"dce_right_{k}_{value_index}")
-            hda_right = safe_aliased(model.HistoryDatasetAssociation, name=f"hda_right_{k}_{value_index}")
-
-            # Start joins from job → input DCE association → first-level DCE (left side)
-            labeled_col = a.dataset_collection_element_id.label(safe_label_or_none(f"{k}_{value_index}"))
-            stmt = stmt.add_columns(labeled_col)
-            stmt = stmt.join(a, a.job_id == model.Job.id)
-            stmt = stmt.join(dce_left, dce_left.id == a.dataset_collection_element_id)
-            stmt = stmt.join(hda_left, hda_left.id == dce_left.hda_id)  # Join to HDA for left side
-
-            # Join to target DCE (v) directly (right side)
-            stmt = stmt.join(dce_right, dce_right.id == v)
-            stmt = stmt.join(hda_right, hda_right.id == dce_right.hda_id)  # Join to HDA for right side
-
-            # Compare element identifiers and dataset IDs
-            data_conditions.append(
+    def _build_stmt_for_dce(self, stmt, data_conditions, used_ids, k, v):
+        a = aliased(model.JobToInputDatasetCollectionElementAssociation)
+        b = aliased(model.DatasetCollectionElement)
+        c = aliased(model.DatasetCollectionElement)
+        d = aliased(model.HistoryDatasetAssociation)
+        e = aliased(model.HistoryDatasetAssociation)
+        stmt = stmt.add_columns(a.dataset_collection_element_id)
+        stmt = (
+            stmt.join(a, a.job_id == model.Job.id)
+            .join(b, b.id == a.dataset_collection_element_id)
+            .join(
+                c,
                 and_(
-                    a.name == k,
-                    dce_left.element_identifier == dce_right.element_identifier,
-                    hda_left.dataset_id == hda_right.dataset_id,  # Direct dataset_id comparison
-                )
+                    c.element_identifier == b.element_identifier,
+                    or_(c.hda_id == b.hda_id, c.child_collection_id == b.child_collection_id),
+                ),
             )
-            used_ids.append(labeled_col)
-            return stmt
+            .outerjoin(d, d.id == c.hda_id)
+            .outerjoin(e, e.dataset_id == d.dataset_id)  # type:ignore[attr-defined]
+        )
+        data_conditions.append(
+            and_(
+                a.name.in_(k),
+                or_(
+                    c.child_collection_id == b.child_collection_id,
+                    and_(
+                        c.hda_id == b.hda_id,
+                        d.id == c.hda_id,
+                        e.dataset_id == d.dataset_id,  # type:ignore[attr-defined]
+                    ),
+                ),
+                c.id == v,
+            )
+        )
+        used_ids.append(a.dataset_collection_element_id)
+        return stmt
 
 
-def view_show_job(trans, job: Job, full: bool) -> dict:
+def view_show_job(trans, job: Job, full: bool) -> Dict:
     is_admin = trans.user_is_admin
     job_dict = job.to_dict("element", system_details=is_admin)
     if trans.app.config.expose_dataset_path and "command_line" not in job_dict:
@@ -1651,7 +956,7 @@ def summarize_invocation_jobs(
 
 class JobsSummary(TypedDict):
     populated_state: str
-    states: dict[str, int]
+    states: Dict[str, int]
     model: str
     id: int
 
@@ -1743,7 +1048,7 @@ def summarize_destination_params(trans, job):
     return destination_params
 
 
-def summarize_job_parameters(trans: ProvidesUserContext, job: Job) -> dict[str, Any]:
+def summarize_job_parameters(trans, job: Job):
     """Produce a dict-ified version of job parameters ready for tabular rendering.
 
     Precondition: the caller has verified the job is accessible to the user
@@ -1820,7 +1125,7 @@ def summarize_job_parameters(trans: ProvidesUserContext, job: Job) -> dict[str, 
                     or input.type == "data_collection"
                     or isinstance(input_value, model.HistoryDatasetAssociation)
                 ):
-                    value: list[Union[dict[str, Any], None]] = []
+                    value: List[Union[Dict[str, Any], None]] = []
                     for element in listify(input_value):
                         if isinstance(element, model.HistoryDatasetAssociation):
                             hda = element
@@ -1835,7 +1140,7 @@ def summarize_job_parameters(trans: ProvidesUserContext, job: Job) -> dict[str, 
                             raise Exception(
                                 f"Unhandled data input parameter type encountered {element.__class__.__name__}"
                             )
-                    rval.append(dict(text=input.label or input.name, depth=depth, value=value))
+                    rval.append(dict(text=input.label, depth=depth, value=value))
                 elif input.visible:
                     if hasattr(input, "label") and input.label:
                         label = input.label
@@ -1866,10 +1171,7 @@ def summarize_job_parameters(trans: ProvidesUserContext, job: Job) -> dict[str, 
     # Load the tool
     app = trans.app
     toolbox = app.toolbox
-    tool_uuid = None
-    if dynamic_tool := job.dynamic_tool:
-        tool_uuid = dynamic_tool.uuid
-    tool = toolbox.get_tool(job.tool_id, job.tool_version, tool_uuid=tool_uuid, user=trans.user)
+    tool = toolbox.get_tool(job.tool_id, job.tool_version)
 
     params_objects = None
     parameters = []
@@ -1879,12 +1181,12 @@ def summarize_job_parameters(trans: ProvidesUserContext, job: Job) -> dict[str, 
     # Load parameter objects, if a parameter type has changed, it's possible for the value to no longer be valid
     if tool:
         try:
-            params_objects = tool.get_param_values(job, ignore_errors=False)
+            params_objects = job.get_param_values(app, ignore_errors=False)
         except Exception:
-            params_objects = tool.get_param_values(job, ignore_errors=True)
+            params_objects = job.get_param_values(app, ignore_errors=True)
             # use different param_objects in the following line, since we want to display original values as much as possible
             upgrade_messages = tool.check_and_update_param_values(
-                tool.get_param_values(job, ignore_errors=True), trans, update_values=False
+                job.get_param_values(app, ignore_errors=True), trans, update_values=False
             )
             has_parameter_errors = True
         parameters = inputs_recursive(tool.inputs, params_objects, depth=1, upgrade_messages=upgrade_messages)
@@ -1918,7 +1220,7 @@ def summarize_job_outputs(job: model.Job, tool, params):
         ("hdca", "dataset_collection_id", job.output_dataset_collection_instances),
     )
     for src, attribute, output_associations in possible_outputs:
-        output_associations = cast(list, output_associations)  # during iteration, mypy sees it as object
+        output_associations = cast(List, output_associations)  # during iteration, mypy sees it as object
         for output_association in output_associations:
             output_name = output_association.name
             if output_name not in output_labels and tool:
@@ -1954,135 +1256,6 @@ def get_jobs_to_check_at_startup(session: galaxy_scoped_session, track_jobs_in_d
     return session.scalars(stmt).all()
 
 
-def get_job(session: galaxy_scoped_session, *where_clauses):
+def get_job(session, *where_clauses):
     stmt = select(Job).where(*where_clauses).limit(1)
     return session.scalars(stmt).first()
-
-
-@dataclass
-class DereferencedDatasetPair:
-    hda: model.HistoryDatasetAssociation
-    request: DataRequestUri
-
-
-class JobSubmitter:
-    def __init__(
-        self,
-        history_manager: HistoryManager,
-        user_manager: UserManager,
-        hda_manager: HDAManager,
-        app: MinimalManagerApp,
-    ):
-        self.history_manager = history_manager
-        self.user_manager = user_manager
-        self.hda_manager = hda_manager
-        self.app = app
-
-    def materialize_request_for(
-        self, trans: WorkRequestContext, hda: model.HistoryDatasetAssociation
-    ) -> MaterializeDatasetInstanceTaskRequest:
-        return MaterializeDatasetInstanceTaskRequest(
-            user=trans.async_request_user,
-            history_id=trans.history.id,
-            source="hda",
-            content=hda.id,
-        )
-
-    def dereference(
-        self, trans: WorkRequestContext, tool: Tool, request: QueueJobs, tool_request: ToolRequest
-    ) -> Tuple[RequestInternalDereferencedToolState, list[DereferencedDatasetPair]]:
-        new_hdas: list[DereferencedDatasetPair] = []
-
-        def dereference_collection_callback(data_request: DataRequestCollectionUri) -> DataRequestInternalHdca:
-            # a deferred dataset corresponding to request
-            history = tool_request.history
-            if not history:
-                raise InconsistentDatabase("Tool request has no history associated")
-
-            hdca = dereference_input(trans, data_request, history)
-            assert isinstance(hdca, model.HistoryDatasetCollectionAssociation)
-
-            # we need the HDCA to have an ID - so we force a commit here - for
-            # consistency it would be great if this happened in the dereference_input
-            # since the HDA is committed in the other branch.
-            history.add_pending_items()
-            trans.sa_session.commit()
-
-            def find_new_hdas(collection: model.DatasetCollection, request_elements) -> None:
-                for dce, dce_request in zip(collection.elements, request_elements):
-                    if dce.is_collection:
-                        child_collection = dce.child_collection
-                        assert child_collection
-                        find_new_hdas(child_collection, dce_request.elements)
-                    else:
-                        hda = dce.hda
-                        assert hda
-                        new_hdas.append(DereferencedDatasetPair(hda, dce_request))
-
-            find_new_hdas(hdca.collection, data_request.elements)
-            return DataRequestInternalHdca(id=hdca.id, src="hdca")
-
-        def dereference_callback(data_request: DataRequestUri) -> DataRequestInternalHda:
-            # a deferred dataset corresponding to request
-            history = tool_request.history
-            if not history:
-                raise InconsistentDatabase("Tool request has no history associated")
-
-            hda = dereference_input(trans, data_request, history)
-            assert isinstance(hda, model.HistoryDatasetAssociation)
-            new_hdas.append(DereferencedDatasetPair(hda, data_request))
-            return DataRequestInternalHda(id=hda.id, src="hda")
-
-        tool_state = RequestInternalToolState(tool_request.request)
-        return dereference(tool_state, tool, dereference_callback, dereference_collection_callback), new_hdas
-
-    def queue_jobs(self, tool: Tool, request: QueueJobs) -> None:
-        tool_request: ToolRequest = self._tool_request(request.tool_request_id)
-        sa_session = self.app.model.context
-        try:
-            request_context = self._context(tool_request, request)
-            target_history = request_context.history
-            use_cached_jobs = request.use_cached_jobs
-            rerun_remap_job_id = request.rerun_remap_job_id
-            tool_state, new_hdas = self.dereference(request_context, tool, request, tool_request)
-            to_materialize_list = [p for p in new_hdas if not p.request.deferred]
-            for to_materialize in to_materialize_list:
-                materialize_request = self.materialize_request_for(request_context, to_materialize.hda)
-                # API dataset materialization is immutable and produces new datasets
-                # here we just created the datasets - lets just materialize them in place
-                # and avoid extra and confusing input copies
-                self.hda_manager.materialize(materialize_request, sa_session(), in_place=True)
-            tool.handle_input_async(
-                request_context,
-                tool_request,
-                tool_state,
-                history=target_history,
-                use_cached_job=use_cached_jobs,
-                rerun_remap_job_id=rerun_remap_job_id,
-            )
-            tool_request.state = ToolRequest.states.SUBMITTED
-            sa_session.add(tool_request)
-            sa_session.commit()
-        except Exception as e:
-            log.exception("Problem validating tool state after request created")
-            tool_request.state = ToolRequest.states.FAILED
-            tool_request.state_message = str(e)
-            sa_session.add(tool_request)
-            sa_session.commit()
-
-    def _context(self, tool_request: ToolRequest, request: QueueJobs) -> WorkRequestContext:
-        user = self.user_manager.by_id(request.user.user_id)
-        target_history = tool_request.history
-        trans = WorkRequestContext(
-            self.app,
-            user,
-            history=target_history,
-        )
-        return trans
-
-    def _tool_request(self, tool_request_id: int) -> ToolRequest:
-        sa_session = self.app.model.context
-        tool_request = sa_session.get(ToolRequest, tool_request_id)
-        if tool_request is None:
-            raise Exception(f"Problem fetching request with ID {tool_request_id}")
-        return tool_request

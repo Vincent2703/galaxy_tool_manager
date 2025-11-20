@@ -8,6 +8,8 @@ from json import (
     dumps,
 )
 from typing import (
+    Dict,
+    List,
     Optional,
 )
 
@@ -23,18 +25,12 @@ from galaxy.files.uris import (
 )
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.model import (
-    DatasetPermissions,
     FormDefinition,
-    FormValues,
-    GalaxySession,
-    HistoryDatasetAssociation,
-    Job,
     LibraryDataset,
-    LibraryDatasetDatasetAssociation,
-    LibraryDatasetDatasetInfoAssociation,
     LibraryFolder,
     Role,
 )
+from galaxy.model.base import transaction
 from galaxy.util import is_url
 from galaxy.util.path import external_chown
 
@@ -80,10 +76,10 @@ def persist_uploads(params, trans):
 
 @dataclass
 class LibraryParams:
-    roles: list[Role]
-    tags: Optional[list[str]]
+    roles: List[Role]
+    tags: Optional[List[str]]
     template: Optional[FormDefinition]
-    template_field_contents: dict[str, str]
+    template_field_contents: Dict[str, str]
     folder: LibraryFolder
     message: str
     replace_dataset: Optional[LibraryDataset]
@@ -112,7 +108,7 @@ def handle_library_params(
                 if params.get(field_name, False):
                     field_value = util.restore_text(params.get(field_name, ""))
                     template_field_contents[field_name] = field_value
-    roles: list[Role] = []
+    roles: List[Role] = []
     for role_id in util.listify(params.get("roles", [])):
         role = session.get(Role, role_id)
         roles.append(role)
@@ -131,7 +127,7 @@ def handle_library_params(
 def __new_history_upload(trans, uploaded_dataset, history=None, state=None):
     if not history:
         history = trans.history
-    hda = HistoryDatasetAssociation(
+    hda = trans.app.model.HistoryDatasetAssociation(
         name=uploaded_dataset.name,
         extension=uploaded_dataset.file_type,
         dbkey=uploaded_dataset.dbkey,
@@ -147,7 +143,8 @@ def __new_history_upload(trans, uploaded_dataset, history=None, state=None):
     history.add_dataset(hda, genome_build=uploaded_dataset.dbkey, quota=False)
     permissions = trans.app.security_agent.history_get_default_permissions(history)
     trans.app.security_agent.set_all_dataset_permissions(hda.dataset, permissions, new=True, flush=False)
-    trans.sa_session.commit()
+    with transaction(trans.sa_session):
+        trans.sa_session.commit()
     return hda
 
 
@@ -172,17 +169,19 @@ def __new_library_upload(trans, cntrller, uploaded_dataset, library_bunch, tag_h
                 new_folder.genome_build = trans.app.genome_builds.default_value
                 folder.add_folder(new_folder)
                 trans.sa_session.add(new_folder)
-                trans.sa_session.commit()
+                with transaction(trans.sa_session):
+                    trans.sa_session.commit()
                 trans.app.security_agent.copy_library_permissions(trans, folder, new_folder)
                 folder = new_folder
     if library_bunch.replace_dataset:
         ld = library_bunch.replace_dataset
     else:
-        ld = LibraryDataset(folder=folder, name=uploaded_dataset.name)
+        ld = trans.app.model.LibraryDataset(folder=folder, name=uploaded_dataset.name)
         trans.sa_session.add(ld)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         trans.app.security_agent.copy_library_permissions(trans, folder, ld)
-    ldda = LibraryDatasetDatasetAssociation(
+    ldda = trans.app.model.LibraryDatasetDatasetAssociation(
         name=uploaded_dataset.name,
         extension=uploaded_dataset.file_type,
         dbkey=uploaded_dataset.dbkey,
@@ -206,7 +205,8 @@ def __new_library_upload(trans, cntrller, uploaded_dataset, library_bunch, tag_h
     else:
         ldda.state = ldda.states.QUEUED
     ldda.message = library_bunch.message
-    trans.sa_session.commit()
+    with transaction(trans.sa_session):
+        trans.sa_session.commit()
     # Permissions must be the same on the LibraryDatasetDatasetAssociation and the associated LibraryDataset
     trans.app.security_agent.copy_library_permissions(trans, ld, ldda)
     if library_bunch.replace_dataset:
@@ -221,10 +221,12 @@ def __new_library_upload(trans, cntrller, uploaded_dataset, library_bunch, tag_h
         )
         folder.add_library_dataset(ld, genome_build=uploaded_dataset.dbkey)
         trans.sa_session.add(folder)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
     ld.library_dataset_dataset_association_id = ldda.id
     trans.sa_session.add(ld)
-    trans.sa_session.commit()
+    with transaction(trans.sa_session):
+        trans.sa_session.commit()
     # Handle template included in the upload form, if any.  If the upload is not asynchronous ( e.g., URL paste ),
     # then the template and contents will be included in the library_bunch at this point.  If the upload is
     # asynchronous ( e.g., uploading a file ), then the template and contents will be included in the library_bunch
@@ -234,23 +236,28 @@ def __new_library_upload(trans, cntrller, uploaded_dataset, library_bunch, tag_h
         # If the user has added field contents, we'll need to create a new form_values and info_association
         # for the new library_dataset_dataset_association object.
         # Create a new FormValues object, using the template we previously retrieved
-        form_values = FormValues(library_bunch.template, library_bunch.template_field_contents)
+        form_values = trans.app.model.FormValues(library_bunch.template, library_bunch.template_field_contents)
         trans.sa_session.add(form_values)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
         # Create a new info_association between the current ldda and form_values
         # TODO: Currently info_associations at the ldda level are not inheritable to the associated LibraryDataset,
         # we need to figure out if this is optimal
-        info_association = LibraryDatasetDatasetInfoAssociation(ldda, library_bunch.template, form_values)
+        info_association = trans.app.model.LibraryDatasetDatasetInfoAssociation(
+            ldda, library_bunch.template, form_values
+        )
         trans.sa_session.add(info_association)
-        trans.sa_session.commit()
+        with transaction(trans.sa_session):
+            trans.sa_session.commit()
     # If roles were selected upon upload, restrict access to the Dataset to those roles
     if library_bunch.roles:
         for role in library_bunch.roles:
-            dp = DatasetPermissions(
+            dp = trans.app.model.DatasetPermissions(
                 trans.app.security_agent.permitted_actions.DATASET_ACCESS.action, ldda.dataset, role
             )
             trans.sa_session.add(dp)
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
     return ldda
 
 
@@ -307,7 +314,8 @@ def create_paramfile(trans, uploaded_datasets):
             for meta_name, meta_value in uploaded_dataset.metadata.items():
                 setattr(data.metadata, meta_name, meta_value)
             trans.sa_session.add(data)
-            trans.sa_session.commit()
+            with transaction(trans.sa_session):
+                trans.sa_session.commit()
             params = dict(
                 file_type=uploaded_dataset.file_type,
                 dataset_id=data.dataset.id,
@@ -385,11 +393,11 @@ def create_job(trans, params, tool, json_file_path, outputs, folder=None, histor
     """
     Create the upload job.
     """
-    job = Job()
+    job = trans.app.model.Job()
     trans.sa_session.add(job)
     job.galaxy_version = trans.app.config.version_major
     galaxy_session = trans.get_galaxy_session()
-    if isinstance(galaxy_session, GalaxySession):
+    if isinstance(galaxy_session, trans.model.GalaxySession):
         job.session_id = galaxy_session.id
     if trans.user is not None:
         job.user_id = trans.user.id
@@ -407,7 +415,7 @@ def create_job(trans, params, tool, json_file_path, outputs, folder=None, histor
         job.add_parameter(name, value)
     job.add_parameter("paramfile", dumps(json_file_path))
     for i, output_object in enumerate(outputs):
-        output_name = f"output{i}"
+        output_name = "output%i" % i
         if hasattr(output_object, "collection"):
             job.add_output_dataset_collection(output_name, output_object)
             output_object.job = job
@@ -426,7 +434,7 @@ def create_job(trans, params, tool, json_file_path, outputs, folder=None, histor
     output = {}
     for i, v in enumerate(outputs):
         if not hasattr(output_object, "collection_type"):
-            output[f"output{i}"] = v
+            output["output%i" % i] = v
     return job, output
 
 

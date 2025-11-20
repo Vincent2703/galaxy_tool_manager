@@ -85,11 +85,11 @@ class UniverseApplication(ToolShedApp, SentryClientMixin, HaltableContainer):
         self.user_manager = self._register_singleton(UserManager, UserManager(self, app_type="tool_shed"))
         self.api_keys_manager = self._register_singleton(ApiKeyManager)
         # initialize the Tool Shed tag handler.
-        self.tag_handler = CommunityTagHandler(self.model.context)
+        self.tag_handler = CommunityTagHandler(self)
         # Initialize the Tool Shed tool data tables.  Never pass a configuration file here
         # because the Tool Shed should always have an empty dictionary!
-        self._tool_data_tables = galaxy.tools.data.ToolDataTableManager(self.config.tool_data_path)
-        self._genome_builds = GenomeBuilds(self)
+        self.tool_data_tables = galaxy.tools.data.ToolDataTableManager(self.config.tool_data_path)
+        self.genome_builds = GenomeBuilds(self)
         self.auth_manager = self._register_singleton(auth.AuthManager, auth.AuthManager(self.config))
         # Citation manager needed to load tools.
         self.citations_manager = self._register_singleton(CitationsManager, CitationsManager(self))
@@ -114,14 +114,6 @@ class UniverseApplication(ToolShedApp, SentryClientMixin, HaltableContainer):
         #  used for cachebusting -- refactor this into a *SINGLE* UniverseApplication base.
         self.server_starttime = int(time.time())
         log.debug("Tool shed hgweb.config file is: %s", self.hgweb_config_manager.hgweb_config)
-
-    @property
-    def tool_data_tables(self) -> galaxy.tools.data.ToolDataTableManager:
-        return self._tool_data_tables
-
-    @property
-    def genome_builds(self) -> GenomeBuilds:
-        return self._genome_builds
 
 
 # Global instance of the universe app.

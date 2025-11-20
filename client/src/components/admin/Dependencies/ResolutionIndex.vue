@@ -59,29 +59,28 @@
         </template>
         <template v-slot:actions>
             <b-row class="m-1">
-                <GButton class="m-1" @click="installSelected">
+                <b-button class="m-1" @click="installSelected">
                     <span class="fa fa-plus" />
                     <!-- v-bind:disabled="!hasSelection"  -->
                     Install
-                </GButton>
-                <GButton class="m-1" @click="uninstallSelected">
+                </b-button>
+                <b-button class="m-1" @click="uninstallSelected">
                     <span class="fa fa-minus" />
                     <!-- v-bind:disabled="!hasSelection"  -->
                     Uninstall
-                </GButton>
-                <GButton v-if="!expandToolIds" class="m-1" @click="setExpandToolIds(true)">
+                </b-button>
+                <b-button v-if="!expandToolIds" class="m-1" @click="setExpandToolIds(true)">
                     <span class="fa fa-chevron-down" />
                     Expand Tools
-                </GButton>
-                <GButton v-if="expandToolIds" class="m-1" @click="setExpandToolIds(false)">
+                </b-button>
+                <b-button v-if="expandToolIds" class="m-1" @click="setExpandToolIds(false)">
                     <span class="fa fa-chevron-up" />
                     Group by Requirements
-                </GButton>
+                </b-button>
             </b-row>
         </template>
     </dependency-index-wrapper>
 </template>
-
 <script>
 import BootstrapVue from "bootstrap-vue";
 import _ from "underscore";
@@ -89,9 +88,7 @@ import Vue from "vue";
 
 import { getToolboxDependencies, installDependencies, uninstallDependencies } from "../AdminServices";
 import DependencyIndexMixin from "./DependencyIndexMixin";
-
-import ResolutionDetails from "./ResolutionDetails.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
+import ResolutionDetails from "./ResolutionDetails";
 
 Vue.use(BootstrapVue);
 
@@ -109,7 +106,7 @@ const RESOLVER_TYPE_OPTIONS = _.keys(RESOLVER_DESCRIPTIONS).map((resolverType) =
 RESOLVER_TYPE_OPTIONS.splice(0, 0, { value: null, text: "*any*" });
 
 export default {
-    components: { ResolutionDetails, GButton },
+    components: { ResolutionDetails },
     mixins: [DependencyIndexMixin],
     data() {
         return {

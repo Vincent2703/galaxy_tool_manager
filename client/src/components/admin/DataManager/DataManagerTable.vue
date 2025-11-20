@@ -16,9 +16,9 @@
                             <b-container>
                                 <b-row align-v="center">
                                     <b-col cols="auto">
-                                        <GButton tooltip :title="buttonLabel" @click="reload()">
+                                        <b-button v-b-tooltip.hover :title="buttonLabel" @click="reload()">
                                             <span class="fa fa-sync" />
-                                        </GButton>
+                                        </b-button>
                                     </b-col>
                                     <b-col>
                                         <b>{{ dataTableName }}</b>
@@ -41,16 +41,13 @@
 
 <script>
 import axios from "axios";
+import { getAppRoot } from "onload/loadConfig";
 
-import { getAppRoot } from "@/onload/loadConfig";
-
-import Alert from "@/components/Alert.vue";
-import GButton from "@/components/BaseComponents/GButton.vue";
+import Alert from "components/Alert.vue";
 
 export default {
     components: {
         Alert,
-        GButton,
     },
     props: {
         name: {

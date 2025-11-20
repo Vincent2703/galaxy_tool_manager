@@ -28,11 +28,12 @@
     </tr>
 </template>
 <script>
+import { library } from "@fortawesome/fontawesome-svg-core";
 import { faCompressAlt, faExpandAlt } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import HelpText from "components/Help/HelpText";
 
-import HelpText from "@/components/Help/HelpText.vue";
-
+library.add(faCompressAlt, faExpandAlt);
 export default {
     components: {
         FontAwesomeIcon,
@@ -49,8 +50,6 @@ export default {
             mouseMoved: false,
             expanded: false,
             lastPos: 0,
-            faCompressAlt,
-            faExpandAlt,
         };
     },
     computed: {
@@ -61,7 +60,7 @@ export default {
             return this.expanded ? "code" : "code preview";
         },
         iconClass() {
-            return this.expanded ? this.faCompressAlt : this.faExpandAlt;
+            return this.expanded ? ["fas", "compress-alt"] : ["fas", "expand-alt"];
         },
     },
     updated() {

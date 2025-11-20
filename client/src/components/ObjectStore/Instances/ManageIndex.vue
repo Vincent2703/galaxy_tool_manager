@@ -19,7 +19,7 @@ import TemplateSummarySpan from "@/components/ObjectStore/Templates/TemplateSumm
 const objectStoreInstancesStore = useObjectStoreInstancesStore();
 
 interface Props {
-    message?: string;
+    message: String | undefined | null;
 }
 
 defineProps<Props>();
@@ -49,7 +49,10 @@ const { ConfigurationTestSummaryModal, showTestResults, testResults, test, testi
 
 <template>
     <div>
-        <ManageIndexHeader header="Galaxy Storage" :message="message" create-route="/object_store_instances/create">
+        <ManageIndexHeader
+            :message="message"
+            create-button-id="object-store-create"
+            create-route="/object_store_instances/create">
         </ManageIndexHeader>
         <ConfigurationTestSummaryModal v-model="showTestResults" :error="testingError" :test-results="testResults" />
         <BTable
@@ -63,9 +66,9 @@ const { ConfigurationTestSummaryModal, showTestResults, testResults, test, testi
             :fixed="true"
             :show-empty="true">
             <template v-slot:empty>
-                <LoadingSpan v-if="loading" message="Loading Galaxy storage instances" />
+                <LoadingSpan v-if="loading" message="Loading storage location instances" />
                 <b-alert v-else id="no-object-store-instances" variant="info" show>
-                    <div>No Galaxy storage instances found, click the create button to configure a new one.</div>
+                    <div>No storage location instances found, click the create button to configure a new one.</div>
                 </b-alert>
             </template>
             <template v-slot:cell(badges)="row">

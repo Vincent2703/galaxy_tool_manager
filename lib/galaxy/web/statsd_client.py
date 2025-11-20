@@ -1,5 +1,6 @@
 import sys
 from typing import (
+    Dict,
     Optional,
 )
 
@@ -48,7 +49,7 @@ class VanillaGalaxyStatsdClient:
 
 
 CURRENT_TEST: Optional[str] = None
-CURRENT_TEST_METRICS: Optional[dict[str, dict]] = None
+CURRENT_TEST_METRICS: Optional[Dict[str, Dict]] = None
 
 
 class PyTestGalaxyStatsdClient(VanillaGalaxyStatsdClient):

@@ -4,6 +4,7 @@ API operations on a data library.
 
 import logging
 from typing import (
+    List,
     Optional,
     Union,
 )
@@ -111,7 +112,7 @@ class FastAPILibraries:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         payload: CreateLibrariesFromStore = Body(...),
-    ) -> list[LibrarySummary]:
+    ) -> List[LibrarySummary]:
         return self.service.create_from_store(trans, payload)
 
     @router.patch(

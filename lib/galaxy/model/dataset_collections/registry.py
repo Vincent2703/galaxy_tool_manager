@@ -1,20 +1,10 @@
 from galaxy import model
 from .types import (
-    BaseDatasetCollectionType,
+    list,
     paired,
-    paired_or_unpaired,
-    record,
-    sample_sheet,
 )
-from .types.list import ListDatasetCollectionType
 
-PLUGIN_CLASSES: list[type[BaseDatasetCollectionType]] = [
-    ListDatasetCollectionType,
-    paired.PairedDatasetCollectionType,
-    record.RecordDatasetCollectionType,
-    paired_or_unpaired.PairedOrUnpairedDatasetCollectionType,
-    sample_sheet.SampleSheetDatasetCollectionType,
-]
+PLUGIN_CLASSES = [list.ListDatasetCollectionType, paired.PairedDatasetCollectionType]
 
 
 class DatasetCollectionTypesRegistry:
@@ -24,13 +14,13 @@ class DatasetCollectionTypesRegistry:
     def get(self, plugin_type):
         return self.__plugins[plugin_type]
 
-    def prototype(self, plugin_type, fields=None):
+    def prototype(self, plugin_type):
         plugin_type_object = self.get(plugin_type)
         if not hasattr(plugin_type_object, "prototype_elements"):
             raise Exception(f"Cannot pre-determine structure for collection of type {plugin_type}")
 
         dataset_collection = model.DatasetCollection()
-        for e in plugin_type_object.prototype_elements(fields=fields):
+        for e in plugin_type_object.prototype_elements():
             e.collection = dataset_collection
         return dataset_collection
 

@@ -1,8 +1,8 @@
 import { readonly, ref, watch } from "vue";
 
-import type { StoreExportPayload } from "@/api";
+import { type StoreExportPayload } from "@/api";
 import { GalaxyApi } from "@/api";
-import type { ExportParams } from "@/components/Common/models/exportRecordModel";
+import { type ExportParams } from "@/components/Common/models/exportRecordModel";
 import { withPrefix } from "@/utils/redirect";
 import { rethrowSimple } from "@/utils/simple-error";
 
@@ -24,11 +24,6 @@ interface StorageRequestResponse {
     storage_request_id: string;
 }
 
-interface PrepareDownloadResult {
-    storageRequestId: string;
-    downloadUrl: string;
-}
-
 type StartPreparingDownloadCallback = (objectId: string, params: StoreExportPayload) => Promise<StorageRequestResponse>;
 
 const DEFAULT_POLL_DELAY = 3000;
@@ -38,7 +33,7 @@ const DEFAULT_OPTIONS: Options = { exportParams: DEFAULT_EXPORT_PARAMS, pollDela
  * Composable to simplify and reuse the logic for downloading objects using Galaxy's Short Term Storage system.
  */
 export function useShortTermStorage() {
-    const { waitForTask, isRunning, stopWaitingForTask } = useShortTermStorageMonitor();
+    const { waitForTask, isRunning } = useShortTermStorageMonitor();
 
     const isPreparing = ref(false);
 
@@ -97,8 +92,8 @@ export function useShortTermStorage() {
     async function prepareObjectDownload(
         startPreparingDownloadAsync: StartPreparingDownloadCallback,
         objectId: string,
-        options = DEFAULT_OPTIONS,
-    ): Promise<PrepareDownloadResult | undefined> {
+        options = DEFAULT_OPTIONS
+    ) {
         isPreparing.value = true;
         const finalOptions = Object.assign(DEFAULT_OPTIONS, options);
         const exportParams: StoreExportPayload = {
@@ -112,17 +107,9 @@ export function useShortTermStorage() {
             const response = await startPreparingDownloadAsync(objectId, exportParams);
             const storageRequestId = response.storage_request_id;
             waitForTask(storageRequestId, finalOptions.pollDelayInMs);
-            return {
-                storageRequestId,
-                downloadUrl: getDownloadObjectUrl(storageRequestId),
-            };
         } catch (err) {
             isPreparing.value = false;
         }
-    }
-
-    function stopMonitoring() {
-        stopWaitingForTask();
     }
 
     return {
@@ -153,9 +140,5 @@ export function useShortTermStorage() {
          * @param {String} storageRequestId The storage request ID associated to the object to be downloaded
          */
         getDownloadObjectUrl,
-        /**
-         * Stops monitoring the short term storage request.
-         */
-        stopMonitoring,
     };
 }

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { faPlus, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert, BCol, BFormGroup, BFormInput, BRow } from "bootstrap-vue";
+import { BAlert, BButton, BCol, BFormGroup, BFormInput, BRow } from "bootstrap-vue";
 import Vue, { computed, ref } from "vue";
 import { useRouter } from "vue-router/composables";
 
@@ -10,7 +9,6 @@ import { createBroadcast, updateBroadcast } from "@/api/notifications.broadcast"
 import { Toast } from "@/composables/toast";
 import { errorMessageAsString } from "@/utils/simple-error";
 
-import GButton from "@/components/BaseComponents/GButton.vue";
 import AsyncButton from "@/components/Common/AsyncButton.vue";
 import Heading from "@/components/Common/Heading.vue";
 import FormElement from "@/components/Form/FormElement.vue";
@@ -116,7 +114,7 @@ async function loadBroadcastData() {
                 params: {
                     path: { notification_id: props.id },
                 },
-            },
+            }
         );
 
         if (error) {
@@ -212,32 +210,32 @@ if (props.id) {
                             required />
                     </BCol>
                     <BCol cols="auto">
-                        <GButton
+                        <BButton
                             :id="`delete-action-link-${index}}`"
-                            tooltip
+                            v-b-tooltip.hover.bottom
                             title="Delete action link"
-                            outline
-                            color="red"
+                            variant="error-outline"
+                            role="button"
                             @click="
                                 broadcastData.content.action_links?.splice(
                                     broadcastData.content.action_links.indexOf(actionLink),
-                                    1,
+                                    1
                                 )
                             ">
-                            <FontAwesomeIcon :icon="faTimes" />
-                        </GButton>
+                            <FontAwesomeIcon icon="times" />
+                        </BButton>
                     </BCol>
                 </BRow>
 
-                <GButton
+                <BButton
                     id="create-action-link"
                     title="Add new action link"
-                    outline
-                    color="blue"
+                    variant="outline-primary"
+                    role="button"
                     @click="addActionLink">
-                    <FontAwesomeIcon :icon="faPlus" />
+                    <FontAwesomeIcon icon="plus" />
                     Add action link
-                </GButton>
+                </BButton>
             </BFormGroup>
 
             <BRow>
@@ -270,10 +268,10 @@ if (props.id) {
             <BRow class="m-2" align-h="center">
                 <AsyncButton
                     id="broadcast-submit"
-                    :icon="faSave"
+                    icon="save"
                     :title="!requiredFieldsFilled ? 'Please fill all required fields' : ''"
-                    color="blue"
-                    size="medium"
+                    variant="primary"
+                    size="md"
                     :disabled="!requiredFieldsFilled"
                     :action="createOrUpdateBroadcast">
                     <span v-if="props.id" v-localize> Update Broadcast </span>

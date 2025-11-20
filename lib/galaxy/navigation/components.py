@@ -3,8 +3,11 @@ import re
 import string
 from enum import Enum
 from typing import (
+    Dict,
+    List,
     NamedTuple,
     Optional,
+    Tuple,
     Union,
 )
 
@@ -46,7 +49,7 @@ class Target(metaclass=abc.ABCMeta):
         """Return a (by, selector) Selenium element locator tuple for this selector."""
 
     @property
-    def selenium_locator(self) -> tuple[str, str]:
+    def selenium_locator(self) -> Tuple[str, str]:
         element_locator: LocatorT = self.component_locator
         return (element_locator.selenium_by, element_locator.locator)
 
@@ -58,7 +61,7 @@ class Target(metaclass=abc.ABCMeta):
 class SelectorTemplate(Target):
     def __init__(
         self,
-        selector: Union[str, list[str]],
+        selector: Union[str, List[str]],
         selector_type: str,
         children=None,
         kwds=None,
@@ -250,7 +253,7 @@ class Component:
         if not path:
             return self._selectors["_"].resolve_component_locator()
 
-        def arguments() -> tuple[str, Optional[dict[str, str]], Optional[str]]:
+        def arguments() -> Tuple[str, Optional[Dict[str, str]], Optional[str]]:
             assert path
             if match := CALL_ARGUMENTS_RE.match(path):
                 component_name = match.group("SUBCOMPONENT")
@@ -291,8 +294,6 @@ class Component:
         sub_components = {}
 
         for key, value in raw_value.items():
-            if key.endswith("mixin"):
-                continue
             if key == "selectors":
                 base_selector = None
                 if "_" in value:

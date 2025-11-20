@@ -1,7 +1,8 @@
-"""Apply tags to the inherited history items of Galaxy"""
+""" Apply tags to the inherited history items of Galaxy """
 
 import sys
 import time
+from typing import List
 
 from bioblend.galaxy import GalaxyInstance
 
@@ -47,7 +48,7 @@ class ApplyTagsHistory:
         count_datasets_updated = 0
         # get all datasets belonging to a history
         all_datasets = history.show_history(history_id, contents=True)
-        print(f"Total datasets: {len(all_datasets)}. Updating their tags may take a while...")
+        print("Total datasets: %d. Updating their tags may take a while..." % len(all_datasets))
         for dataset in all_datasets:
             try:
                 if not dataset["deleted"] and dataset["state"] == "ok":
@@ -90,7 +91,7 @@ class ApplyTagsHistory:
                 )
                 if is_updated:
                     count_datasets_updated += 1
-        print(f"Tags of {count_datasets_updated} datasets updated")
+        print("Tags of %d datasets updated" % count_datasets_updated)
 
     def collect_parent_ids(self, datasets_inheritance_chain):
         """
@@ -108,7 +109,7 @@ class ApplyTagsHistory:
 
         recursive_parent_ids = {}
         for item in datasets_inheritance_chain:
-            recursive_parents: list = []
+            recursive_parents: List = []
 
             find_parent_recursive(item, recursive_parents)
             # take unique parents
@@ -157,4 +158,4 @@ if __name__ == "__main__":
     history_tags = ApplyTagsHistory(sys.argv[1], sys.argv[2], history_id)
     history_tags.read_galaxy_history()
     end_time = time.time()
-    print(f"Program finished in {int(end_time - start_time)} seconds")
+    print("Program finished in %d seconds" % int(end_time - start_time))

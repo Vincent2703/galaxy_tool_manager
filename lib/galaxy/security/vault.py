@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from typing import (
+    List,
     Optional,
 )
 
@@ -30,6 +31,7 @@ except ImportError:
     hvac = None
 
 from galaxy import model
+from galaxy.model.base import transaction
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ class Vault(abc.ABC):
         """
 
     @abc.abstractmethod
-    def list_secrets(self, key: str) -> list[str]:
+    def list_secrets(self, key: str) -> List[str]:
         """
         Lists secrets at a given path.
 
@@ -104,7 +106,7 @@ class NullVault(Vault):
             "No vault configured. Make sure the vault_config_file setting is defined in galaxy.yml"
         )
 
-    def list_secrets(self, key: str) -> list[str]:
+    def list_secrets(self, key: str) -> List[str]:
         raise NotImplementedError()
 
 
@@ -123,13 +125,12 @@ class HashicorpVault(Vault):
             response = self.client.secrets.kv.read_secret_version(path=key)
             return response["data"]["data"].get("value")
         except hvac.exceptions.InvalidPath:
-            log.exception(f"Failed to read secret from Hashicorp Vault at key: {key}")
             return None
 
     def write_secret(self, key: str, value: str) -> None:
         self.client.secrets.kv.v2.create_or_update_secret(path=key, secret={"value": value})
 
-    def list_secrets(self, key: str) -> list[str]:
+    def list_secrets(self, key: str) -> List[str]:
         raise NotImplementedError()
 
 
@@ -148,7 +149,8 @@ class DatabaseVault(Vault):
             if value:
                 vault_entry.value = value
                 self.sa_session.merge(vault_entry)
-                self.sa_session.commit()
+                with transaction(self.sa_session):
+                    self.sa_session.commit()
         else:
             # recursively create parent keys
             parent_key, _, _ = key.rpartition("/")
@@ -156,7 +158,8 @@ class DatabaseVault(Vault):
                 self._update_or_create(parent_key, None)
             vault_entry = model.Vault(key=key, value=value, parent_key=parent_key or None)
             self.sa_session.merge(vault_entry)
-            self.sa_session.commit()
+            with transaction(self.sa_session):
+                self.sa_session.commit()
         return vault_entry
 
     def read_secret(self, key: str) -> Optional[str]:
@@ -176,7 +179,7 @@ class DatabaseVault(Vault):
         self.sa_session.delete(vault_entry)
         self.sa_session.flush()
 
-    def list_secrets(self, key: str) -> list[str]:
+    def list_secrets(self, key: str) -> List[str]:
         raise NotImplementedError()
 
     def _get_vault_value(self, key):
@@ -208,7 +211,7 @@ class CustosVault(Vault):
     def write_secret(self, key: str, value: str) -> None:
         self.client.set_kv_credential(key=key, value=value)
 
-    def list_secrets(self, key: str) -> list[str]:
+    def list_secrets(self, key: str) -> List[str]:
         raise NotImplementedError()
 
 
@@ -226,7 +229,7 @@ class UserVaultWrapper(Vault):
     def write_secret(self, key: str, value: str) -> None:
         return self.vault.write_secret(f"user/{self.user.id}/{key}", value)
 
-    def list_secrets(self, key: str) -> list[str]:
+    def list_secrets(self, key: str) -> List[str]:
         raise NotImplementedError()
 
 
@@ -262,7 +265,7 @@ class VaultKeyValidationWrapper(Vault):
         key = self.normalize_key(key)
         return self.vault.write_secret(key, value)
 
-    def list_secrets(self, key: str) -> list[str]:
+    def list_secrets(self, key: str) -> List[str]:
         raise NotImplementedError()
 
 
@@ -281,7 +284,7 @@ class VaultKeyPrefixWrapper(Vault):
     def write_secret(self, key: str, value: str) -> None:
         return self.vault.write_secret(f"/{self.prefix}/{key}", value)
 
-    def list_secrets(self, key: str) -> list[str]:
+    def list_secrets(self, key: str) -> List[str]:
         raise NotImplementedError()
 
 

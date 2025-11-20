@@ -1,5 +1,6 @@
 import abc
 from typing import (
+    List,
     Union,
 )
 
@@ -8,7 +9,7 @@ FormValueType = Union[str, bool]
 
 class ShedBrowser(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def visit_url(self, url: str, allowed_codes: list[int]) -> str:
+    def visit_url(self, url: str, allowed_codes: List[int]) -> str:
         """Navigate to the supplied URL."""
 
     @abc.abstractmethod
@@ -41,9 +42,9 @@ class ShedBrowser(metaclass=abc.ABCMeta):
         """Return whether this is a twill browser."""
 
     @abc.abstractmethod
-    def edit_repository_categories(self, categories_to_add: list[str], categories_to_remove: list[str]) -> None:
+    def edit_repository_categories(self, categories_to_add: List[str], categories_to_remove: List[str]) -> None:
         """Select some new categories and then restore the component."""
 
     @abc.abstractmethod
-    def grant_users_access(self, usernames: list[str]) -> None:
+    def grant_users_access(self, usernames: List[str]) -> None:
         """Select users to grant access to."""

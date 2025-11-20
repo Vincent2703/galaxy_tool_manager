@@ -6,6 +6,7 @@ import routes
 
 from galaxy import model
 from galaxy.app_unittest_utils.toolbox_support import BaseToolBoxTestCase
+from galaxy.model.base import transaction
 from galaxy.tool_util.unittest_utils import mock_trans
 from galaxy.tool_util.unittest_utils.sample_data import (
     SIMPLE_MACRO,
@@ -359,10 +360,11 @@ class TestToolBox(BaseToolBoxTestCase):
         user.email = "test@example.com"
         user.password = "passw0rD1"
         stored_workflow.user = user
+        self.app.model.context.add(workflow)
+        self.app.model.context.add(stored_workflow)
         session = self.app.model.context
-        session.add(workflow)
-        session.add(stored_workflow)
-        session.commit()
+        with transaction(session):
+            session.commit()
         return stored_workflow
 
     def __verify_two_test_tools(self):

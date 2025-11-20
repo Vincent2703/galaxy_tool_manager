@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import BreadcrumbHeading from "@/components/Common/BreadcrumbHeading.vue";
+import localize from "@/utils/localization";
+
+import Heading from "@/components/Common/Heading.vue";
 
 interface Props {
     title: string;
 }
 
-const props = defineProps<Props>();
-
-const breadcrumbItems = [{ title: "Storage Dashboard", to: { name: "StorageDashboard" } }, { title: props.title }];
+defineProps<Props>();
 </script>
 
 <template>
-    <div>
-        <BreadcrumbHeading :items="breadcrumbItems" />
-
+    <div class="mx-3">
+        <router-link :to="{ name: 'StorageDashboard' }">{{ localize("Back to Dashboard") }}</router-link>
+        <Heading h1 bold class="my-3">{{ localize(title) }}</Heading>
         <slot />
     </div>
 </template>

@@ -5,9 +5,9 @@ import ErrorBanner from "@/components/ErrorBanner.vue"
 import ComponentShowcase from "@/components/ComponentShowcase.vue"
 import ComponentShowcaseExample from "@/components/ComponentShowcaseExample.vue"
 import RecentlyCreatedRepositories from "@/components/RecentlyCreatedRepositories.vue"
+import RecentlyUpdatedRepositories from "@/components/RecentlyUpdatedRepositories.vue"
 import RepositoryLink from "@/components/RepositoryLink.vue"
 import RepositoryActions from "@/components/RepositoryActions.vue"
-import LandingCarousel from "@/components/LandingCarousel.vue"
 </script>
 
 <template>
@@ -51,9 +51,9 @@ import LandingCarousel from "@/components/LandingCarousel.vue"
             </component-showcase-example>
         </component-showcase>
 
-        <component-showcase title="LandingCarousel">
+        <component-showcase title="RecentlyUpdatedRepositories">
             <component-showcase-example title="defaults">
-                <landing-carousel />
+                <recently-updated-repositories />
             </component-showcase-example>
         </component-showcase>
     </page-container>

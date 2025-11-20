@@ -1,4 +1,5 @@
-"""Test Tool execution and state handling logic."""
+""" Test Tool execution and state handling logic.
+"""
 
 from collections import OrderedDict
 from typing import cast
@@ -9,6 +10,7 @@ from sqlalchemy import select
 import galaxy.model
 from galaxy.app_unittest_utils import tools_support
 from galaxy.managers.collections import DatasetCollectionManager
+from galaxy.model.base import transaction
 from galaxy.model.orm.util import add_object_to_object_session
 from galaxy.util.bunch import Bunch
 from galaxy.util.unittest import TestCase
@@ -40,7 +42,6 @@ class TestToolExecution(TestCase, tools_support.UsesTools):
     def setUp(self):
         self.setup_app()
         self.history = galaxy.model.History()
-        self.app.model.session.add(self.history)
         self.trans = MockTrans(self.app, self.history)
         self.app.dataset_collection_manager = cast(DatasetCollectionManager, MockCollectionService())
         self.tool_action = MockAction(self.trans)
@@ -130,11 +131,12 @@ class TestToolExecution(TestCase, tools_support.UsesTools):
         hda.dataset = galaxy.model.Dataset()
         hda.dataset.state = "ok"
 
-        session = self.trans.sa_session
-        session.add(hda)
+        self.trans.sa_session.add(hda)
         add_object_to_object_session(self.history, hda)
         self.history.datasets.append(hda)
-        session.commit()
+        session = self.trans.sa_session
+        with transaction(session):
+            session.commit()
         return hda
 
     def __add_collection_dataset(self, id, collection_type="paired", *hdas):

@@ -7,8 +7,7 @@ import { getLocalVue } from "tests/jest/helpers";
 
 import testToolsListResponse from "../testData/toolsList";
 import testToolsListInPanelResponse from "../testData/toolsListInPanel";
-
-import ToolsJson from "./ToolsJson.vue";
+import ToolsJson from "./ToolsJson";
 
 const localVue = getLocalVue();
 

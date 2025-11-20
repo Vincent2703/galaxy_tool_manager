@@ -24,11 +24,11 @@ const IMPORT_ERROR_MESSAGE = "Failed to import workflow";
 
 const SELECTORS = {
     WORKFLOW_HEADING: "[data-description='workflow heading']",
-    ACTIONS_BUTTON_GROUP: "[data-button-group]",
-    EDIT_WORKFLOW_BUTTON: `[data-button-edit][title='Edit Workflow']`,
+    ACTIONS_BUTTON_GROUP: "bbuttongroup-stub",
+    EDIT_WORKFLOW_BUTTON: `bbutton-stub[title='<b>Edit</b><br>${SAMPLE_WORKFLOW.name}']`,
     IMPORT_WORKFLOW_BUTTON: "[data-description='import workflow button']",
     EXECUTE_WORKFLOW_BUTTON: "[data-description='execute workflow button']",
-    ROUTE_TO_RERUN_BUTTON: "[data-button-rerun][title='Rerun Workflow with same inputs']",
+    ROUTE_TO_RUN_BUTTON: "[data-description='route to workflow run button']",
     ALERT_MESSAGE: "balert-stub",
 };
 
@@ -71,7 +71,7 @@ const localVue = getLocalVue();
 async function mountWorkflowNavigationTitle(
     version: "run_form" | "invocation",
     ownsWorkflow = true,
-    unimportableWorkflow = false,
+    unimportableWorkflow = false
 ) {
     let workflowId: string;
     let invocation;
@@ -111,8 +111,9 @@ describe("WorkflowNavigationTitle renders", () => {
         expect(heading.text()).toContain(`Invoked Workflow: ${SAMPLE_WORKFLOW.name}`);
         expect(heading.text()).toContain(`(Version: ${SAMPLE_WORKFLOW.version + 1})`);
 
-        const rerunButton = wrapper.find(SELECTORS.ROUTE_TO_RERUN_BUTTON);
-        expect(rerunButton.attributes("title")).toContain("Rerun");
+        const runButton = wrapper.find(SELECTORS.ROUTE_TO_RUN_BUTTON);
+        expect(runButton.attributes("title")).toContain("Rerun");
+        expect(runButton.attributes("title")).toContain(SAMPLE_WORKFLOW.name);
     });
 
     it("the workflow name in header and run button in actions; run form version", async () => {
@@ -127,17 +128,17 @@ describe("WorkflowNavigationTitle renders", () => {
     });
 
     it("edit button if user owns the workflow", async () => {
-        async function findEditButton(version: "invocation" | "run_form") {
+        async function findAndClickEditButton(version: "invocation" | "run_form") {
             const { wrapper } = await mountWorkflowNavigationTitle(version);
             const actionsGroup = wrapper.find(SELECTORS.ACTIONS_BUTTON_GROUP);
 
             const editButton = actionsGroup.find(SELECTORS.EDIT_WORKFLOW_BUTTON);
             expect(editButton.attributes("to")).toBe(
-                `/workflows/edit?id=${SAMPLE_WORKFLOW.id}&version=${SAMPLE_WORKFLOW.version}`,
+                `/workflows/edit?id=${SAMPLE_WORKFLOW.id}&version=${SAMPLE_WORKFLOW.version}`
             );
         }
-        await findEditButton("invocation");
-        await findEditButton("run_form");
+        await findAndClickEditButton("invocation");
+        await findAndClickEditButton("run_form");
     });
 
     it("import button instead if user does not own the workflow", async () => {

@@ -62,14 +62,14 @@ function onViewObjectStore(objectStoreId: string) {
                 v-if="objectStoresBySizeData"
                 :description="
                     localize(
-                        `This graph displays how your Galaxy data is stored sorted into the location is stored in. Click on a bar to see more information about the Galaxy storage.`,
+                        `This graph displays how your Galaxy data is stored sorted into the location is stored in. Click on a bar to see more information about the storage location.`
                     )
                 "
                 :data="objectStoresBySizeData"
                 :enable-selection="true"
                 v-bind="byteFormattingForChart">
                 <template v-slot:title>
-                    <b>{{ localize(`Galaxy Storage by Usage`) }}</b>
+                    <b>{{ localize(`Storage locations by Usage`) }}</b>
                 </template>
                 <template v-slot:tooltip="{ data }">
                     <ShowObjectStore v-if="data" :object-store-id="data.id" />
