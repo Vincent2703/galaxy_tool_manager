@@ -86,6 +86,8 @@ import HistoryStorageOverview from "@/components/User/DiskUsage/Visualizations/H
 import UserDatasetPermissions from "@/components/User/UserDatasetPermissions.vue";
 import WorkflowPublished from "@/components/Workflow/Published/WorkflowPublished.vue";
 import WorkflowInvocationState from "@/components/WorkflowInvocationState/WorkflowInvocationState.vue";
+import ToolManagerIndex from "@/components/ToolManager/ToolManagerIndex.vue";
+import ToolManagerForm from "@/components/ToolManager/ToolManagerForm.vue";
 
 Vue.use(VueRouter);
 
@@ -453,6 +455,27 @@ export function getRouter(Galaxy) {
                             redirect: "/pages/list",
                             active_tab: "user",
                         }),
+                    },
+                    {
+                        path: "osug_tool_manager",
+                        component: ToolManagerIndex,
+                        redirect: redirectAnon(),
+                    },
+                    {
+                        path: "osug_tool_manager/create",
+                        component: ToolManagerForm,
+                        props: (route) => ({
+                            duplicate_from: route.query.duplicate_from,
+                        }),
+                        redirect: redirectAnon(),
+                    },
+                    {
+                        path: "osug_tool_manager/edit",
+                        component: ToolManagerForm,
+                        props: (route) => ({
+                            id: route.query.id,
+                        }),
+                        redirect: redirectAnon(),
                     },
                     {
                         path: "pages/sharing",
